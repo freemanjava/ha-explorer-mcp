@@ -107,7 +107,7 @@ docs/research/       # dated evidence produced by the verify tasks
   evidence source is (logbook, state history, `last_triggered`) and the tools are
   re-scoped by a follow-up `devflow plan`, not silently weakened.
 
-- [ ] **`P0-06` — Verify Supervisor endpoints under minimal permissions** 🧠
+- [x] **`P0-06` — Verify Supervisor endpoints under minimal permissions** 🧠
   `needs-verify` — resolves **F-4**. Establish which Supervisor endpoints (host
   info, OS info, Core stats, App list) respond with `hassio_api: false`, which
   need it, and which need a role above the default.
@@ -153,6 +153,32 @@ docs/research/       # dated evidence produced by the verify tasks
   later — the failure mode the doc's §18 exists to prevent). A model cannot pick
   this: it depends on which HA version the owner's Raspberry Pi actually runs
   and how often they upgrade.
+
+- [ ] **`needs-decision` — Supervisor permission level for the App manifest**
+  Raised by `P0-06`; evidence in
+  [`docs/research/2026-08-23-supervisor-permissions.md`](../../research/2026-08-23-supervisor-permissions.md).
+  The current manifest (`hassio_api: false`) reaches `/info`,
+  `/addons/self/info`, `/addons/self/stats` and `/supervisor/ping` — enough for a
+  partial `get_system_health` (all four component versions, hostname, machine,
+  arch, Core state, own resource use) and **not enough for `list_apps`**, which
+  has no enumeration path at all and would answer `unsupported`. Options:
+  **(a) keep `hassio_api: false`** — smallest surface, `list_apps` is dropped
+  from v1 and `get_system_health` ships partial; **(b) `hassio_api: true` with
+  the default role** — one line, `hassio_role` is already `default` when unset;
+  adds `/supervisor/info` (which embeds the installed-App inventory, so
+  `list_apps` becomes implementable), `/os/info`, `/host/info` (disk),
+  `/resolution/info` (repairs/unsupported), `/network/info`, `/hardware/info`,
+  `/jobs/info`, and no `*/stats` and no write-capable path whatsoever;
+  **(c) a role above default** — `homeassistant` would add Core CPU/RAM
+  (`/core/stats`), `manager` would add the richer `/addons` list and other Apps'
+  stats, and both grant broad `/core/.+` or `/host/.+` write access that doc
+  §15.2 rules out for observer v1. A model cannot pick this: it trades the
+  project's stated minimal-permission posture against two of the twenty v1
+  tools, and it is the owner's App on the owner's installation.
+
+  Not a factor in the trade, but on the record: `hassio_api: false` does not
+  *prevent* Supervisor access — see **F-13**. The choice is about declared
+  intent and the blast radius of a future bug, not about a wall.
 
 - [x] **Module path / repository home** — decided 2026-08-23
 
