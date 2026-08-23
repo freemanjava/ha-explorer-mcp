@@ -61,9 +61,15 @@ allow-list, which is the project's primary security boundary — an allow-list
 written from an unverified list is either too narrow (tools silently fail) or too
 wide (a command nobody checked the semantics of).
 
-**Triage:** `queue-next`
+**Triage:** `resolved`
 
-**Outcome:** Assigned to `P0-04`.
+**Outcome:** Closed 2026-08-23 by `P0-04`. All twelve candidate commands —
+including the areas, floors and labels the doc listed none for — were run
+against live HA `2026.8.3` and all exist. Evidence, with response schemas and
+per-command admin requirements, in
+[`../research/2026-08-23-ha-registry-apis.md`](../research/2026-08-23-ha-registry-apis.md).
+Phase 01's allow-list is now derivable from observation rather than from §11.1's
+illustrative list.
 
 ### F-2 · Config-entry read API behavior and admin requirement unverified · 2026-08-23
 
@@ -80,7 +86,16 @@ which changes the Phase 03 catalog and the `get_system_overview` counts.
 
 **Triage:** `queue-next`
 
-**Outcome:** Assigned to `P0-04`.
+**Outcome:** **Partially** closed by `P0-04`, deliberately not fully. What is now
+observed: of the config-entry commands, only `config_entries/get_single` requires
+admin — `config_entries/get` returns all entries with the full field set to a
+non-admin user, so `list_integrations` / `get_integration` (`P3-03`) can be built
+on the list and need not be re-scoped.
+
+What remains open is this finding's actual question: both `P0-04` runs used a
+*user's* long-lived token, so whether the App's `SUPERVISOR_TOKEN` principal
+through the Core proxy counts as admin is still unverified. That residue belongs
+to **F-4** / `P0-06` and must not be assumed settled by the evidence above.
 
 ### F-3 · Automation config and trace retrieval may be unreachable from an App · 2026-08-23
 
@@ -199,4 +214,40 @@ passing this repo's local check — a deploy-time failure the current DoD
 
 **Triage:** `queue-next`
 
+**Outcome:** —
+
+### F-9 · Probe report leaks installation ids through map-shaped object keys · 2026-08-23
+
+**Kind:** `defect`
+**What:** `cmd/spike/shape.go` renders every object as "keys are schema". When a
+payload uses an object as a *map keyed by id*, those ids are values, not field
+names, and reach the report. Observed in the `P0-04` admin run:
+`config/device_registry/list` → `config_entries_subentries` emitted 27 literal
+config-entry ids (ULIDs and 32-char hex) from the owner's installation.
+`cmd/spike/shape_test.go`'s `TestShape_PayloadValues_NeverEmitted` did not catch
+it because its fixture has no map-shaped object.
+**Impact:** Defeats the one guarantee the probe output rests on — that a report
+pasted into a chat and committed to `docs/research/` carries no data from the
+installation. Ids are not secrets, but they identify a specific install and the
+redactor is either trustworthy or it is not.
+**Triage:** `queue-next`
+**Outcome:** Fixed inside `P0-04` — the defect is in the vehicle that task
+built and would have re-leaked on the task's own second (non-admin) run, so it
+is in scope rather than unrelated work.
+
+### F-10 · HA applies no per-user filtering to registry reads · 2026-08-23
+
+**Kind:** `scope`
+**What:** `P0-04`'s two runs (admin and `is_admin: false`) returned
+**byte-identical** payload sizes for every shared command — entity registry
+584 456 B / 952 entities, device registry 51 591 B / 69 devices, config entries
+18 115 B / 35 entries. A non-admin sees the entire registry. `get_config`
+likewise returns `latitude`, `longitude` and `location_name` to a non-admin.
+Evidence: [`docs/research/2026-08-23-ha-registry-apis.md`](../research/2026-08-23-ha-registry-apis.md).
+**Impact:** Phase 02's privacy classification cannot lean on Home Assistant
+having already filtered by principal — it has not. Every privacy decision this
+server makes is the *only* one made. Home coordinates in particular arrive from
+`get_config` on a path that has nothing to do with the history tools where the
+doc's privacy profiles currently focus.
+**Triage:** `queue-next`
 **Outcome:** —
