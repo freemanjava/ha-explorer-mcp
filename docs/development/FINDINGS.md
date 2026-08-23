@@ -182,9 +182,15 @@ Phase 04 statistics tools either brittle across HA upgrades or slow enough to
 strain the recorder on a Pi — and the budget defaults in `P2-01` are guesses
 until something is measured.
 
-**Triage:** `queue-next`
+**Triage:** `resolved`
 
-**Outcome:** Assigned to `P0-07`.
+**Outcome:** **Resolved** by `P0-07` — evidence in
+[`docs/research/2026-08-23-ha-history-statistics.md`](../research/2026-08-23-ha-history-statistics.md).
+All three recorder statistics commands exist and answer at Core 2026.8.3, and
+statistics are 1–3 orders of magnitude cheaper than history for the same window.
+Source order: statistics first, WS `history/history_during_period` for raw
+states, REST `/api/history/period` as documented fallback. Multi-entity cost
+remains unmeasured and is filed as **F-14**.
 
 ### F-6 · Zigbee metric normalization across ZHA and Zigbee2MQTT unverified · 2026-08-23
 
@@ -375,3 +381,50 @@ comment both read as though it were.
 
 **Outcome:** Open. Becomes a Phase 01 allow-list/deny-list task and its test at
 the next `devflow plan`; the §15.2 wording correction rides along with it.
+
+### F-14 · Multi-entity history and statistics cost is unmeasured · 2026-08-23
+
+**Kind:** `unknown`
+
+**What:** `P0-07` measured every history and statistics query against exactly
+one entity ([`docs/research/2026-08-23-ha-history-statistics.md`](../research/2026-08-23-ha-history-statistics.md),
+*Not established*). The queries that will actually strain a Pi are the ones a
+fleet-wide detector issues — `history/history_during_period` or
+`recorder/statistics_during_period` over dozens of entity ids at once — and
+nothing observed says whether that cost is linear in the number of entities, or
+whether one batched call beats N single-entity ones.
+
+**Impact:** Unknown pending verification. It decides the shape of the Phase 04
+detection queries (batched vs per-entity) and the Phase 02 budget limits, which
+CLAUDE.md requires to be measured against a real recorder rather than guessed.
+The source *order* recommended by `P0-07` does not depend on it — statistics win
+by 1–3 orders of magnitude per entity — so this blocks tuning, not design.
+
+**Triage:** `queue-next`
+
+**Outcome:** Open. Becomes a verify task at the next `devflow plan`; the same
+`cmd/spike` vehicle extends to it with an entity-id list.
+
+### F-15 · F-9's leak recurred: entity-id-keyed maps were not covered · 2026-08-23
+
+**Kind:** `defect`
+
+**What:** F-9 taught `cmd/spike/shape.go` to withhold object keys when they are
+ids, but `isIDKey` recognised only a ULID and a 32-char hex digest. HA keys
+`history/history_during_period` and `recorder/statistics_during_period` answers
+by **entity id**, which matched neither, so the first `P0-07` probe run printed
+`sensor.<…>` into `report.md` — the same guarantee F-9 exists to protect,
+broken by a different key format four tasks later.
+
+**Impact:** The redaction guarantee is what makes a probe report safe to paste
+into a chat and commit to `docs/research/`. A partial one is worse than none,
+because it is trusted. The leaked report was local and gitignored; no id reached
+the repository, and the research file written from it carries none.
+
+**Triage:** `resolved`
+
+**Outcome:** Fixed inside `P0-07`, the task whose probe re-leaked it: `isIDKey`
+now also matches `domain.object_id`, `TestShape_EntityIDKeyedMap_KeysWithheld`
+asserts it, and the probe additionally routes every rendered shape through a
+`redactor` seeded with the ids it requested — so a future key format that slips
+past the pattern is still caught for the ids the probe itself chose.
