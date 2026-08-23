@@ -72,3 +72,10 @@ non-admin: every command exists and works, and every one of them is admin-gated.
 Evidence in `docs/research/2026-08-23-ha-automation-traces.md`; F-3 closed.
 **Surprise:** `trace/get` returns whole `from_state`/`to_state` objects and a `context.user_id` — a trace is personal data, not just diagnostic structure (F-12).
 **Left open:** whether the App's principal is admin — `P0-06` now decides whether two tools exist at all.
+
+### 2026-08-23 · P0-06
+Supervisor permission matrix derived from the security middleware at pinned tags
+(Supervisor 2026.08.0, Core 2026.8.3): `docs/research/2026-08-23-supervisor-permissions.md`.
+`list_apps` needs one manifest line (`hassio_api: true`, default role) — filed as a `needs-decision`, not applied. F-4 closed; F-2 and F-3 residues closed with it.
+**Surprise:** the App's Core principal is HA's own Supervisor user, in `GROUP_ID_ADMIN` — so it is admin, and Core's `supervisor/api` WS command lets any admin call any Supervisor endpoint with any method, making `hassio_api: false` a declaration rather than a boundary (F-13).
+**Left open:** nothing was called live; the confirming three curls are written into the research file for the first real deployment.

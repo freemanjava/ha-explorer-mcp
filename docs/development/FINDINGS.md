@@ -84,7 +84,7 @@ require an admin-authenticated connection. Whether an App using
 `list_integrations` and `get_integration` (`P3-03`) must be re-scoped or dropped,
 which changes the Phase 03 catalog and the `get_system_overview` counts.
 
-**Triage:** `queue-next`
+**Triage:** `resolved`
 
 **Outcome:** **Partially** closed by `P0-04`, deliberately not fully. What is now
 observed: of the config-entry commands, only `config_entries/get_single` requires
@@ -96,6 +96,13 @@ What remains open is this finding's actual question: both `P0-04` runs used a
 *user's* long-lived token, so whether the App's `SUPERVISOR_TOKEN` principal
 through the Core proxy counts as admin is still unverified. That residue belongs
 to **F-4** / `P0-06` and must not be assumed settled by the evidence above.
+
+**Closed 2026-08-23 by `P0-06`.** That residue is answered: Supervisor's Core
+proxy forwards every App request with Home Assistant's own Supervisor token, and
+Core 2026.8.3 creates that user in `GROUP_ID_ADMIN`
+(`docs/research/2026-08-23-supervisor-permissions.md`, result 1). The App's Core
+principal *is* admin, so `config_entries/get_single` is reachable and nothing in
+`P3-03` needs re-scoping.
 
 ### F-3 · Automation config and trace retrieval may be unreachable from an App · 2026-08-23
 
@@ -112,7 +119,7 @@ is not a small degradation: the flagship "why did this automation sometimes not
 run?" workflow needs a different evidence source (logbook, `last_triggered`,
 dependency history) and `P3-07` plus Phase 05 are re-planned.
 
-**Triage:** `queue-next`
+**Triage:** `resolved`
 
 **Outcome:** **Resolved** by `P0-05` —
 `docs/research/2026-08-23-ha-automation-traces.md`. Automation config and full
@@ -123,6 +130,12 @@ F-4 / `P0-06`. The fallback path, if not: `last_triggered` +
 `logbook/get_events` + `context_id` correlation, both observed working for a
 non-admin principal. Consequences filed as F-11 (degraded mode) and F-12
 (trace privacy).
+
+**Closed 2026-08-23 by `P0-06`.** The open dependency resolves in the tools'
+favour: the App's Core principal is admin (see F-2's closing note), so
+`get_automation` and `get_automation_traces` exist in v1. F-11's degraded branch
+stays required for non-Supervisor deployments — it is now the exception, not the
+expected path.
 
 ### F-4 · Supervisor endpoints available under minimal permissions unverified · 2026-08-23
 
@@ -138,9 +151,22 @@ and `list_apps` exist in v1 at all, and whether the App manifest must request a
 permission the security posture currently forbids — a trade the owner decides,
 not the implementation.
 
-**Triage:** `queue-next`
+**Triage:** `resolved`
 
-**Outcome:** Assigned to `P0-06`.
+**Outcome:** **Resolved** by `P0-06` —
+`docs/research/2026-08-23-supervisor-permissions.md` maps every endpoint the two
+tools need to the role that grants it, derived from Supervisor `2026.08.0`'s
+security middleware at a pinned tag. The reconciliation §15.2 and §6 lacked:
+under `hassio_api: false` an App reaches `/info`, `/addons/self/*` and
+`/supervisor/ping` — enough for a *partial* `get_system_health` and not enough
+for `list_apps`, which has no enumeration path. One line
+(`hassio_api: true`, role left at its `default`) reaches `/supervisor/info`,
+whose embedded `addons[]` makes `list_apps` implementable without the `manager`
+role the `/addons` collection would need. The trade is written up as a
+`needs-decision` entry in phase 00 and deliberately not applied. Two results
+outside the question came with it: the App's Core principal is admin (closing
+F-2's and F-3's residues) and `hassio_api: false` is not an enforced ceiling
+(**F-13**).
 
 ### F-5 · Recorder statistics API stability and cost unverified · 2026-08-23
 
@@ -321,3 +347,31 @@ entities they embed, asserted with a captured trace fixture) and **`P2-03`** (th
 redaction walk descends into nested state objects, asserted at
 `changed_variables` depth), plus a Phase 02 design note that sensitivity travels
 with embedded payloads, not with the endpoint. Closes when both close.
+
+### F-13 · `hassio_api: false` does not prevent Supervisor access · 2026-08-23
+
+**Kind:** `inconsistency`
+
+**What:** Core registers the WebSocket command `supervisor/api`
+(`homeassistant/components/hassio/websocket_api.py` at 2026.8.3,
+`WS_TYPE_API = "supervisor/api"`), which accepts a free-form `endpoint` **and a
+free-form `method`** and calls Supervisor with Core's own token. It is gated only
+on `connection.user.is_admin`, and everything this App sends through the Core
+proxy runs as Home Assistant's Supervisor user, which is in `GROUP_ID_ADMIN`
+(`docs/research/2026-08-23-supervisor-permissions.md`). Home Assistant blocks the
+HTTP-shaped equivalent (`BLACKLIST` in Supervisor's security middleware) but not
+this one.
+
+**Impact:** Two things, one design and one documentation. (1) `supervisor/api` is
+a universal escape hatch *and* a write path in a single WebSocket command — the
+exact shape CLAUDE.md rules 1 and 2 forbid. Phase 01's gateway must deny it by
+name, with a test, and the deny must not depend on the App manifest, which does
+not stop it. (2) Any statement that `hassio_api: false` *prevents* Supervisor
+access is false; the manifest declares intent and bounds a future bug's blast
+radius, it is not a wall. The architecture doc §15.2 and the `P0-02` manifest
+comment both read as though it were.
+
+**Triage:** `queue-next`
+
+**Outcome:** Open. Becomes a Phase 01 allow-list/deny-list task and its test at
+the next `devflow plan`; the §15.2 wording correction rides along with it.
