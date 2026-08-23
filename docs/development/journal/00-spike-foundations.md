@@ -79,3 +79,17 @@ Supervisor permission matrix derived from the security middleware at pinned tags
 `list_apps` needs one manifest line (`hassio_api: true`, default role) — filed as a `needs-decision`, not applied. F-4 closed; F-2 and F-3 residues closed with it.
 **Surprise:** the App's Core principal is HA's own Supervisor user, in `GROUP_ID_ADMIN` — so it is admin, and Core's `supervisor/api` WS command lets any admin call any Supervisor endpoint with any method, making `hassio_api: false` a declaration rather than a boundary (F-13).
 **Left open:** nothing was called live; the confirming three curls are written into the research file for the first real deployment.
+
+### 2026-08-23 · `P0-07`
+Rewrote `cmd/spike` as a history/statistics probe (REST `/api/history/period` ×4
+parameter variants × 24h/7d, WS `history_during_period`, the three recorder
+statistics commands) and wrote the evidence up in
+`docs/research/2026-08-23-ha-history-statistics.md`. Statistics win by 1–3
+orders of magnitude; source order is statistics → WS history → REST fallback.
+**Surprise:** `no_attributes` alone barely helps — it still emits an *empty*
+`attributes` object per row (272 KB vs 510 KB at 24h); `minimal_response` is the
+parameter that actually shrinks the answer, and it silently collapses
+consecutive same-state rows, so it is a summary rather than a subset. F-9's leak
+also recurred (F-15): its `isIDKey` never covered entity ids, and history keys
+its result by one.
+**Left open:** multi-entity query cost (F-14) — every number here is one entity.

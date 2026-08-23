@@ -117,7 +117,7 @@ docs/research/       # dated evidence produced by the verify tasks
   sufficient or a specific, justified permission delta is proposed as a
   `needs-decision` entry — never applied inside this task.
 
-- [ ] **`P0-07` — Verify recorder history & statistics APIs** 🧠 `needs-verify` —
+- [x] **`P0-07` — Verify recorder history & statistics APIs** 🧠 `needs-verify` —
   resolves **F-5**. Establish the behavior of REST `/api/history/period` under
   bounded ranges and of the recorder statistics WebSocket API on the target
   release, including which is cheaper on a Raspberry Pi-sized recorder DB.

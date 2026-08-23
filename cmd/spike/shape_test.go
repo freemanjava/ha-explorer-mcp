@@ -116,3 +116,21 @@ func TestShape_MapKeyedByID_KeysNotEmitted(t *testing.T) {
 		t.Errorf("schema-shaped object keys must survive, got:\n%s", out)
 	}
 }
+
+func TestShape_EntityIDKeyedMap_KeysWithheld(t *testing.T) {
+	// The shape of history/history_during_period: one entry per entity id.
+	payload := map[string]any{
+		"sensor.ha_panel1_app_memory": []any{
+			map[string]any{"lu": 1.0, "s": "812.4"},
+		},
+	}
+
+	got := renderShape(shapeOf(payload))
+
+	if strings.Contains(got, "sensor.ha_panel1_app_memory") {
+		t.Fatalf("entity id reached the report:\n%s", got)
+	}
+	if !strings.Contains(got, "map keyed by id") {
+		t.Fatalf("entity-keyed object not recognised as a map:\n%s", got)
+	}
+}

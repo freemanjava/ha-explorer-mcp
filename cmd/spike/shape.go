@@ -81,18 +81,24 @@ func (s *shape) merge(v any) {
 }
 
 // HA uses objects as maps keyed by an id in several payloads (notably
-// config_entries_subentries). There the keys are values from the installation,
-// not schema, so emitting them would leak exactly what renderShape exists to
-// withhold (F-9). These two patterns are HA's own id formats — a ULID and a
-// 32-char hex digest — and are deliberately narrow: a schema key like
-// "should_expose" or "conversation" must never match.
+// config_entries_subentries, and every history and statistics result). There
+// the keys are values from the installation, not schema, so emitting them would
+// leak exactly what renderShape exists to withhold (F-9). These patterns are
+// HA's own id formats — a ULID, a 32-char hex digest, and a `domain.object_id`
+// entity id — and are deliberately narrow: a schema key like "should_expose"
+// or "conversation" must never match.
+//
+// The entity-id pattern was added by P0-07: F-9's fix covered only the first
+// two, so history/history_during_period, which keys its answer by entity id,
+// re-leaked one on the first run of that task's probe.
 var (
-	ulidKey = regexp.MustCompile(`^[0-9A-HJKMNP-TV-Z]{26}$`)
-	hexKey  = regexp.MustCompile(`^[0-9a-f]{32}$`)
+	ulidKey   = regexp.MustCompile(`^[0-9A-HJKMNP-TV-Z]{26}$`)
+	hexKey    = regexp.MustCompile(`^[0-9a-f]{32}$`)
+	entityKey = regexp.MustCompile(`^[a-z][a-z0-9_]*\.[a-z0-9_]+$`)
 )
 
 func isIDKey(k string) bool {
-	return ulidKey.MatchString(k) || hexKey.MatchString(k)
+	return ulidKey.MatchString(k) || hexKey.MatchString(k) || entityKey.MatchString(k)
 }
 
 // mapKeyShape merges every id-keyed entry into one shape when the object is a
