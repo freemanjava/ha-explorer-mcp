@@ -44,3 +44,16 @@ Supervisor can still be pointed at via those env vars.
 **Left open:** command allow-list, request correlation for concurrent
 in-flight requests, and live reconnect-on-drop are all P1-01; this client
 handles one request at a time.
+
+### 2026-08-23 · P0-04
+Registry & config-entry APIs verified against live HA 2026.8.3 in two runs
+(admin, non-admin) via a throwaway `cmd/spike` that reports field names and
+types only; evidence in `docs/research/2026-08-23-ha-registry-apis.md`.
+**Surprise:** `config_entries/get` is readable by a non-admin while
+`config_entries/get_single` — the same data, one entry — is refused
+`unauthorized`; and both principals got byte-identical payloads, so HA does no
+per-user filtering of registries at all (F-10). Also `list_for_display`
+returned 469 entities where `list` returned 952: a different population, not a
+compression.
+**Left open:** three registries were empty so their element schema is
+unobserved; the `aliases: [null]` result is stable but unexplained.

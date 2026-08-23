@@ -87,7 +87,7 @@ docs/research/       # dated evidence produced by the verify tasks
   handshake (`TestHandshakeDoesNotLogToken`); unit test proving a wrong token
   produces a typed auth error rather than a retry storm.
 
-- [ ] **`P0-04` — Verify registry & config-entry read APIs** 🧠 `needs-verify` —
+- [x] **`P0-04` — Verify registry & config-entry read APIs** 🧠 `needs-verify` —
   resolves **F-1** and **F-2**. Establish, against the target HA release, the
   exact WebSocket command names, request payloads, response schemas and
   permission requirements for: entity registry list/get, device registry list,

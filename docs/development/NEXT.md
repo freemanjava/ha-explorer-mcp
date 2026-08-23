@@ -3,7 +3,7 @@
 <!-- BOUNDED FILE — rewritten in place, never appended to. Keep under ~100 lines.
      Anything that grows goes to journal/. This file is read by every session. -->
 
-**▶ Active:** `P0-04` — Verify registry & config-entry read APIs
+**▶ Active:** `P0-05` — Verify automation config & trace retrieval
 · [`phases/00-spike-foundations.md`](phases/00-spike-foundations.md) · model: **claude-opus-5** · flags: 🧠 `needs-verify`
 
 > Advancing this pointer is part of finishing a task, together with ticking the
@@ -19,18 +19,19 @@ cycle. Remove a row when its task closes.
 
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
-| 1 | `P0-04` | Verify registry & config-entry read APIs | 00 | claude-opus-5 | 🧠 `needs-verify` |
-| 2 | `P0-05` | Verify automation config & traces | 00 | claude-opus-5 | 🧠 `needs-verify` |
-| 3 | `P0-06` | Verify Supervisor endpoints under minimal perms | 00 | claude-opus-5 | 🧠 `needs-verify` |
-| 4 | `P0-07` | Verify recorder history & statistics APIs | 00 | claude-opus-5 | 🧠 `needs-verify` |
+| 1 | `P0-05` | Verify automation config & traces | 00 | claude-opus-5 | 🧠 `needs-verify` |
+| 2 | `P0-06` | Verify Supervisor endpoints under minimal perms | 00 | claude-opus-5 | 🧠 `needs-verify` |
+| 3 | `P0-07` | Verify recorder history & statistics APIs | 00 | claude-opus-5 | 🧠 `needs-verify` |
 
-**Order rationale:** build the vehicle before driving it — `P0-01`–`P0-03` make a
-binary that can actually reach Core, which is what the four verify tasks need in
-order to observe anything. The verifications then run in the order the Phase 01
-allow-list consumes them: registries first (they gate almost every tool), then
-the two compatibility-sensitive areas, then the history source choice that Phase
-04 depends on. Nothing from Phase 01 is queued yet: its allow-list is derived
-from `P0-04`'s evidence, and queueing it now would invite guessing.
+**Order rationale:** the verifications run in the order the Phase 01 allow-list
+consumes them. Registries are done (`P0-04`); next are the two
+compatibility-sensitive areas, then the history source choice that Phase 04
+depends on. Nothing from Phase 01 is queued yet — the rest of its allow-list
+still rests on `P0-05`–`P0-07`.
+
+`cmd/spike` is the probe vehicle these tasks reuse: `HA_URL` + `HA_TOKEN`, it
+reports field names and types only. The owner runs it and pastes the report; no
+HA token reaches the agent (owner's choice, 2026-08-23).
 
 ## Status
 
@@ -43,7 +44,7 @@ done
 
 | phase | theme | done / total |
 |------:|-------|:------------:|
-| 00 | Spike & Foundations | 4 / 9 |
+| 00 | Spike & Foundations | 5 / 9 |
 | 01 | HA Access & Read-Only Gateway | 0 / 7 |
 | 02 | Policy, Privacy, Budget & Audit | 0 / 7 |
 | 03 | MCP Server & Inventory Tools | 0 / 8 |
@@ -57,7 +58,7 @@ gated: they open only on an explicit owner decision plus a fresh security review
 Phases 05–07 carry no task boxes yet — theirs are written by `devflow plan` when
 the phase before them closes.
 
-Last refreshed: 2026-08-23 (P0-03 closed)
+Last refreshed: 2026-08-23 (P0-04 closed)
 
 ## Open findings
 
@@ -65,7 +66,7 @@ Last refreshed: 2026-08-23 (P0-03 closed)
      grep -c '^\*\*Triage:\*\* `queue-next`' docs/development/FINDINGS.md  (etc.)
      This block exists so captured work cannot quietly rot: every session sees it. -->
 
-`blocks-active` 0 · `queue-next` 6 · `defer` 1 · `unknown` 7
+`blocks-active` 0 · `queue-next` 7 · `defer` 1 · `unknown` 6
 
 > Any `blocks-active` is stop-work. If `queue-next` is non-zero and the queue
 > above has fewer than 3 rows, drain it with `devflow plan` before continuing —
@@ -74,14 +75,16 @@ Last refreshed: 2026-08-23 (P0-03 closed)
 > An open `unknown` outranks the queue: it is an assumption the plan already
 > rests on. Run `devflow verify` before building further on it.
 
-F-1 … F-5 are the architecture doc's own open questions (§22), and they are
-already assigned to `P0-04`–`P0-07`. That is why the queue is not blocked on them
-today — but nothing in Phase 01 may be planned until they are closed.
+F-1 is **resolved** by `P0-04`; F-2 is partly resolved, its residue (does the
+App's `SUPERVISOR_TOKEN` principal count as admin?) folded into F-4 / `P0-06`.
+F-3 … F-5 remain the architecture doc's own open questions (§22) and are assigned
+to `P0-05`–`P0-07`. Nothing in Phase 01 may be planned until they close.
 
 ## Recent
 
 Last 5 closed tasks, one line each. Older entries live in `journal/`.
 
+- 2026-08-23 · `P0-04` — registry & config-entry APIs verified against live HA 2026.8.3, admin and non-admin; only `config_entries/get_single` needs admin; `docs/research/2026-08-23-ha-registry-apis.md`.
 - 2026-08-23 · `P0-03` — Supervisor proxy connectivity: `internal/ha` WS auth handshake + REST GET(`github.com/coder/websocket`), bounded backoff reconnect, integration test against a recorded-HA fake server.
 - 2026-08-23 · `P0-02` — App packaging skeleton (config.yaml, build.yaml, Dockerfile, run.sh, AppArmor); arm64 image build verified.
 - 2026-08-23 · `P0-01` — pinned `go-sdk` v1.7.0 (protocol 2026-07-28), added CI.
