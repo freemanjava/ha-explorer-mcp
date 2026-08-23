@@ -97,7 +97,7 @@ docs/research/       # dated evidence produced by the verify tasks
   and the HA version observed; every command that Phase 01's allow-list will
   contain appears there or is explicitly marked unavailable.
 
-- [ ] **`P0-05` — Verify automation config & trace retrieval** 🧠 `needs-verify` —
+- [x] **`P0-05` — Verify automation config & trace retrieval** 🧠 `needs-verify` —
   resolves **F-3**. Determine what an external App can actually read about
   automations: config, traces, trace lists, and what requires admin or
   `/config`.
