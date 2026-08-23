@@ -3,8 +3,8 @@
 <!-- BOUNDED FILE — rewritten in place, never appended to. Keep under ~100 lines.
      Anything that grows goes to journal/. This file is read by every session. -->
 
-**▶ Active:** `P0-03` — Supervisor proxy connectivity (WS auth + REST GET)
-· [`phases/00-spike-foundations.md`](phases/00-spike-foundations.md) · model: **claude-sonnet-5** · flags: none
+**▶ Active:** `P0-04` — Verify registry & config-entry read APIs
+· [`phases/00-spike-foundations.md`](phases/00-spike-foundations.md) · model: **claude-opus-5** · flags: 🧠 `needs-verify`
 
 > Advancing this pointer is part of finishing a task, together with ticking the
 > box, recomputing status and appending a journal entry. All four, or none.
@@ -19,11 +19,10 @@ cycle. Remove a row when its task closes.
 
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
-| 1 | `P0-03` | Supervisor proxy connectivity (WS auth + REST GET) | 00 | claude-sonnet-5 | |
-| 2 | `P0-04` | Verify registry & config-entry read APIs | 00 | claude-opus-5 | 🧠 `needs-verify` |
-| 3 | `P0-05` | Verify automation config & traces | 00 | claude-opus-5 | 🧠 `needs-verify` |
-| 4 | `P0-06` | Verify Supervisor endpoints under minimal perms | 00 | claude-opus-5 | 🧠 `needs-verify` |
-| 5 | `P0-07` | Verify recorder history & statistics APIs | 00 | claude-opus-5 | 🧠 `needs-verify` |
+| 1 | `P0-04` | Verify registry & config-entry read APIs | 00 | claude-opus-5 | 🧠 `needs-verify` |
+| 2 | `P0-05` | Verify automation config & traces | 00 | claude-opus-5 | 🧠 `needs-verify` |
+| 3 | `P0-06` | Verify Supervisor endpoints under minimal perms | 00 | claude-opus-5 | 🧠 `needs-verify` |
+| 4 | `P0-07` | Verify recorder history & statistics APIs | 00 | claude-opus-5 | 🧠 `needs-verify` |
 
 **Order rationale:** build the vehicle before driving it — `P0-01`–`P0-03` make a
 binary that can actually reach Core, which is what the four verify tasks need in
@@ -44,7 +43,7 @@ done
 
 | phase | theme | done / total |
 |------:|-------|:------------:|
-| 00 | Spike & Foundations | 3 / 9 |
+| 00 | Spike & Foundations | 4 / 9 |
 | 01 | HA Access & Read-Only Gateway | 0 / 7 |
 | 02 | Policy, Privacy, Budget & Audit | 0 / 7 |
 | 03 | MCP Server & Inventory Tools | 0 / 8 |
@@ -58,7 +57,7 @@ gated: they open only on an explicit owner decision plus a fresh security review
 Phases 05–07 carry no task boxes yet — theirs are written by `devflow plan` when
 the phase before them closes.
 
-Last refreshed: 2026-08-23 (P0-02 closed)
+Last refreshed: 2026-08-23 (P0-03 closed)
 
 ## Open findings
 
@@ -83,6 +82,7 @@ today — but nothing in Phase 01 may be planned until they are closed.
 
 Last 5 closed tasks, one line each. Older entries live in `journal/`.
 
+- 2026-08-23 · `P0-03` — Supervisor proxy connectivity: `internal/ha` WS auth handshake + REST GET(`github.com/coder/websocket`), bounded backoff reconnect, integration test against a recorded-HA fake server.
 - 2026-08-23 · `P0-02` — App packaging skeleton (config.yaml, build.yaml, Dockerfile, run.sh, AppArmor); arm64 image build verified.
 - 2026-08-23 · `P0-01` — pinned `go-sdk` v1.7.0 (protocol 2026-07-28), added CI.
 

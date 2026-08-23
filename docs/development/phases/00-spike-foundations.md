@@ -76,7 +76,7 @@ docs/research/       # dated evidence produced by the verify tasks
   `config` entry — so a future edit that quietly grants filesystem or Docker
   access fails the build; the image builds for `linux/arm64`.
 
-- [ ] **`P0-03` — Supervisor proxy connectivity** — connect to
+- [x] **`P0-03` — Supervisor proxy connectivity** — connect to
   `ws://supervisor/core/websocket`, complete the `auth` handshake with
   `SUPERVISOR_TOKEN`, issue one trivial read command, and perform one
   `GET http://supervisor/core/api/config`. Include reconnect-with-backoff at its

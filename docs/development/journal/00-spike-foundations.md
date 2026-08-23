@@ -30,3 +30,17 @@ the assertions only need a handful of top-level scalars and the `map:` list).
 **Left open:** whether Supervisor's own App builder uses the addon folder or
 the repo root as build context — this Dockerfile needs repo root (it compiles
 from `cmd/`/`internal/`), verified manually, not through the Supervisor builder.
+
+### 2026-08-23 · P0-03
+Added `internal/ha` (WebSocket auth handshake, ping round trip, REST GET,
+bounded-backoff `ConnectWithBackoff`) on `github.com/coder/websocket` — stdlib
+has no WS client, so this is the one added dependency. Auth failure returns
+`ErrAuthFailed` and is never retried; only transient dial/read failures back off.
+**Surprise:** no live Supervisor was reachable from this environment, so the
+integration test (`-tags=integration`) defaults to a local server replaying the
+documented `auth_required`/`auth_ok`/`auth_invalid` and `/api/config` shapes
+(doc §15.1) when `HA_TEST_WS_URL`/`HA_TEST_REST_URL` aren't set — a real
+Supervisor can still be pointed at via those env vars.
+**Left open:** command allow-list, request correlation for concurrent
+in-flight requests, and live reconnect-on-drop are all P1-01; this client
+handles one request at a time.
