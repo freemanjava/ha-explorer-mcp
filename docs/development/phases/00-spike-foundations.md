@@ -55,7 +55,7 @@ docs/research/       # dated evidence produced by the verify tasks
 
 ## Tasks
 
-- [ ] **`P0-01` — Pin the official MCP Go SDK and add CI** — add
+- [x] **`P0-01` — Pin the official MCP Go SDK and add CI** — add
   `github.com/modelcontextprotocol/go-sdk` to `go.mod` at a pinned version
   supporting protocol 2026-07-28, and a GitHub Actions workflow running
   `make check` plus `make release` (linux/amd64 + linux/arm64 cross-build).

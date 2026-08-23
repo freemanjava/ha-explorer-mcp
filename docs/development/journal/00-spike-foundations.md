@@ -12,3 +12,10 @@ unrecoverable anywhere else — so if there was none, the entry is one line and
 that is correct.
 
 ---
+
+### 2026-08-23 · P0-01
+Pinned `github.com/modelcontextprotocol/go-sdk` v1.7.0 (protocol 2026-07-28) and
+added `.github/workflows/ci.yml` running `make check` + `make release`.
+**Surprise:** the SDK exposes no public protocol-version constant, so
+`TestSDKProtocolVersion` asserts it behaviorally — connect an in-memory
+client/server pair and check the negotiated `InitializeResult.ProtocolVersion`.
