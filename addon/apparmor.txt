@@ -1,0 +1,30 @@
+#include <tunables/global>
+
+profile ha_inspector_mcp flags=(attach_disconnected,mediate_deleted) {
+  #include <abstractions/base>
+
+  # Read-only diagnostics: the binary, its shared libs, and standard runtime
+  # paths only. No write access anywhere in the container filesystem.
+  /usr/bin/ha-inspector-mcp mr,
+  /run.sh r,
+  /lib/** mr,
+  /usr/lib/** mr,
+  /etc/resolv.conf r,
+  /etc/hosts r,
+  /etc/nsswitch.conf r,
+
+  # Explicitly no /config, no Docker socket, no host devices — CLAUDE.md
+  # "Not Yet" and ADR-004/ADR-005.
+  deny /config/** rwklx,
+  deny /var/run/docker.sock rwklx,
+  deny /dev/** rwklx,
+
+  # Supervisor proxy only: outbound network to reach Core, no raw sockets.
+  network inet stream,
+  network inet6 stream,
+
+  deny capability sys_admin,
+  deny capability sys_ptrace,
+  deny capability net_raw,
+  deny capability dac_override,
+}

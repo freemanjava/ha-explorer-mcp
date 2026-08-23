@@ -179,3 +179,24 @@ repository and module are `ha-explorer-mcp`, the product and binary are
 `ha-inspector-mcp`. That is a normal split (repo name vs product name) and
 renaming either now would churn the remote or the architecture doc for nothing.
 Revisit only if it starts confusing someone.
+
+### F-8 · Supervisor App builder's build context is unverified · 2026-08-23
+
+**Kind:** `unknown`
+
+**What:** `addon/Dockerfile` (from `P0-02`) compiles the Go binary in its build
+stage, so it needs the whole repo — `go.mod`, `cmd/`, `internal/` — as build
+context, not just the `addon/` folder. It was verified manually with
+`docker buildx build -f addon/Dockerfile .` from the repo root. Whether Home
+Assistant Supervisor's own App builder invokes `docker build` with the addon
+folder as context (the conventional layout) or the repository root was never
+checked against real Supervisor behavior.
+
+**Impact:** Unknown pending verification. If Supervisor builds with
+`addon/` as context, the image never builds on a real installation despite
+passing this repo's local check — a deploy-time failure the current DoD
+(image builds via `docker buildx` from repo root) does not catch.
+
+**Triage:** `queue-next`
+
+**Outcome:** —
