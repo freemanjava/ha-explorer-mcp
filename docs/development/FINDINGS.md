@@ -114,7 +114,15 @@ dependency history) and `P3-07` plus Phase 05 are re-planned.
 
 **Triage:** `queue-next`
 
-**Outcome:** Assigned to `P0-05`.
+**Outcome:** **Resolved** by `P0-05` —
+`docs/research/2026-08-23-ha-automation-traces.md`. Automation config and full
+traces *are* reachable read-only over the normal WebSocket API on 2026.8.3; no
+`.storage` mount is needed and ADR-004 stands. They are, however, **admin-gated
+without exception**, so whether the two tools exist for an App is now decided by
+F-4 / `P0-06`. The fallback path, if not: `last_triggered` +
+`logbook/get_events` + `context_id` correlation, both observed working for a
+non-admin principal. Consequences filed as F-11 (degraded mode) and F-12
+(trace privacy).
 
 ### F-4 · Supervisor endpoints available under minimal permissions unverified · 2026-08-23
 
@@ -251,3 +259,47 @@ server makes is the *only* one made. Home coordinates in particular arrive from
 doc's privacy profiles currently focus.
 **Triage:** `queue-next`
 **Outcome:** —
+
+### F-11 · Automation tools need a defined degraded mode, not just a happy path · 2026-08-23
+
+**Kind:** `scope`
+
+**What:** `P0-05` established that `automation/config`, `trace/list`,
+`trace/get` and `trace/contexts` are all admin-gated on 2026.8.3
+(`docs/research/2026-08-23-ha-automation-traces.md`). Whether the App's
+`SUPERVISOR_TOKEN` principal clears that bar is F-4 / `P0-06`. Phase 03's
+`get_automation` and Phase 05's §13.1 workflow are currently written assuming
+the data is there.
+
+**Impact:** Both branches must be built regardless of how `P0-06` lands: an App
+that is admin today can be deployed against an installation where it is not.
+`get_automation_traces` needs an `unsupported` path carrying the reason, and the
+investigation workflow needs a documented degraded mode over `last_triggered` +
+`logbook/get_events` + `context_id` correlation. Not planning it now means
+discovering it in Phase 05, where it is a rewrite rather than a branch.
+
+**Triage:** `queue-next`
+
+**Outcome:**
+
+### F-12 · Automation traces embed whole entity states and a user id · 2026-08-23
+
+**Kind:** `inconsistency`
+
+**What:** A `trace/get` response carries, under
+`trace["trigger/N"][i].changed_variables`, the automation's own state and the
+trigger's `from_state` / `to_state` — each a complete state object including
+`attributes.friendly_name`, `attributes.icon` and `context.user_id`
+(`docs/research/2026-08-23-ha-automation-traces.md`). The architecture doc treats
+traces as diagnostic structure and classifies sensitivity at the entity level.
+
+**Impact:** A trace is as sensitive as the entities it touched, plus it names a
+user. Classifying traces as low-sensitivity diagnostic data would route personal
+data past the privacy profile that exists to hold it — threat T2's neighbour, and
+a straight contradiction of the doc §4 privacy model. `internal/policy` must
+classify trace payloads by their embedded entities, and `internal/redact` must
+walk into `changed_variables`, not only into top-level attributes.
+
+**Triage:** `queue-next`
+
+**Outcome:**

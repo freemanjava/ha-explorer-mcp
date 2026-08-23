@@ -57,3 +57,18 @@ returned 469 entities where `list` returned 952: a different population, not a
 compression.
 **Left open:** three registries were empty so their element schema is
 unobserved; the `aliases: [null]` result is stable but unexplained.
+
+### 2026-08-23 · P0-05
+Automation config and traces verified against live HA 2026.8.3, admin and
+non-admin: every command exists and works, and every one of them is admin-gated.
+Evidence in `docs/research/2026-08-23-ha-automation-traces.md`; F-3 closed.
+**Surprise:** `trace/get` returns whole `from_state`/`to_state` objects and a
+`context.user_id` — a trace is personal data, not just diagnostic structure (F-12).
+**Left open:** whether the App's principal is admin at all — `P0-06` now decides whether two tools exist.
+
+### 2026-08-23 · P0-05
+Automation config and traces verified against live HA 2026.8.3, admin and
+non-admin: every command exists and works, and every one of them is admin-gated.
+Evidence in `docs/research/2026-08-23-ha-automation-traces.md`; F-3 closed.
+**Surprise:** `trace/get` returns whole `from_state`/`to_state` objects and a `context.user_id` — a trace is personal data, not just diagnostic structure (F-12).
+**Left open:** whether the App's principal is admin — `P0-06` now decides whether two tools exist at all.

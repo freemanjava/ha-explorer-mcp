@@ -1,6 +1,11 @@
-// Command spike is P0-04's throwaway verification vehicle: it asks a live Home
-// Assistant which registry and config-entry read commands actually exist, what
-// they answer with, and which of them a non-admin user is refused.
+// Command spike is Phase 00's throwaway verification vehicle: it asks a live
+// Home Assistant which read commands actually exist, what they answer with, and
+// which of them a non-admin user is refused.
+//
+// This revision serves P0-05 (F-3): what can be read about automations —
+// their config, their traces, and the fallback evidence if traces are refused.
+// The P0-04 registry probe set it replaces is already recorded in
+// docs/research/2026-08-23-ha-registry-apis.md.
 //
 // It is deliberately not built on internal/ha's Client. That package has no
 // generic "send any command" method and must not grow one: Phase 01's gateway
@@ -22,7 +27,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -37,32 +44,61 @@ const maxFrame = 64 << 20
 
 const requestTimeout = 30 * time.Second
 
+// How far back logbook/get_events is asked to look. Long enough that a daily
+// automation shows up, short enough that the query stays cheap on a Pi-sized
+// recorder — this probe characterises the shape, not the retention.
+const logbookWindow = 24 * time.Hour
+
 // probe is one WebSocket command to try. args are literal, non-sensitive
-// values; needsID marks the two commands that must be fed an id discovered
-// from an earlier list, since neither accepts a wildcard.
+// values; needs names the ids that must be injected from an earlier answer,
+// since none of the trace commands accepts a wildcard.
 type probe struct {
+	label   string // heading, when one command is probed more than once
 	command string
 	args    map[string]any
-	needsID string // "entity" or "config_entry"
+	needs   []string
 	note    string
 }
 
-// The commands Phase 01's allow-list is expected to contain, per the
-// architecture doc §9. Every one of them must appear in the research file
-// either with an observed response or explicitly marked unavailable.
+// The commands the doc §9 automation tools would need, plus the fallbacks that
+// have to be characterised if traces turn out to be unreachable. Every one of
+// them must appear in the research file either with an observed response or
+// explicitly marked unavailable.
 var probes = []probe{
 	{command: "get_config", note: "HA version and unit system"},
 	{command: "auth/current_user", note: "establishes whether this run is admin"},
-	{command: "config/entity_registry/list"},
-	{command: "config/entity_registry/list_for_display", note: "cheaper list variant, may not exist on older releases"},
-	{command: "config/entity_registry/get", needsID: "entity"},
-	{command: "config/device_registry/list"},
-	{command: "config/area_registry/list"},
-	{command: "config/floor_registry/list"},
-	{command: "config/label_registry/list"},
-	{command: "config/category_registry/list", args: map[string]any{"scope": "automation"}},
-	{command: "config_entries/get"},
-	{command: "config_entries/get_single", needsID: "config_entry"},
+	{command: "get_states", note: "where the target automation is discovered, and the last_triggered fallback"},
+	{command: "automation/config", needs: []string{"automation_entity"}, note: "the automation's own config, addressed by entity_id"},
+	{
+		label:   "trace/list (unfiltered)",
+		command: "trace/list",
+		args:    map[string]any{"domain": "automation"},
+		note:    "does the whole domain's trace index come back without naming an automation?",
+	},
+	{
+		label:   "trace/list (one automation)",
+		command: "trace/list",
+		args:    map[string]any{"domain": "automation"},
+		needs:   []string{"automation_numeric"},
+		note:    "the trace index for the target automation; source of the run_id below",
+	},
+	{
+		command: "trace/get",
+		args:    map[string]any{"domain": "automation"},
+		needs:   []string{"automation_numeric", "trace_run"},
+		note:    "the full stored trace of one run — the §13.1 workflow's evidence",
+	},
+	{
+		command: "trace/contexts",
+		args:    map[string]any{"domain": "automation"},
+		needs:   []string{"automation_numeric"},
+		note:    "context_id to run_id index, links an observed event back to a run",
+	},
+	{
+		command: "logbook/get_events",
+		needs:   []string{"automation_entity_ids", "window"},
+		note:    "fallback evidence source if traces are refused",
+	},
 }
 
 type result struct {
@@ -94,19 +130,73 @@ func run() error {
 	defer cancel()
 
 	out := &report{}
-	out.writef("# P0-04 probe — registry & config-entry read APIs\n\n")
+	out.writef("# P0-05 probe — automation config & trace retrieval\n\n")
 	out.writef("Run at %s (UTC)\n\n", time.Now().UTC().Format(time.RFC3339))
 
 	if err := probeREST(ctx, out, baseURL, token); err != nil {
 		out.writef("REST `GET /api/config` failed: %v\n\n", err)
 	}
 
-	if err := probeWebSocket(ctx, out, baseURL, token); err != nil {
+	target, err := probeWebSocket(ctx, out, baseURL, token)
+	if err != nil {
 		return err
 	}
 
+	// Deliberately last: the config-panel route is addressed by the numeric id
+	// the WebSocket run discovers, and it is the one candidate that reads
+	// automations from HA's own config storage rather than from state.
+	probeAutomationConfigREST(ctx, out, baseURL, token, target)
+
 	fmt.Print(out.String())
 	return nil
+}
+
+// probeAutomationConfigREST asks the config panel's own route for an
+// automation's stored YAML. Whether this answers an App is the difference
+// between get_automation returning the real config and returning only what the
+// state machine exposes.
+func probeAutomationConfigREST(ctx context.Context, out *report, baseURL, token string, target automationTarget) {
+	out.writef("## REST `GET /api/config/automation/config/<id>`\n\n")
+	if target.numericID == "" {
+		out.writef("SKIPPED — no automation with an `attributes.id` was found.\n\n")
+		return
+	}
+
+	reqCtx, cancel := context.WithTimeout(ctx, requestTimeout)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, baseURL+"/api/config/automation/config/"+url.PathEscape(target.numericID), nil)
+	if err != nil {
+		out.writef("request could not be built: %v\n\n", err)
+		return
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	start := time.Now()
+	resp, err := http.DefaultClient.Do(req)
+	elapsed := time.Since(start).Round(time.Millisecond)
+	if err != nil {
+		out.writef("TRANSPORT FAILURE after %s: %v\n\n", elapsed, err)
+		return
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxFrame))
+	if err != nil {
+		out.writef("HTTP %d after %s, body unreadable: %v\n\n", resp.StatusCode, elapsed, err)
+		return
+	}
+
+	var decoded any
+	if err := json.Unmarshal(body, &decoded); err != nil {
+		// A refusal here is frequently HTML or a bare message, and its status
+		// code is the result — the body itself must not be echoed, it is the
+		// owner's automation config.
+		out.writef("HTTP %d after %s (%d bytes, not JSON)\n\n", resp.StatusCode, elapsed, len(body))
+		return
+	}
+
+	out.writef("HTTP %d after %s (%d bytes)\n\n```\n%s```\n\n", resp.StatusCode, elapsed, len(body), renderShape(shapeOf(decoded)))
 }
 
 func probeREST(ctx context.Context, out *report, baseURL, token string) error {
@@ -142,7 +232,7 @@ func probeREST(ctx context.Context, out *report, baseURL, token string) error {
 	return nil
 }
 
-func probeWebSocket(ctx context.Context, out *report, baseURL, token string) error {
+func probeWebSocket(ctx context.Context, out *report, baseURL, token string) (automationTarget, error) {
 	wsURL := "ws" + strings.TrimPrefix(baseURL, "http") + "/api/websocket"
 
 	// The handshake response is discarded deliberately: coder/websocket
@@ -150,7 +240,7 @@ func probeWebSocket(ctx context.Context, out *report, baseURL, token string) err
 	// leak here is applying a net/http rule this package does not follow.
 	conn, _, err := websocket.Dial(ctx, wsURL, nil)
 	if err != nil {
-		return fmt.Errorf("dial %s: %w", wsURL, err)
+		return automationTarget{}, fmt.Errorf("dial %s: %w", wsURL, err)
 	}
 	// Close's error is not actionable: the report is already written and the
 	// process is exiting either way.
@@ -158,36 +248,80 @@ func probeWebSocket(ctx context.Context, out *report, baseURL, token string) err
 	conn.SetReadLimit(maxFrame)
 
 	if err := authenticate(ctx, conn, token); err != nil {
-		return err
+		return automationTarget{}, err
 	}
 
 	out.writef("## WebSocket commands\n\n")
 
 	var nextID uint64
-	var entityID, configEntryID string
+	var target automationTarget
+	var runID string
+
+	// The logbook window is generated here, not taken from the installation,
+	// so printing it leaks nothing and makes the query reproducible.
+	windowStart := time.Now().UTC().Add(-logbookWindow).Format(time.RFC3339)
 
 	for _, p := range probes {
+		heading := p.command
+		if p.label != "" {
+			heading = p.label
+		}
+		out.writef("### `%s`\n\n", heading)
+		if p.note != "" {
+			out.writef("_%s_\n\n", p.note)
+		}
+
 		payload := map[string]any{"type": p.command}
 		for k, v := range p.args {
 			payload[k] = v
 		}
 
-		argNote := describeArgs(p.args)
-		switch p.needsID {
-		case "entity":
-			if entityID == "" {
-				out.writef("### `%s`\n\nSKIPPED — no entity_id available from the list command.\n\n", p.command)
-				continue
+		notes := describeArgs(p.args)
+		skipped := ""
+		for _, need := range p.needs {
+			switch need {
+			case "automation_entity":
+				if target.entityID == "" {
+					skipped = "no automation entity was found in get_states"
+					break
+				}
+				payload["entity_id"] = target.entityID
+				notes = appendNote(notes, "entity_id: <the target automation>")
+			case "automation_entity_ids":
+				if target.entityID == "" {
+					skipped = "no automation entity was found in get_states"
+					break
+				}
+				payload["entity_ids"] = []string{target.entityID}
+				notes = appendNote(notes, "entity_ids: [<the target automation>]")
+			case "automation_numeric":
+				if target.numericID == "" {
+					skipped = "the target automation has no attributes.id"
+					break
+				}
+				payload["item_id"] = target.numericID
+				notes = appendNote(notes, "item_id: <the target automation's attributes.id>")
+			case "trace_run":
+				if runID == "" {
+					skipped = "trace/list yielded no run_id"
+					break
+				}
+				payload["run_id"] = runID
+				notes = appendNote(notes, "run_id: <one id from trace/list>")
+			case "window":
+				payload["start_time"] = windowStart
+				notes = appendNote(notes, fmt.Sprintf("start_time: %s", windowStart))
 			}
-			payload["entity_id"] = entityID
-			argNote = `entity_id: <one id taken from the list result>`
-		case "config_entry":
-			if configEntryID == "" {
-				out.writef("### `%s`\n\nSKIPPED — no entry_id available from the list command.\n\n", p.command)
-				continue
+			if skipped != "" {
+				break
 			}
-			payload["entry_id"] = configEntryID
-			argNote = `entry_id: <one id taken from config_entries/get>`
+		}
+		if skipped != "" {
+			out.writef("SKIPPED — %s.\n\n", skipped)
+			continue
+		}
+		if notes != "" {
+			out.writef("Arguments: `%s`\n\n", notes)
 		}
 
 		nextID++
@@ -197,17 +331,9 @@ func probeWebSocket(ctx context.Context, out *report, baseURL, token string) err
 		res, err := call(ctx, conn, nextID, payload)
 		elapsed := time.Since(start).Round(time.Millisecond)
 
-		out.writef("### `%s`\n\n", p.command)
-		if p.note != "" {
-			out.writef("_%s_\n\n", p.note)
-		}
-		if argNote != "" {
-			out.writef("Arguments: `%s`\n\n", argNote)
-		}
-
 		if err != nil {
 			out.writef("TRANSPORT FAILURE after %s: %v\n\n", elapsed, err)
-			return fmt.Errorf("%s: %w", p.command, err)
+			return target, fmt.Errorf("%s: %w", p.command, err)
 		}
 		if !res.Success {
 			code, msg := "unknown", ""
@@ -224,18 +350,53 @@ func probeWebSocket(ctx context.Context, out *report, baseURL, token string) err
 			continue
 		}
 
-		out.writef("OK after %s (%d bytes)\n\n```\n%s```\n\n", elapsed, len(res.Result), renderShape(shapeOf(decoded)))
+		out.writef("OK after %s (%d bytes)\n\n", elapsed, len(res.Result))
+
+		if p.command == "get_states" {
+			target = reportAutomationStates(out, decoded)
+			continue
+		}
+
+		out.writef("```\n%s```\n\n", renderShape(shapeOf(decoded)))
 
 		reportCurrentUser(out, p.command, decoded)
-		if entityID == "" {
-			entityID = firstString(decoded, "entity_id", p.command == "config/entity_registry/list")
-		}
-		if configEntryID == "" {
-			configEntryID = firstString(decoded, "entry_id", p.command == "config_entries/get")
+		if p.command == "trace/list" && runID == "" {
+			runID = runIDFor(decoded, target.numericID)
 		}
 	}
 
-	return nil
+	return target, nil
+}
+
+// reportAutomationStates describes only the automation entities in a
+// get_states answer. The whole-installation shape would be tens of thousands
+// of merged fields and would bury the schema this task is about; the count and
+// the presence ratios are what decide whether last_triggered is a usable
+// fallback.
+func reportAutomationStates(out *report, decoded any) automationTarget {
+	states := findAutomations(decoded)
+	target, triggered := pickTarget(states)
+
+	out.writef("%d automation entities present. Shape of those states only:\n\n", len(states))
+	if len(states) == 0 {
+		out.writef("_none — every automation probe below is skipped._\n\n")
+		return target
+	}
+	out.writef("```\n%s```\n\n", renderShape(shapeOf(states)))
+	out.writef("Target automation carries `attributes.id`: `%t`; has been triggered before: `%t`.\n\n",
+		target.numericID != "", triggered)
+	if !triggered {
+		out.writef("> No automation on this installation reports `last_triggered`. An empty `trace/list` below therefore means *no runs*, not *traces unavailable*.\n\n")
+	}
+	return target
+}
+
+// appendNote joins argument notes without inventing a separator per call site.
+func appendNote(existing, note string) string {
+	if existing == "" {
+		return note
+	}
+	return existing + ", " + note
 }
 
 // reportCurrentUser surfaces the admin flag, which decides how every other
@@ -251,29 +412,6 @@ func reportCurrentUser(out *report, command string, decoded any) {
 	}
 	admin, _ := m["is_admin"].(bool)
 	out.writef("**This run authenticated as an admin user: `%t`**\n\n", admin)
-}
-
-// firstString pulls one id out of a list result so the two by-id commands have
-// something to ask for. The value is used only as a request argument and is
-// never written to the report.
-func firstString(decoded any, key string, enabled bool) string {
-	if !enabled {
-		return ""
-	}
-	list, ok := decoded.([]any)
-	if !ok {
-		return ""
-	}
-	for _, e := range list {
-		m, ok := e.(map[string]any)
-		if !ok {
-			continue
-		}
-		if v, ok := m[key].(string); ok && v != "" {
-			return v
-		}
-	}
-	return ""
 }
 
 func describeArgs(args map[string]any) string {
