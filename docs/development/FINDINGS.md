@@ -174,7 +174,11 @@ difference, but one that costs nothing to defer until Phase 04 closes.
 
 **Triage:** `defer`
 
-**Outcome:** —
+**Outcome:** Re-triaged at the 2026-08-23 `plan` and **left deferred**. It is
+owned by Phase 05's `needs-decision — Zigbee/mesh metric normalization` entry,
+Phase 05 has no boxes yet, and verifying it needs a running Zigbee installation
+plus the statistics layer Phase 04 has not built. Verifying now would produce
+evidence nothing can consume.
 
 ### F-7 · Go module path is an assumption, not a fact · 2026-08-23
 
@@ -222,7 +226,7 @@ passing this repo's local check — a deploy-time failure the current DoD
 
 **Triage:** `queue-next`
 
-**Outcome:** —
+**Outcome:** Assigned to `P0-08`.
 
 ### F-9 · Probe report leaks installation ids through map-shaped object keys · 2026-08-23
 
@@ -238,10 +242,12 @@ it because its fixture has no map-shaped object.
 pasted into a chat and committed to `docs/research/` carries no data from the
 installation. Ids are not secrets, but they identify a specific install and the
 redactor is either trustworthy or it is not.
-**Triage:** `queue-next`
+**Triage:** `resolved`
 **Outcome:** Fixed inside `P0-04` — the defect is in the vehicle that task
 built and would have re-leaked on the task's own second (non-admin) run, so it
-is in scope rather than unrelated work.
+is in scope rather than unrelated work. The task closed 2026-08-23, so the
+finding closes with it; state corrected from `queue-next` at the 2026-08-23
+`plan` (it had been left open while its work was already landed).
 
 ### F-10 · HA applies no per-user filtering to registry reads · 2026-08-23
 
@@ -258,7 +264,11 @@ server makes is the *only* one made. Home coordinates in particular arrive from
 `get_config` on a path that has nothing to do with the history tools where the
 doc's privacy profiles currently focus.
 **Triage:** `queue-next`
-**Outcome:** —
+**Outcome:** Planned 2026-08-23 into **`P2-02`**, which now carries it as a DoD
+assertion (installation coordinates classify `PRIVATE` on the classification
+table) plus a Phase 02 design note stating that HA filters nothing by principal.
+No new box: this sharpens the classification task rather than adding a separate
+reviewable change. Closes when `P2-02` closes.
 
 ### F-11 · Automation tools need a defined degraded mode, not just a happy path · 2026-08-23
 
@@ -280,7 +290,11 @@ discovering it in Phase 05, where it is a rewrite rather than a branch.
 
 **Triage:** `queue-next`
 
-**Outcome:**
+**Outcome:** Planned 2026-08-23 into **`P3-07`**, whose DoD now requires both
+branches and a *permission*-flavored `unsupported` distinct from the
+version-flavored one, with the degraded path exercised by a test rather than
+only documented; Phase 05's candidate scope gained the matching §13.1 degraded
+workflow bullet. Closes when `P3-07` closes.
 
 ### F-12 · Automation traces embed whole entity states and a user id · 2026-08-23
 
@@ -302,4 +316,8 @@ walk into `changed_variables`, not only into top-level attributes.
 
 **Triage:** `queue-next`
 
-**Outcome:**
+**Outcome:** Planned 2026-08-23 into **`P2-02`** (payloads classify by the
+entities they embed, asserted with a captured trace fixture) and **`P2-03`** (the
+redaction walk descends into nested state objects, asserted at
+`changed_variables` depth), plus a Phase 02 design note that sensitivity travels
+with embedded payloads, not with the endpoint. Closes when both close.

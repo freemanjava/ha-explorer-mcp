@@ -97,12 +97,21 @@ internal/mcp/      # server.go, system_tools.go, entity_tools.go, automation_too
 
 - [ ] **`P3-07` — `get_automation` and `get_automation_traces`** — implemented
   strictly to the scope P0-05 proved reachable, behind a compatibility adapter
-  with feature detection.
-  **DoD:** on an HA version where the API is present, traces are returned with
-  their execution outcome; on one where it is not, the tool returns
-  `unsupported` with the detected version and the reason; a test with a mutated
-  response shape (simulating an HA upgrade) fails loudly rather than mapping
-  garbage into the domain model (Appendix B).
+  with feature detection. **Both branches are built regardless of how `P0-06`
+  lands** (F-11): `automation/config`, `trace/list`, `trace/get` and
+  `trace/contexts` are admin-gated without exception on 2026.8.3, and an App
+  that is admin on the owner's installation can be deployed against one where it
+  is not.
+  **DoD:** on an HA version and principal where the API is present, traces are
+  returned with their execution outcome; where the command exists but the
+  principal is refused, the tool returns `unsupported` naming *permission* as the
+  reason — distinct from the version-unsupported case and from an empty result —
+  and points at the degraded evidence path; where the API is absent, the tool
+  returns `unsupported` with the detected version and the reason; the degraded
+  path itself (`last_triggered` + `logbook/get_events`, both observed working for
+  a non-admin principal) is exercised by a test, not merely documented; a test
+  with a mutated response shape (simulating an HA upgrade) fails loudly rather
+  than mapping garbage into the domain model (Appendix B).
 
 ## Decisions
 

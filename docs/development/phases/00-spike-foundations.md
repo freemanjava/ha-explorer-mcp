@@ -127,6 +127,20 @@ docs/research/       # dated evidence produced by the verify tasks
   recorder, and a recommendation for which source the statistics tools should
   prefer with the other as documented fallback.
 
+- [ ] **`P0-08` — Verify the Supervisor App builder's build context** `needs-verify`
+  — resolves **F-8**. `addon/Dockerfile` compiles the Go binary in its build
+  stage, so it needs the repository root as build context; it was only ever
+  verified by hand with `docker buildx build -f addon/Dockerfile .` from the
+  root. Establish what Supervisor's own builder actually passes as context for a
+  local App, and whether the `P0-02` layout builds under it unchanged.
+  **DoD:** `docs/research/<date>-supervisor-addon-build-context.md` states, from
+  an observed local App build on a real Supervisor (or from the builder's own
+  published behavior with the exact source cited), which directory becomes the
+  build context and whether `addon/Dockerfile` resolves `go.mod`, `cmd/` and
+  `internal/` from it; if it does not, the file names the concrete layout change
+  required (relocated Dockerfile, vendored build, or a prebuilt image reference)
+  and that change is planned as its own task, never applied inside this one.
+
 ## Decisions
 
 - [ ] **`needs-decision` — Supported Home Assistant version policy**
@@ -162,8 +176,8 @@ docs/research/       # dated evidence produced by the verify tasks
   least one WebSocket read command and one REST GET, with the token never logged.
 - The App image builds for `aarch64` and its manifest is asserted by test to
   carry no `/config` map, no Docker socket, no host network and no `full_access`.
-- Every `unknown` finding F-1 … F-5 is closed by a dated file in
-  `docs/research/`, and each Phase 01 tool is marked implementable, re-scoped or
-  unsupported on that evidence.
-- Both `needs-decision` entries above are answered and recorded here.
+- Every `unknown` finding this phase owns — F-1 … F-5 and F-8 — is closed by a
+  dated file in `docs/research/`, and each Phase 01 tool is marked implementable,
+  re-scoped or unsupported on that evidence.
+- The `needs-decision` entry above is answered and recorded here.
 - `make check` is green; CI is green for linux/amd64 and linux/arm64.

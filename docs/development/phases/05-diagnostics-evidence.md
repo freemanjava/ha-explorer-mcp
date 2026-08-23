@@ -64,6 +64,11 @@ Supervisor availability. Candidate scope, from the architecture doc:
 - Device and automation health composition.
 - The doc §13.1 and §13.2 investigation workflows, end to end, as integration
   tests with a fixture installation.
+- **A documented degraded mode for §13.1** when traces are unavailable to the
+  App's principal (F-11): `last_triggered` + `logbook/get_events` +
+  `context_id` correlation, with the missing traces named in
+  `missing_evidence` and the confidence lowered accordingly — a branch of the
+  workflow, not a rewrite discovered here.
 
 ## Decisions
 
