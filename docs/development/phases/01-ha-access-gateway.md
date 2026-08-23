@@ -42,6 +42,16 @@ internal/model/    # normalized domain types
   names and exact route templates with typed parameters. A prefix or regex rule
   is how `config/entity_registry/list` quietly authorizes
   `config/entity_registry/update`.
+- **A named deny-list sits in front of the allow-list** (decision below, F-13).
+  Fail-closed already denies everything unlisted; the deny-list exists so that
+  the commands which are *known* escape hatches — `supervisor/api` above all —
+  cannot be admitted by a later allow-list edit, and so the reason they are
+  forbidden is written down and asserted instead of implied by absence.
+- **The App manifest is not a wall** (F-13). `hassio_api: false` declares intent
+  and bounds a future bug's blast radius; it does not stop anything. Core's
+  `supervisor/api` WebSocket command reaches Supervisor with Core's own token
+  and is gated only on `is_admin`, which this App's principal is. The gateway is
+  the only enforcement point that actually holds.
 - **Every upstream call carries a context deadline.** No unbounded wait, ever.
 - **HA data is untrusted** (threat T2). Entity attributes, friendly names and log
   text are data. Never branch tool behavior on their content; never let a
@@ -114,7 +124,53 @@ internal/model/    # normalized domain types
   stale-registry failure mode in Appendix B); concurrent readers do not trigger
   a thundering herd of upstream fetches.
 
+- [ ] **`P1-07` — Deny privileged escape hatches by name** `blocked:P1-02` —
+  resolves **F-13**. Add the deny set decided above to `internal/ha/gateway.go`,
+  checked before the allow-list, with `supervisor/api` as its first entry and the
+  finding id in the constant's comment. Correct the two places that read as
+  though the App manifest were the enforcement point: architecture doc §15.2 and
+  the `# Security posture` comment in `addon/config.yaml`.
+  **DoD:** `TestGateway_SupervisorAPICommand_Denied` asserts `supervisor/api` is
+  refused with `ErrPolicyDenied` and **no bytes reach the fake server**, and that
+  it is refused identically whether or not the allow-list is empty — the deny
+  does not depend on allow-list contents; a test asserts no deny-set entry also
+  appears in the allow-list, so the two tables cannot contradict each other; a
+  test asserts the denial reason distinguishes "denied by name" from "not
+  allow-listed", so an audit record says which; §15.2 and `addon/config.yaml`
+  state that `hassio_api: false` declares intent and bounds blast radius but does
+  not prevent Supervisor access, naming the gateway as the enforcement point.
+
 ## Decisions
+
+- [x] **Gateway carries a named deny-list, checked before the allow-list** —
+  decided 2026-08-23 (planning, from **F-13**)
+
+  **Decision:** `internal/ha/gateway.go` holds a small, explicit deny set of
+  known privileged escape hatches — `supervisor/api` first — consulted before
+  the allow-list. A denied command returns `ErrPolicyDenied` before any bytes
+  are written, exactly as an unlisted one does; the two paths differ only in the
+  reason recorded.
+
+  **Why:** An allow-list alone already denies `supervisor/api`, so this is not
+  about today's behavior — it is about the edit that comes later. `supervisor/api`
+  accepts a free-form `endpoint` *and* a free-form `method` and runs as Core's
+  Supervisor user, which Core 2026.8.3 puts in `GROUP_ID_ADMIN`: a single
+  command that is both a universal escape hatch and a write path, the two shapes
+  CLAUDE.md rules 1 and 2 forbid outright. A guarantee that holds only because
+  nobody has typed a name into a table is not a guarantee; a named deny with a
+  test makes re-admitting it a deliberate, visible act.
+
+  **Rejected:** *Rely on fail-closed alone* — leaves the project's sharpest
+  known hazard undocumented in the code that exists to stop it, and invisible to
+  the reviewer of a future allow-list addition. *Enforce it in the App manifest*
+  — `hassio_api: false` does not prevent this path at all (F-13); believing it
+  does is the mistake, not the fix. *A regex deny on `supervisor/*`* — pattern
+  rules on the deny side invite pattern rules on the allow side, which the
+  exact-match note above rules out.
+
+  **Consequences:** The deny set is a named constant with the finding id in its
+  comment. `P1-07` implements and asserts it; the architecture doc §15.2 wording
+  is corrected in the same change.
 
 - [ ] **`needs-decision` — MCP transport and client authentication**
   Q7 from the architecture doc. This decides the network exposure of the whole
@@ -133,6 +189,8 @@ internal/model/    # normalized domain types
 - Every upstream WebSocket command and REST route is allow-listed, and denial
   happens before transmission — proven by tests that assert on the wire, not on
   the return value.
+- `supervisor/api` — and every other entry of the deny set — is refused by name,
+  independently of the allow-list and of the App manifest (F-13).
 - An HA restart during an in-flight request produces a reconnect and a typed
   error, not a hang and not a crash.
 - `make check` is green.

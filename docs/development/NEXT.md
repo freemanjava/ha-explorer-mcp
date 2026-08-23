@@ -9,9 +9,6 @@
 > Advancing this pointer is part of finishing a task, together with ticking the
 > box, recomputing status and appending a journal entry. All four, or none.
 
-> Module path is settled (2026-08-23): `github.com/freemanjava/ha-explorer-mcp`,
-> remote `origin` wired. `P0-01` pins dependencies against it.
-
 ## Queue
 
 Ordered by dependency, not by phase number. Work strictly top to bottom, one per
@@ -20,19 +17,25 @@ cycle. Remove a row when its task closes.
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
 | 1 | `P0-08` | Verify the Supervisor App builder's build context | 00 | claude-sonnet-5 | `needs-verify` |
+| 2 | `P0-09` | Verify multi-entity history & statistics cost | 00 | claude-opus-5 | 🧠 `needs-verify` |
+| 3 | `P1-01` | WebSocket connection manager | 01 | claude-opus-5 | 🧠 |
+| 4 | `P1-02` | WebSocket command allow-list | 01 | claude-opus-5 | 🧠 |
+| 5 | `P1-07` | Deny privileged escape hatches by name | 01 | claude-sonnet-5 | `blocked:P1-02` |
+| 6 | `P1-03` | REST reader with route/method allow-list | 01 | claude-opus-5 | 🧠 |
 
-**Order rationale:** `P0-07` is done — F-5 is closed and the Phase 01 allow-list
-now has its history and statistics entries from observation. `P0-08` is the last
-Phase 00 unknown and gates deployment rather than design. **The queue is down to
-one row while six `queue-next` findings are open: run `devflow plan` next.**
-Phase 01 is now fully plannable — its allow-list has the verified command set
-and a required deny-list entry from **F-13** — and F-14 (multi-entity query
-cost) needs a verify task before Phase 02's budget limits can be more than
-guesses.
+**Order rationale:** the two remaining Phase 00 unknowns come first because both
+are inputs to work below them — `P0-08` gates deployment, `P0-09` gates `P2-01`,
+whose budget limits CLAUDE.md forbids guessing. Phase 01 then builds bottom-up:
+the connection manager before the allow-list that guards it, the allow-list
+before `P1-07`'s deny set (which is meaningless without a table to sit in front
+of), and the REST reader after both because it reuses their denial contract.
+Phase 02 is deliberately not queued: `P2-01` waits on `P0-09`, and `P2-02` /
+`P2-03` need `P1-05`'s domain model to classify and redact.
 
-**One decision is waiting** (phase 00, *Decisions*): the App's Supervisor
-permission level — keep `hassio_api: false` and drop `list_apps`, or grant it at
-the default role. Nothing is blocked on it today; Phase 03's tool catalog is.
+**Two decisions are waiting**, neither blocking today's queue: the App's
+Supervisor permission level (phase 00 — gates Phase 03's tool catalog) and the
+MCP transport and client authentication (phase 01 — gates whether Phase 03 needs
+an auth subsystem at all).
 
 `cmd/spike` is the probe vehicle these tasks reuse: `HA_URL` + `HA_TOKEN`, it
 reports field names and types only. The owner runs it and pastes the report; no
@@ -49,8 +52,8 @@ done
 
 | phase | theme | done / total |
 |------:|-------|:------------:|
-| 00 | Spike & Foundations | 8 / 11 |
-| 01 | HA Access & Read-Only Gateway | 0 / 7 |
+| 00 | Spike & Foundations | 8 / 12 |
+| 01 | HA Access & Read-Only Gateway | 1 / 9 |
 | 02 | Policy, Privacy, Budget & Audit | 0 / 7 |
 | 03 | MCP Server & Inventory Tools | 0 / 8 |
 | 04 | History, Statistics & Detection | 0 / 5 |
@@ -58,12 +61,15 @@ done
 | 06 | Proposal Mode — gated | 0 / 1 |
 | 07 | Controlled Change (Admin) — gated | 0 / 1 |
 
+Counts include each phase's `needs-decision` entries, which are boxes too — the
+Phase 01 tick is its deny-list decision, not a task.
+
 Phases 00–04 are milestone M1 (v1 observer). Phase 05 is M2. Phases 06–07 are
 gated: they open only on an explicit owner decision plus a fresh security review.
 Phases 05–07 carry no task boxes yet — theirs are written by `devflow plan` when
 the phase before them closes.
 
-Last refreshed: 2026-08-23 (`P0-07` closed)
+Last refreshed: 2026-08-23 (`devflow plan`)
 
 ## Open findings
 
@@ -80,17 +86,12 @@ Last refreshed: 2026-08-23 (`P0-07` closed)
 > An open `unknown` outranks the queue: it is an assumption the plan already
 > rests on. Run `devflow verify` before building further on it.
 
-Open `queue-next`: F-8 → `P0-08` · F-10 and F-12 → `P2-02` / `P2-03` DoDs ·
-F-11 → `P3-07` DoD plus a Phase 05 degraded-workflow bullet · **F-13** (Core's
-`supervisor/api` WebSocket command is a write path and a free-form escape hatch
-reachable by any admin, which this App is — Phase 01's gateway must deny it by
-name) and **F-14** (multi-entity history/statistics cost unmeasured, so Phase 02
-budget limits stay guesses) are both **unplanned**. F-6 deliberately stays
-`defer`: Phase 05 owns it and has no boxes yet. F-1 – F-5, F-7, F-9 and F-15 are
-**resolved** — `P0-07` closed F-5 and, in the probe it built, F-15.
-
-F-5 is closed, so Phase 01's allow-list can now be derived from observation
-rather than guessed.
+All six open `queue-next` findings are **planned** at the 2026-08-23 `plan` and
+close with their tasks: F-8 → `P0-08` · F-14 → `P0-09` · F-13 → `P1-07` · F-10
+and F-12 → `P2-02` / `P2-03` DoDs · F-11 → `P3-07` DoD plus a Phase 05
+degraded-workflow bullet. F-6 stays `defer` by decision — Phase 05 owns it and
+has no boxes, so verifying it now would produce evidence nothing can consume.
+Open `unknown`s: F-6, F-8, F-14; the latter two are the queue's next two rows.
 
 ## Recent
 

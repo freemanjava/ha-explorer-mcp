@@ -141,6 +141,23 @@ docs/research/       # dated evidence produced by the verify tasks
   required (relocated Dockerfile, vendored build, or a prebuilt image reference)
   and that change is planned as its own task, never applied inside this one.
 
+- [ ] **`P0-09` — Verify multi-entity history & statistics cost** 🧠 `needs-verify`
+  — resolves **F-14**. `P0-07` measured every query against exactly one entity,
+  so the cost of the queries a fleet-wide detector actually issues is unknown:
+  whether `history/history_during_period` and
+  `recorder/statistics_during_period` scale linearly in the number of entity
+  ids, and whether one batched call beats N single-entity ones. Extend
+  `cmd/spike` with an entity-id list; the owner runs it, as before.
+  **DoD:** `docs/research/<date>-ha-multi-entity-query-cost.md` reports, against
+  the same live HA and recorder, wall-clock latency and response bytes for both
+  commands at **1, 10, 50 and 200 entity ids** over a 24h and a 7d window, each
+  compared against the sum of the equivalent single-entity calls; it states
+  whether batching wins, and at which entity count a single call crosses one
+  second and the doc §10 byte cap. From those numbers it names concrete starting
+  values for `MaxEntities`, `MaxHistoryPoints` and `MaxBytes` per budget class,
+  attributed to the measurement — so `P2-01` cites evidence rather than doc §10's
+  admitted guesses (§26). No id from the installation appears in the report.
+
 ## Decisions
 
 - [ ] **`needs-decision` — Supported Home Assistant version policy**
@@ -202,7 +219,7 @@ docs/research/       # dated evidence produced by the verify tasks
   least one WebSocket read command and one REST GET, with the token never logged.
 - The App image builds for `aarch64` and its manifest is asserted by test to
   carry no `/config` map, no Docker socket, no host network and no `full_access`.
-- Every `unknown` finding this phase owns — F-1 … F-5 and F-8 — is closed by a
+- Every `unknown` finding this phase owns — F-1 … F-5, F-8 and F-14 — is closed by a
   dated file in `docs/research/`, and each Phase 01 tool is marked implementable,
   re-scoped or unsupported on that evidence.
 - The `needs-decision` entry above is answered and recorded here.

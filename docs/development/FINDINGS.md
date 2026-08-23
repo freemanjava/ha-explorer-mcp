@@ -379,8 +379,12 @@ comment both read as though it were.
 
 **Triage:** `queue-next`
 
-**Outcome:** Open. Becomes a Phase 01 allow-list/deny-list task and its test at
-the next `devflow plan`; the §15.2 wording correction rides along with it.
+**Outcome:** Planned 2026-08-23 into **`P1-07`** (`phases/01-ha-access-gateway.md`),
+which adds a named deny set in front of the gateway's allow-list — `supervisor/api`
+first — asserted denied independently of both the allow-list and the App
+manifest, and corrects the §15.2 and `addon/config.yaml` wording in the same
+change. The design record for why a deny-list exists at all beside a fail-closed
+allow-list is in that phase's *Decisions*. Closes when `P1-07` closes.
 
 ### F-14 · Multi-entity history and statistics cost is unmeasured · 2026-08-23
 
@@ -402,8 +406,11 @@ by 1–3 orders of magnitude per entity — so this blocks tuning, not design.
 
 **Triage:** `queue-next`
 
-**Outcome:** Open. Becomes a verify task at the next `devflow plan`; the same
-`cmd/spike` vehicle extends to it with an entity-id list.
+**Outcome:** Planned 2026-08-23 into **`P0-09`** — a `needs-verify` task that
+measures both commands at 1, 10, 50 and 200 entity ids over 24h and 7d against
+the real recorder and names starting budget values from those numbers. `P2-01`
+is flagged `blocked:P0-09` meanwhile, so the budget limits cannot be written
+before the measurement exists. Closes when `P0-09` closes.
 
 ### F-15 · F-9's leak recurred: entity-id-keyed maps were not covered · 2026-08-23
 

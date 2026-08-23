@@ -37,6 +37,11 @@ internal/audit/    # logger.go
 - **Deny by class, not by field name spelling.** `SECRET` covers tokens,
   passwords, API keys and credentials in any attribute; matching only the exact
   key `token` misses `access_token`, `api_key` and `Authorization`.
+- **Limits are measured, not chosen.** Doc §10's numbers are starting defaults
+  and say so (§26). `P0-09` measures multi-entity history and statistics cost
+  against the real recorder; `MaxEntities`, `MaxHistoryPoints` and `MaxBytes`
+  come from that report, and a limit nobody measured is a guess wearing a
+  constant's name.
 - **The budget is charged, not checked once.** Every upstream request, every
   history point and every appended byte decrements it. A check at tool entry
   cannot know what the tool will do.
@@ -62,10 +67,12 @@ internal/audit/    # logger.go
 
 ## Tasks
 
-- [ ] **`P2-01` — Query budget** 🧠 — `QueryBudget{MaxHARequests, MaxHistoryPoints,
-  MaxEntities, MaxBytes, Deadline}` attached to each invocation's context, with
-  the two classes from doc §10 (normal read / composite diagnostic) as
-  configurable defaults.
+- [ ] **`P2-01` — Query budget** 🧠 `blocked:P0-09` — `QueryBudget{MaxHARequests,
+  MaxHistoryPoints, MaxEntities, MaxBytes, Deadline}` attached to each
+  invocation's context, with the two classes from doc §10 (normal read /
+  composite diagnostic) as defaults **taken from `P0-09`'s measurement**, not
+  from doc §10's admitted guesses (§26, F-14), each constant carrying the
+  measured number it came from in its comment.
   **DoD:** tests that each dimension independently trips `ErrBudgetExceeded`; the
   error names which limit was hit and what was retrieved so far; a request storm
   (repeated max-page calls) is rate-limited rather than served (threat T1,
