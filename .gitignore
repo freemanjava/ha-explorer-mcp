@@ -1,0 +1,9 @@
+/bin/
+/dist/
+*.test
+*.out
+.DS_Store
+.idea/
+.env
+.env.*
+!.env.example
