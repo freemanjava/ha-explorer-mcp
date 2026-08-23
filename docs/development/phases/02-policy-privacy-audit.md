@@ -46,6 +46,17 @@ internal/audit/    # logger.go
 - **Audit records metadata, never bodies** (threat T8): tool name, redacted
   parameters, upstream request count, duration, result bytes, status. No token,
   no full response, no raw entity history.
+- **Home Assistant filters nothing by principal** (F-10, observed in
+  `../research/2026-08-23-ha-registry-apis.md`): a non-admin connection receives
+  the byte-identical entity registry, device registry and config-entry list an
+  admin does, and `get_config` hands it the installation's latitude, longitude
+  and location name. Every privacy decision this server makes is therefore the
+  *only* one made — there is no upstream filter behind it to fall back on.
+- **Sensitivity travels with embedded payloads, not with the endpoint** (F-12).
+  An automation trace is diagnostic in shape and personal in content: its
+  `changed_variables` carry whole state objects — `friendly_name`, `icon` — and
+  a `context.user_id`. Classification follows the entities a payload embeds, at
+  whatever depth they appear.
 - `SUPERVISOR_TOKEN` is never returned and never logged, at any level, in any
   build.
 
@@ -68,7 +79,14 @@ internal/audit/    # logger.go
   precise location attributes classify as `PRIVATE`; a test asserts bulk history
   over a `PRIVATE` domain is refused under the default profile with an explicit
   policy error (Appendix B); classification is driven by a table a reviewer can
-  read, not by scattered conditionals.
+  read, not by scattered conditionals; **the installation's own coordinates**
+  (`get_config` → `latitude` / `longitude` / `location_name`) classify as
+  `PRIVATE` on that same table, asserted by a test — HA hands them to any
+  principal (F-10), and they arrive on a path unrelated to the history tools;
+  **a payload is classified by the entities it embeds**, so a trace whose
+  `changed_variables` contain a `PRIVATE` entity's state, or a `context.user_id`,
+  classifies `PRIVATE` even though `trace/get` is a diagnostic endpoint (F-12),
+  asserted with a captured trace fixture.
 
 - [ ] **`P2-03` — Redaction** 🧠 — strip `SECRET` values from anything crossing
   the response boundary, including nested attributes and error messages.
@@ -77,7 +95,10 @@ internal/audit/    # logger.go
   from the rendered MCP response in all four; key-pattern coverage for
   `token|password|secret|api_key|credential|authorization` case-insensitively;
   a redacted field is visibly marked redacted rather than silently dropped, so
-  the agent knows something was withheld.
+  the agent knows something was withheld; the walk descends into **nested state
+  objects**, not only top-level attributes — a fixture trace with secrets and a
+  `context.user_id` planted inside `trace["trigger/N"][i].changed_variables`
+  comes back redacted at that depth (F-12).
 
 - [ ] **`P2-04` — Response size cap and pagination contract** — a single place
   that enforces the byte cap and emits cursor pagination for every `list_*`

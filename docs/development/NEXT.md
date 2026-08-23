@@ -21,15 +21,18 @@ cycle. Remove a row when its task closes.
 |--:|----|------|-------|-------|-------|
 | 1 | `P0-06` | Verify Supervisor endpoints under minimal perms | 00 | claude-opus-5 | 🧠 `needs-verify` |
 | 2 | `P0-07` | Verify recorder history & statistics APIs | 00 | claude-opus-5 | 🧠 `needs-verify` |
+| 3 | `P0-08` | Verify the Supervisor App builder's build context | 00 | claude-sonnet-5 | `needs-verify` |
 
 **Order rationale:** the verifications run in the order the Phase 01 allow-list
 consumes them. Registries (`P0-04`) and automations (`P0-05`) are done; next is
 the Supervisor permission surface, then the history source choice Phase 04
-depends on. `P0-06` is now the highest-stakes of the three: `P0-05` proved every
-automation command is admin-gated, so whether `get_automation` and
-`get_automation_traces` exist at all turns on whether the App's principal is
-admin. Nothing from Phase 01 is queued yet — the rest of its allow-list still
-rests on `P0-06`–`P0-07`.
+depends on. `P0-06` is still the highest-stakes: `P0-05` proved every automation
+command is admin-gated, so whether `get_automation` and `get_automation_traces`
+exist at all turns on whether the App's principal is admin. `P0-08` is last of
+the three because it gates deployment, not design — nothing downstream is
+written against its answer, and it is the only queue row that runs on the
+default model. Nothing from Phase 01 is queued yet: its allow-list still rests
+on `P0-06`–`P0-07`.
 
 `cmd/spike` is the probe vehicle these tasks reuse: `HA_URL` + `HA_TOKEN`, it
 reports field names and types only. The owner runs it and pastes the report; no
@@ -46,7 +49,7 @@ done
 
 | phase | theme | done / total |
 |------:|-------|:------------:|
-| 00 | Spike & Foundations | 6 / 9 |
+| 00 | Spike & Foundations | 6 / 10 |
 | 01 | HA Access & Read-Only Gateway | 0 / 7 |
 | 02 | Policy, Privacy, Budget & Audit | 0 / 7 |
 | 03 | MCP Server & Inventory Tools | 0 / 8 |
@@ -60,7 +63,7 @@ gated: they open only on an explicit owner decision plus a fresh security review
 Phases 05–07 carry no task boxes yet — theirs are written by `devflow plan` when
 the phase before them closes.
 
-Last refreshed: 2026-08-23 (P0-05 closed)
+Last refreshed: 2026-08-23 (`devflow plan` — inbox drained)
 
 ## Open findings
 
@@ -68,7 +71,7 @@ Last refreshed: 2026-08-23 (P0-05 closed)
      grep -c '^\*\*Triage:\*\* `queue-next`' docs/development/FINDINGS.md  (etc.)
      This block exists so captured work cannot quietly rot: every session sees it. -->
 
-`blocks-active` 0 · `queue-next` 9 · `defer` 1 · `unknown` 5
+`blocks-active` 0 · `queue-next` 8 · `defer` 1 · `unknown` 5 (open)
 
 > Any `blocks-active` is stop-work. If `queue-next` is non-zero and the queue
 > above has fewer than 3 rows, drain it with `devflow plan` before continuing —
@@ -77,13 +80,17 @@ Last refreshed: 2026-08-23 (P0-05 closed)
 > An open `unknown` outranks the queue: it is an assumption the plan already
 > rests on. Run `devflow verify` before building further on it.
 
-F-1 is **resolved** by `P0-04` and F-3 by `P0-05`; F-2 is partly resolved, its
-residue (does the App's `SUPERVISOR_TOKEN` principal count as admin?) folded into
-F-4 / `P0-06`. F-4 and F-5 remain the architecture doc's own open questions (§22),
-assigned to `P0-06`–`P0-07`. `P0-05` added F-11 (automation tools need a defined
-degraded mode) and F-12 (traces carry embedded entity states and a user id) —
-both `queue-next`, both inputs to planning Phases 02, 03 and 05. Nothing in
-Phase 01 may be planned until F-4 and F-5 close.
+Every open `queue-next` finding now names the task it became, so none is
+unplanned: F-2 and F-4 → `P0-06` · F-5 → `P0-07` · F-8 → `P0-08` (new) ·
+F-10 and F-12 → `P2-02` / `P2-03` DoDs · F-11 → `P3-07` DoD plus a Phase 05
+degraded-workflow bullet. They stay open until those tasks close. F-1, F-3 and
+F-9 are **resolved** (F-9's fix landed inside `P0-04`; its state was corrected
+here). F-6 was re-triaged and deliberately stays `defer` — Phase 05 owns it and
+has no boxes yet.
+
+Nothing in Phase 01 may be planned until F-4 and F-5 close: its allow-list is
+the project's primary security boundary and would otherwise be written from an
+unverified list.
 
 ## Recent
 
