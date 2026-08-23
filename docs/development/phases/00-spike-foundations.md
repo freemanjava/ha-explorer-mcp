@@ -65,7 +65,7 @@ docs/research/       # dated evidence produced by the verify tasks
   version fails the build instead of shipping silently; `make release` produces
   both binaries; CI is green on a clean checkout with no golangci-lint installed.
 
-- [ ] **`P0-02` — Home Assistant App packaging skeleton** — `addon/config.yaml`,
+- [x] **`P0-02` — Home Assistant App packaging skeleton** — `addon/config.yaml`,
   `addon/build.yaml`, `Dockerfile`, `rootfs/` run script and an AppArmor profile,
   with the security posture from the architecture doc §15.2: `homeassistant_api:
   true`, `hassio_api: false`, no `docker_api`, no `host_network`, no

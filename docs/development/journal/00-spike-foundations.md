@@ -19,3 +19,14 @@ added `.github/workflows/ci.yml` running `make check` + `make release`.
 **Surprise:** the SDK exposes no public protocol-version constant, so
 `TestSDKProtocolVersion` asserts it behaviorally — connect an in-memory
 client/server pair and check the negotiated `InitializeResult.ProtocolVersion`.
+
+### 2026-08-23 · P0-02
+Added `addon/{config.yaml,build.yaml,Dockerfile,apparmor.txt,rootfs/run.sh}` with
+`TestAddonManifestSecurityPosture` (hand-rolled scanner, no YAML dependency —
+the assertions only need a handful of top-level scalars and the `map:` list).
+**Surprise:** `homeassistant/aarch64-base:3.19` doesn't exist on Docker Hub
+(latest pinned tag is `3.18`); verified the arm64 image actually builds with
+`docker buildx build --platform linux/arm64` before trusting the manifest.
+**Left open:** whether Supervisor's own App builder uses the addon folder or
+the repo root as build context — this Dockerfile needs repo root (it compiles
+from `cmd/`/`internal/`), verified manually, not through the Supervisor builder.

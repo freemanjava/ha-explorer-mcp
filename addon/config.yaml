@@ -1,0 +1,27 @@
+name: "HA Inspector MCP"
+version: "0.0.1"
+slug: "ha_inspector_mcp"
+description: "Read-only diagnostic MCP server for Home Assistant"
+url: "https://github.com/freemanjava/ha-explorer-mcp"
+arch:
+  - aarch64
+  - amd64
+
+# The Go binary handles its own signal handling; no s6/tini init needed.
+init: false
+
+# Security posture — architecture doc §15.2. Read-only diagnostics only.
+homeassistant_api: true
+hassio_api: false
+docker_api: false
+host_network: false
+full_access: false
+privileged: []
+protection: true
+apparmor: true
+
+# No /config, no Recorder DB, no host filesystem — see CLAUDE.md "Not Yet".
+map: []
+
+options: {}
+schema: {}
