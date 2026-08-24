@@ -256,9 +256,14 @@ checked against real Supervisor behavior.
 passing this repo's local check — a deploy-time failure the current DoD
 (image builds via `docker buildx` from repo root) does not catch.
 
-**Triage:** `queue-next`
+**Triage:** `resolved`
 
-**Outcome:** Assigned to `P0-08`.
+**Outcome:** Verified by `P0-08`, confirmed true: Supervisor's own builder
+(`supervisor/apps/build.py`, `home-assistant/supervisor@main`) mounts only the
+App's own folder read-only as build context — not the repo root. `addon/Dockerfile`
+does not build under a real Supervisor App build. Evidence:
+`docs/research/2026-08-24-supervisor-addon-build-context.md`. The required
+layout change is filed separately as **F-16**.
 
 ### F-9 · Probe report leaks installation ids through map-shaped object keys · 2026-08-23
 
@@ -435,3 +440,30 @@ now also matches `domain.object_id`, `TestShape_EntityIDKeyedMap_KeysWithheld`
 asserts it, and the probe additionally routes every rendered shape through a
 `redactor` seeded with the ids it requested — so a future key format that slips
 past the pattern is still caught for the ids the probe itself chose.
+
+### F-16 · `addon/Dockerfile` cannot build under Supervisor's real App builder · 2026-08-24
+
+**Kind:** `defect`
+
+**What:** Confirmed by `P0-08`
+(`docs/research/2026-08-24-supervisor-addon-build-context.md`): Supervisor's
+builder passes only the App's own folder (`addon/`) as Docker build context,
+read-only. `addon/Dockerfile:9-11` copies `go.mod`, `go.sum`, `cmd/`,
+`internal/` from the repository root, one level above that context — none of
+those paths exist inside a real Supervisor build. The build stage fails at the
+first `COPY` on any installation that builds the App locally through
+Supervisor, even though `docker buildx build -f addon/Dockerfile .` run by hand
+from the repo root (the `P0-02` DoD's check) passes.
+
+**Impact:** The App cannot currently be installed as a local build on real
+Home Assistant Supervisor — only the hand-run repo-root build works. This is a
+deploy-blocking defect, not a style issue: nothing downstream of packaging
+(all of Phase 03+) can be run on real hardware until it is fixed.
+
+**Triage:** `queue-next`
+
+**Outcome:** Open. Three candidate fixes are named, unapplied, in
+`docs/research/2026-08-24-supervisor-addon-build-context.md`: relocate the
+Dockerfile and manifest to the repo root; vendor `go.mod`/`cmd`/`internal` into
+`addon/` as a pre-build step; or publish a prebuilt image and reference it via
+`config.yaml`'s `image:` field. Pick one at the next `devflow plan`.

@@ -93,3 +93,15 @@ consecutive same-state rows, so it is a summary rather than a subset. F-9's leak
 also recurred (F-15): its `isIDKey` never covered entity ids, and history keys
 its result by one.
 **Left open:** multi-entity query cost (F-14) — every number here is one entity.
+
+### 2026-08-24 · `P0-08`
+Read Supervisor's own builder source (`supervisor/apps/build.py`,
+`home-assistant/supervisor@main`) instead of a live build — confirms F-8:
+build context is the App's own folder, read-only, never the repo root.
+`docs/research/2026-08-24-supervisor-addon-build-context.md`.
+**Surprise:** `addon/Dockerfile` fails at the very first `COPY` (`go.mod`)
+under a real Supervisor build despite passing the repo-root manual check every
+session has been running since `P0-02` — the local DoD was never testing the
+real path. Filed as **F-16**, three candidate fixes named, none applied.
+**Left open:** which of the three fixes (relocate / vendor / prebuilt image)
+to take — deferred to the next `devflow plan`.

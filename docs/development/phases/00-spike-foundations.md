@@ -127,7 +127,7 @@ docs/research/       # dated evidence produced by the verify tasks
   recorder, and a recommendation for which source the statistics tools should
   prefer with the other as documented fallback.
 
-- [ ] **`P0-08` — Verify the Supervisor App builder's build context** `needs-verify`
+- [x] **`P0-08` — Verify the Supervisor App builder's build context** `needs-verify`
   — resolves **F-8**. `addon/Dockerfile` compiles the Go binary in its build
   stage, so it needs the repository root as build context; it was only ever
   verified by hand with `docker buildx build -f addon/Dockerfile .` from the
