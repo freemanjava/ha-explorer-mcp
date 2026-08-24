@@ -1,7 +1,7 @@
 // Package ha adapts to Home Assistant Core and Supervisor: the WebSocket
-// and REST clients that reach Core through the Supervisor proxy. Only the
-// connection and auth handshake live here in phase 00 — the command
-// allow-list gateway is Phase 01.
+// and REST clients that reach Core through the Supervisor proxy. The
+// long-lived connection manager is in manager.go; the command allow-list
+// gateway that guards it is P1-02.
 package ha
 
 import (
@@ -66,7 +66,7 @@ func Connect(ctx context.Context, url string, token string, logger *slog.Logger)
 	conn.SetReadLimit(maxHandshakeFrame)
 
 	c := &Client{conn: conn, logger: logger}
-	if err := c.authenticate(ctx, token); err != nil {
+	if err := authenticate(ctx, conn, token); err != nil {
 		_ = conn.Close(websocket.StatusNormalClosure, "auth failed")
 		return nil, err
 	}
@@ -75,21 +75,25 @@ func Connect(ctx context.Context, url string, token string, logger *slog.Logger)
 	return c, nil
 }
 
-func (c *Client) authenticate(ctx context.Context, token string) error {
+// authenticate completes the documented auth_required -> auth ->
+// auth_ok|auth_invalid exchange on conn. It is shared by the spike Client and
+// by the connection manager, which re-runs it on every reconnect. token never
+// appears in any error it returns.
+func authenticate(ctx context.Context, conn *websocket.Conn, token string) error {
 	var required haMessage
-	if err := wsjson.Read(ctx, c.conn, &required); err != nil {
+	if err := wsjson.Read(ctx, conn, &required); err != nil {
 		return fmt.Errorf("%w: reading auth_required", ErrUpstreamUnavailable)
 	}
 	if required.Type != "auth_required" {
 		return fmt.Errorf("%w: expected auth_required, got %q", ErrUnexpectedMessage, required.Type)
 	}
 
-	if err := wsjson.Write(ctx, c.conn, authMessage{Type: "auth", AccessToken: token}); err != nil {
+	if err := wsjson.Write(ctx, conn, authMessage{Type: "auth", AccessToken: token}); err != nil {
 		return fmt.Errorf("%w: sending auth", ErrUpstreamUnavailable)
 	}
 
 	var result haMessage
-	if err := wsjson.Read(ctx, c.conn, &result); err != nil {
+	if err := wsjson.Read(ctx, conn, &result); err != nil {
 		return fmt.Errorf("%w: reading auth result", ErrUpstreamUnavailable)
 	}
 
