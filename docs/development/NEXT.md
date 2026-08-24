@@ -17,26 +17,33 @@ cycle. Remove a row when its task closes.
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
 | 1 | `P1-07` | Deny privileged escape hatches by name | 01 | claude-sonnet-5 | |
-| 2 | `P1-03` | REST reader with route/method allow-list | 01 | claude-opus-5 | 🧠 |
-| 3 | `P1-04` | Typed HA errors and graceful degradation | 01 | claude-sonnet-5 | |
-| 4 | `P1-05` | Normalized domain model | 01 | claude-sonnet-5 | |
+| 2 | `P0-10` | Verify private-registry App image pull | 00 | claude-sonnet-5 | `needs-verify` |
+| 3 | `P0-11` | Ship the App as a published multi-arch image | 00 | claude-sonnet-5 | `blocked:P0-10` `live-verify` |
+| 4 | `P1-03` | REST reader with route/method allow-list | 01 | claude-opus-5 | 🧠 |
+| 5 | `P1-04` | Typed HA errors and graceful degradation | 01 | claude-sonnet-5 | |
+| 6 | `P1-05` | Normalized domain model | 01 | claude-sonnet-5 | |
 
-**Order rationale:** `P1-02` closed 2026-08-24, so `P1-07` is unblocked and goes
-first: its deny set sits in front of the allow-list that now exists, and until
-it lands the project's sharpest known hazard (`supervisor/api`) is refused only
-by absence. The REST reader follows because it reuses the denial contract both
-tables establish, then `P1-04` consolidates the taxonomy the gateway and manager
-already return between them (`ErrPolicyDenied`, `ErrUpstreamUnavailable`,
-`*CommandError`, `context` errors). `P1-05` is pulled in to keep the queue at
-four rows and because Phase 02's `P2-02` / `P2-03` are blocked on its domain
-model. Phase 02 stays otherwise unqueued, planned as a block once Phase 01's
-readers exist. `P0-08` left **F-16** (`addon/Dockerfile` cannot build under a
-real Supervisor App build) unqueued pending `devflow plan`.
+**Order rationale:** `P1-07` stays first and unchanged: its deny set sits in
+front of the allow-list `P1-02` landed, and until it does the project's sharpest
+known hazard (`supervisor/api`) is refused only by absence. `P0-10` / `P0-11`
+are inserted next because the 2026-08-24 `plan` drained **F-16** — the App
+cannot be installed on real hardware at all, and every task after this one adds
+code to a package that has no working deploy path. Both are small and depend on
+nothing in Phase 01, so they cost one short detour rather than a reordering;
+`P0-10` precedes `P0-11` because the private-registry half of the distribution
+decision rests on an unverified fact (**F-19**). Phase 01 then resumes in its
+previous order: `P1-03` reuses the denial contract both allow-list tables
+establish, `P1-04` consolidates the error taxonomy the gateway and manager
+already return between them, and `P1-05` is pulled forward because Phase 02's
+`P2-02` / `P2-03` are blocked on its domain model. Phase 02 stays otherwise
+unqueued, planned as a block once Phase 01's readers exist.
 
 **Two decisions are waiting**, neither blocking today's queue: the App's
 Supervisor permission level (phase 00 — gates Phase 03's tool catalog) and the
 MCP transport and client authentication (phase 01 — gates whether Phase 03 needs
-an auth subsystem at all).
+an auth subsystem at all). A third was **answered 2026-08-24**: the App ships as
+a prebuilt multi-arch image pulled from a private GHCR package, never built by
+Supervisor — recorded as **App distribution** in `phases/00-spike-foundations.md`.
 
 `cmd/spike` is the probe vehicle these tasks reuse: `HA_URL` + `HA_TOKEN`, it
 reports field names and types only. The owner runs it and pastes the report; no
@@ -53,7 +60,7 @@ done
 
 | phase | theme | done / total |
 |------:|-------|:------------:|
-| 00 | Spike & Foundations | 10 / 12 |
+| 00 | Spike & Foundations | 11 / 15 |
 | 01 | HA Access & Read-Only Gateway | 3 / 9 |
 | 02 | Policy, Privacy, Budget & Audit | 0 / 7 |
 | 03 | MCP Server & Inventory Tools | 0 / 8 |
@@ -70,7 +77,7 @@ gated: they open only on an explicit owner decision plus a fresh security review
 Phases 05–07 carry no task boxes yet — theirs are written by `devflow plan` when
 the phase before them closes.
 
-Last refreshed: 2026-08-24 (`devflow next` · `P1-02`)
+Last refreshed: 2026-08-24 (`devflow plan`)
 
 ## Open findings
 
@@ -78,7 +85,7 @@ Last refreshed: 2026-08-24 (`devflow next` · `P1-02`)
      grep -c '^\*\*Triage:\*\* `queue-next`' docs/development/FINDINGS.md  (etc.)
      This block exists so captured work cannot quietly rot: every session sees it. -->
 
-`blocks-active` 0 · `queue-next` 6 · `defer` 2 · `unknown` 2 (open)
+`blocks-active` 0 · `queue-next` 7 · `defer` 2 · `unknown` 3 (open)
 
 > Any `blocks-active` is stop-work. If `queue-next` is non-zero and the queue
 > above has fewer than 3 rows, drain it with `devflow plan` before continuing —
@@ -87,16 +94,15 @@ Last refreshed: 2026-08-24 (`devflow next` · `P1-02`)
 > An open `unknown` outranks the queue: it is an assumption the plan already
 > rests on. Run `devflow verify` before building further on it.
 
-`P1-02` filed **F-18** (the gateway check's single-chokepoint property is
-asserted in a comment, not enforced — no defect today, `queue-next`, now pinned
-into `P1-07`'s scope and DoD) and closed none; F-13 is one task from resolution (`P1-07`, now
-active). F-14 resolved 2026-08-24 by `P0-09` and spawned **F-17**
-(a batched statistics answer is ~30% larger than the same ids fetched singly —
-unexplained, `defer`, conservative in the direction that matters). Remaining
-open `queue-next`: F-13 and F-18 → `P1-07` · F-10 and F-12 → `P2-02` / `P2-03`
-DoDs · F-11 → `P3-07` DoD plus a Phase 05 degraded-workflow bullet · F-16 →
-unqueued, needs a `devflow plan` to pick one of its three named fixes. Open `unknown`s,
-both `defer`: F-6 (Phase 05 owns it, no boxes yet) and F-17.
+The 2026-08-24 `plan` drained the inbox: **F-16** (the App cannot build under a
+real Supervisor) became `P0-11` and spawned **F-19** (can Supervisor pull a
+private-registry image at all?), which became `P0-10`. The two `defer`s were
+re-triaged and left deferred with the reason recorded on each: F-6 (Phase 05
+owns it, no boxes yet) and F-17 (`P2-01` is unwritten, and the error is
+conservative). Everything else `queue-next` is already pinned into a DoD:
+F-13 and F-18 → `P1-07` (active) · F-10 and F-12 → `P2-02` / `P2-03` ·
+F-11 → `P3-07` plus a Phase 05 degraded-workflow bullet. Nothing is unqueued.
+Open `unknown`s: F-19 (queued as `P0-10`), F-6 and F-17 (both `defer`).
 
 ## Recent
 

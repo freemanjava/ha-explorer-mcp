@@ -158,6 +158,51 @@ docs/research/       # dated evidence produced by the verify tasks
   attributed to the measurement — so `P2-01` cites evidence rather than doc §10's
   admitted guesses (§26). No id from the installation appears in the report.
 
+- [ ] **`P0-10` — Verify Supervisor can pull an App image from a private registry**
+  `needs-verify` — resolves **F-19**. The App-distribution decision below chose a
+  **private** GHCR package, which is only implementable if Supervisor can
+  authenticate to a private registry when pulling an App's `image:`. Nobody has
+  established that it can, or how the credentials are supplied on Home Assistant
+  OS. World-discoverable: read Supervisor's own source (`supervisor/docker/`,
+  `supervisor/store/`, the registry/credential handling around
+  `DockerAPI.pull_image` and `ATTR_REGISTRIES`) at a pinned tag, exactly as
+  `P0-08` read `apps/build.py`, and confirm against the published Supervisor
+  documentation.
+  **DoD:** `docs/research/<date>-supervisor-private-registry-pull.md` states,
+  citing the exact Supervisor source paths and version read: whether Supervisor
+  supports pulling an App image from an authenticated registry at all; if it
+  does, **where the credential lives** (the store's registries file, its shape,
+  and the UI path an owner uses to enter it), whether it survives a Supervisor
+  restart and an OS update, and what the failure looks like when the credential
+  is absent or expired — specifically whether the App shows a clear auth error
+  or an indistinguishable "image not found". If it does **not** support it, the
+  file says so plainly, because that overturns the private half of the decision
+  below and sends it back to the owner. No credential, token or hostname from
+  the owner's installation appears in the report.
+
+- [ ] **`P0-11` — Ship the App as a published multi-arch image, not a local build**
+  `blocked:P0-10` `live-verify` — resolves **F-16**. Implements the
+  App-distribution decision below. Delete `addon/Dockerfile` and
+  `addon/build.yaml`; add `image:` to `addon/config.yaml` with the `{arch}`
+  placeholder so Supervisor substitutes `aarch64`/`amd64`; add a release
+  workflow that cross-builds both architectures and pushes them to GHCR under a
+  tag equal to `config.yaml`'s `version:`. Document the install path — including
+  the registry credential step `P0-10` establishes — in `docs/`, since a private
+  package cannot be installed by pasting a repository URL alone.
+  **DoD:** `TestAddonManifestSecurityPosture` still passes unchanged — the
+  security posture is not what this task touches; a new test
+  (`TestAddonManifestImageIsPinnedToVersion`) parses `addon/config.yaml` and
+  asserts that `image:` is present, contains the `{arch}` placeholder, and that
+  the tag the release workflow pushes is derived from the same `version:` field
+  rather than written twice — so a version bump that forgets the image tag fails
+  the build instead of leaving Supervisor pulling a stale binary; a further test
+  asserts `addon/Dockerfile` and `addon/build.yaml` no longer exist, so the dead
+  build path cannot quietly return. `make check` green. **Live:** the owner
+  installs the App on the real Raspberry Pi from the published private image and
+  reports that it pulls and starts; the task does not close on green tests alone,
+  because the whole point of the change is a deploy path that only real
+  Supervisor exercises.
+
 ## Decisions
 
 - [ ] **`needs-decision` — Supported Home Assistant version policy**
@@ -197,6 +242,45 @@ docs/research/       # dated evidence produced by the verify tasks
   *prevent* Supervisor access — see **F-13**. The choice is about declared
   intent and the blast radius of a future bug, not about a wall.
 
+- [x] **App distribution — published image, not a local Supervisor build** — decided 2026-08-24
+
+  **Decision:** The App ships as a **prebuilt multi-arch image pulled from a
+  private GHCR package**, referenced from `addon/config.yaml`'s `image:` field.
+  Supervisor never builds it. `addon/Dockerfile` and `addon/build.yaml` are
+  deleted, so no local-build path remains. Running the same binary outside the
+  App — `make run` against a networked HA with an owner-supplied long-lived
+  token — is unaffected and stays supported for development, per doc §15.
+
+  **Why:** `P0-08` established that Supervisor's builder mounts only `addon/`
+  read-only as build context, so the Dockerfile's `COPY go.mod`/`cmd/`/`internal/`
+  cannot resolve (F-16) — the App is currently uninstallable on real hardware.
+  Of the three fixes that task named, publishing an image is the only one that
+  does not either contradict `CLAUDE.md`'s module layout or introduce a
+  generated source tree inside `addon/` that must be committed for a local
+  install to work. It also keeps Go compilation off the Raspberry Pi entirely,
+  which is the machine `CLAUDE.md`'s performance section says is the hot
+  constraint.
+
+  **Rejected:** *Relocate packaging to the repository root* — cheapest build fix
+  and needs no infrastructure, but it makes the repo root the App folder,
+  scatters manifest files there against the documented layout, and leaves every
+  install compiling Go beside a running Home Assistant. *Vendor the Go source
+  into `addon/`* — keeps the layout only on paper: Supervisor mounts the folder
+  read-only and never runs a Makefile, so the vendored tree would have to be
+  committed (duplicating the whole source in git) or produced by CI into a
+  separate published repository.
+
+  **Consequences:** A publish pipeline and version-tag discipline become part of
+  the release: `config.yaml`'s `version:` and the pushed image tag are one fact
+  and must not be written twice — `P0-11`'s DoD asserts that. The package being
+  private means an installer must supply registry credentials to Supervisor
+  before the pull succeeds; **whether Supervisor supports that at all is not yet
+  established** (F-19), which is why `P0-10` verifies it before `P0-11` builds on
+  it. If that verification comes back negative, the private half of this decision
+  is void and returns to the owner — the published-image half stands either way.
+  Phase 00's Definition of Done clause "the image builds for `aarch64`" is
+  superseded by this decision and is restated below.
+
 - [x] **Module path / repository home** — decided 2026-08-23
 
   **Decision:** The repository is `https://github.com/freemanjava/ha-explorer-mcp.git`,
@@ -217,9 +301,12 @@ docs/research/       # dated evidence produced by the verify tasks
 
 - A Go binary authenticates to Core through the Supervisor proxy and performs at
   least one WebSocket read command and one REST GET, with the token never logged.
-- The App image builds for `aarch64` and its manifest is asserted by test to
-  carry no `/config` map, no Docker socket, no host network and no `full_access`.
-- Every `unknown` finding this phase owns — F-1 … F-5, F-8 and F-14 — is closed by a
+- The App is installable on real Home Assistant OS from a published multi-arch
+  image (`P0-11`) — superseding this phase's original "the image builds for
+  `aarch64`", which the App-distribution decision made moot: nothing builds it
+  locally any more. Its manifest is asserted by test to carry no `/config` map,
+  no Docker socket, no host network and no `full_access`.
+- Every `unknown` finding this phase owns — F-1 … F-5, F-8, F-14 and F-19 — is closed by a
   dated file in `docs/research/`, and each Phase 01 tool is marked implementable,
   re-scoped or unsupported on that evidence.
 - The `needs-decision` entry above is answered and recorded here.

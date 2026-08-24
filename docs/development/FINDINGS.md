@@ -206,7 +206,9 @@ difference, but one that costs nothing to defer until Phase 04 closes.
 
 **Triage:** `defer`
 
-**Outcome:** Re-triaged at the 2026-08-23 `plan` and **left deferred**. It is
+**Outcome:** Re-triaged again at the 2026-08-24 `plan` and **left deferred** on
+the same grounds, which have not changed: Phase 04 has not closed and Phase 05
+still has no boxes. Originally re-triaged at the 2026-08-23 `plan`. It is
 owned by Phase 05's `needs-decision — Zigbee/mesh metric normalization` entry,
 Phase 05 has no boxes yet, and verifying it needs a running Zigbee installation
 plus the statistics layer Phase 04 has not built. Verifying now would produce
@@ -467,11 +469,14 @@ deploy-blocking defect, not a style issue: nothing downstream of packaging
 
 **Triage:** `queue-next`
 
-**Outcome:** Open. Three candidate fixes are named, unapplied, in
-`docs/research/2026-08-24-supervisor-addon-build-context.md`: relocate the
-Dockerfile and manifest to the repo root; vendor `go.mod`/`cmd`/`internal` into
-`addon/` as a pre-build step; or publish a prebuilt image and reference it via
-`config.yaml`'s `image:` field. Pick one at the next `devflow plan`.
+**Outcome:** Planned 2026-08-24 into **`P0-11`**. Of the three candidate fixes
+named in `docs/research/2026-08-24-supervisor-addon-build-context.md`, the owner
+chose the third — publish a prebuilt multi-arch image and reference it via
+`config.yaml`'s `image:`, deleting the local-build path entirely; rationale and
+rejected alternatives are recorded as the **App distribution** decision in
+`phases/00-spike-foundations.md`. The private-registry half of that choice
+spawned **F-19**, verified first by `P0-10`. This finding closes when `P0-11`
+closes, which its `live-verify` flag ties to a real install on the owner's Pi.
 
 ### F-17 · A batched statistics answer is ~30% larger than the same ids fetched singly · 2026-08-24
 
@@ -494,7 +499,9 @@ estimate uses the larger batched figure, so the error is conservative.
 
 **Triage:** `defer`
 
-**Outcome:** Open, deferred. It becomes worth resolving only if `P2-01`'s
+**Outcome:** Open, re-triaged at the 2026-08-24 `plan` and **left deferred**:
+`P2-01` is not yet written, so nothing consumes the answer, and the error runs
+in the conservative direction. It becomes worth resolving only if `P2-01`'s
 statistics estimate turns out to bind in practice. Cheapest probe: request one
 id alone and inside a batch and compare the rendered *field sets* per point via
 `cmd/spike/shape.go` — no values from the installation need be printed.
@@ -527,3 +534,31 @@ where a frame becomes sendable rather than where a call begins — e.g. have
 so no code path can produce a frame that was never checked, with `Call` keeping
 its early check so denial stays independent of connectivity. Add a test that
 asserts the property directly rather than through `Call`.
+
+---
+
+### F-19 · Supervisor's ability to pull an App image from a private registry is unverified · 2026-08-24
+
+**Kind:** `unknown`
+
+**What:** The 2026-08-24 App-distribution decision
+(`phases/00-spike-foundations.md`) chose a **private** GHCR package referenced
+from `addon/config.yaml`'s `image:`. That rests on an assumption nobody has
+checked: that Supervisor can authenticate to a private registry when pulling an
+App image, and that an owner has a supported way to supply the credential on
+Home Assistant OS. Supervisor appears to carry a registries concept, but it was
+inferred from memory during planning, not read from source — the same mistake
+`P0-08` caught in `addon/Dockerfile`.
+
+**Impact:** Unknown pending verification, and premise-overturning if negative.
+If Supervisor cannot pull from an authenticated registry, the private half of
+the decision is unimplementable and returns to the owner as a public-vs-private
+choice; the published-image half stands either way. If it can, the credential's
+shape and its behavior across restarts decide what `P0-11` must document as the
+install procedure — a private App that installs with an indistinguishable
+"image not found" is a support burden, not a deploy path.
+
+**Triage:** `queue-next`
+
+**Outcome:** Planned 2026-08-24 into **`P0-10`**, queued ahead of `P0-11`, which
+is `blocked:P0-10` for exactly this reason.
