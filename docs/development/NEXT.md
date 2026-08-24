@@ -3,8 +3,8 @@
 <!-- BOUNDED FILE — rewritten in place, never appended to. Keep under ~100 lines.
      Anything that grows goes to journal/. This file is read by every session. -->
 
-**▶ Active:** `P0-10` — Verify private-registry App image pull
-· [`phases/00-spike-foundations.md`](phases/00-spike-foundations.md) · model: **claude-sonnet-5** · flags: `needs-verify`
+**▶ Active:** `P0-11` — Ship the App as a published multi-arch image
+· [`phases/00-spike-foundations.md`](phases/00-spike-foundations.md) · model: **claude-sonnet-5** · flags: `live-verify`
 
 > Advancing this pointer is part of finishing a task, together with ticking the
 > box, recomputing status and appending a journal entry. All four, or none.
@@ -16,11 +16,10 @@ cycle. Remove a row when its task closes.
 
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
-| 1 | `P0-10` | Verify private-registry App image pull | 00 | claude-sonnet-5 | `needs-verify` |
-| 2 | `P0-11` | Ship the App as a published multi-arch image | 00 | claude-sonnet-5 | `blocked:P0-10` `live-verify` |
-| 3 | `P1-03` | REST reader with route/method allow-list | 01 | claude-opus-5 | 🧠 |
-| 4 | `P1-04` | Typed HA errors and graceful degradation | 01 | claude-sonnet-5 | |
-| 5 | `P1-05` | Normalized domain model | 01 | claude-sonnet-5 | |
+| 1 | `P0-11` | Ship the App as a published multi-arch image | 00 | claude-sonnet-5 | `live-verify` |
+| 2 | `P1-03` | REST reader with route/method allow-list | 01 | claude-opus-5 | 🧠 |
+| 3 | `P1-04` | Typed HA errors and graceful degradation | 01 | claude-sonnet-5 | |
+| 4 | `P1-05` | Normalized domain model | 01 | claude-sonnet-5 | |
 
 **Order rationale:** `P1-07` closed 2026-08-24 — `supervisor/api` and the rest
 of the deny set are now refused by name, in front of the allow-list, at the
@@ -60,7 +59,7 @@ done
 
 | phase | theme | done / total |
 |------:|-------|:------------:|
-| 00 | Spike & Foundations | 11 / 15 |
+| 00 | Spike & Foundations | 12 / 15 |
 | 01 | HA Access & Read-Only Gateway | 4 / 9 |
 | 02 | Policy, Privacy, Budget & Audit | 0 / 7 |
 | 03 | MCP Server & Inventory Tools | 0 / 8 |
@@ -77,7 +76,7 @@ gated: they open only on an explicit owner decision plus a fresh security review
 Phases 05–07 carry no task boxes yet — theirs are written by `devflow plan` when
 the phase before them closes.
 
-Last refreshed: 2026-08-24 (`devflow next` — `P1-07`)
+Last refreshed: 2026-08-24 (`devflow verify` — `P0-10`)
 
 ## Open findings
 
@@ -85,7 +84,7 @@ Last refreshed: 2026-08-24 (`devflow next` — `P1-07`)
      grep -c '^\*\*Triage:\*\* `queue-next`' docs/development/FINDINGS.md  (etc.)
      This block exists so captured work cannot quietly rot: every session sees it. -->
 
-`blocks-active` 0 · `queue-next` 7 · `defer` 2 · `unknown` 3 (open)
+`blocks-active` 0 · `queue-next` 7 · `defer` 2 · `unknown` 2 (open)
 
 > Any `blocks-active` is stop-work. If `queue-next` is non-zero and the queue
 > above has fewer than 3 rows, drain it with `devflow plan` before continuing —
@@ -102,17 +101,20 @@ owns it, no boxes yet) and F-17 (`P2-01` is unwritten, and the error is
 conservative). Everything else `queue-next` is already pinned into a DoD:
 F-13 and F-18 → `P1-07` (closed 2026-08-24) · F-10 and F-12 → `P2-02` / `P2-03` ·
 F-11 → `P3-07` plus a Phase 05 degraded-workflow bullet. Nothing is unqueued.
-Open `unknown`s: F-19 (queued as `P0-10`), F-6 and F-17 (both `defer`).
+Open `unknown`s: F-6 and F-17 (both `defer`). F-19 answered 2026-08-24 by
+`P0-10` — Supervisor does support private-registry App pulls; see
+`docs/research/2026-08-24-supervisor-private-registry-pull.md`. `P0-11` is now
+unblocked.
 
 ## Recent
 
 Last 5 closed tasks, one line each. Older entries live in `journal/`.
 
+- 2026-08-24 · `P0-10` — read `home-assistant/supervisor@main`'s `docker/manager.py`, `docker/interface.py`, `const.py`, `validate.py`, `api/docker.py` plus the frontend's `panels/config/apps/`: Supervisor does support pulling an App image from a private registry, credentials keyed by hostname in `/data/docker.json`, entered at Settings → Add-ons → Registries — confirms the private half of the App-distribution decision and unblocks `P0-11`; a *missing* credential (vs. a wrong one) degrades to a generic, untyped pull error worth a troubleshooting-doc line; `docs/research/2026-08-24-supervisor-private-registry-pull.md`. F-19 answered.
 - 2026-08-24 · `P1-07` — named deny set landed in `internal/ha/gateway.go`: `supervisor/api` (F-13) refused before the allow-list, identically whether the allow-list is empty or populated. The chokepoint moved from `Manager.Call` (an unenforced comment, F-18) to `session.write` itself — the last function before `conn.Write` — so a denial no longer depends on `Call` being the only send site; a test constructs a `session` directly, bypassing `Call` entirely, and proves a denied frame still never reaches the socket. Architecture doc §15.2 and `addon/config.yaml` corrected: `hassio_api: false` bounds blast radius but is not the enforcement point. `make check` green.
 - 2026-08-24 · `P1-02` — WebSocket command allow-list landed in `internal/ha/gateway.go`: 21 exact-match command names, every one observed answering live HA 2026.8.3 in P0-04/P0-05/P0-07, enforced at the top of `Manager.Call` ahead of session acquisition and frame encoding, so a denial never depends on HA being reachable and no denied command is ever encoded into a frame. New `ErrPolicyDenied` sentinel; the denial tests assert on the fake server's wire rather than the return value, and a guard test rejects any allow-list entry containing a mutation verb; `make check` green.
 - 2026-08-24 · `P1-01` — WebSocket connection manager landed in `internal/ha/manager.go`: one long-lived authenticated connection, monotonic id correlation for concurrent out-of-order replies, a per-call deadline with a 30s backstop, bounded backoff-with-jitter reconnect behind a `Reconnects()` counter, and a typed `Command` interface that is the single send path P1-02's allow-list will guard. A flaky reconnect test turned out to be a real race and is fixed; `make check` green.
 - 2026-08-24 · `P0-09` — multi-entity cost measured against live HA 2026.8.3 at 1/10/50/200 ids over 24h and 7d: one batched call beats N single-entity ones at every rung (1.4×–50× on time, identical bytes for history), cost tracks recorded rows rather than entity count, and statistics stay 8× smaller and 26× faster than history at 200 ids; `MaxBytes` 512 KB/1 MB, `MaxHistoryPoints` 13k/26k, `MaxEntities` 200 named for `P2-01`; `docs/research/2026-08-24-ha-multi-entity-query-cost.md`.
-- 2026-08-24 · `P0-08` — Supervisor App builder's build context verified from `home-assistant/supervisor@main` source (`supervisor/apps/build.py`): the builder mounts only the App's own folder read-only as context, never the repo root, so `addon/Dockerfile`'s `COPY go.mod`/`cmd/`/`internal/` cannot resolve under a real Supervisor build; fix filed as F-16, unapplied; `docs/research/2026-08-24-supervisor-addon-build-context.md`.
 
 ## Project facts
 

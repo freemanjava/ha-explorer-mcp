@@ -158,7 +158,7 @@ docs/research/       # dated evidence produced by the verify tasks
   attributed to the measurement — so `P2-01` cites evidence rather than doc §10's
   admitted guesses (§26). No id from the installation appears in the report.
 
-- [ ] **`P0-10` — Verify Supervisor can pull an App image from a private registry**
+- [x] **`P0-10` — Verify Supervisor can pull an App image from a private registry**
   `needs-verify` — resolves **F-19**. The App-distribution decision below chose a
   **private** GHCR package, which is only implementable if Supervisor can
   authenticate to a private registry when pulling an App's `image:`. Nobody has
@@ -181,7 +181,9 @@ docs/research/       # dated evidence produced by the verify tasks
   the owner's installation appears in the report.
 
 - [ ] **`P0-11` — Ship the App as a published multi-arch image, not a local build**
-  `blocked:P0-10` `live-verify` — resolves **F-16**. Implements the
+  `live-verify` — resolves **F-16**. Unblocked 2026-08-24: `P0-10` confirmed
+  Supervisor can pull from a private registry (see its DoD/research doc).
+  Implements the
   App-distribution decision below. Delete `addon/Dockerfile` and
   `addon/build.yaml`; add `image:` to `addon/config.yaml` with the `{arch}`
   placeholder so Supervisor substitutes `aarch64`/`amd64`; add a release

@@ -564,4 +564,14 @@ install procedure — a private App that installs with an indistinguishable
 **Triage:** `queue-next`
 
 **Outcome:** Planned 2026-08-24 into **`P0-10`**, queued ahead of `P0-11`, which
-is `blocked:P0-10` for exactly this reason.
+is `blocked:P0-10` for exactly this reason. **Answered** by `P0-10`
+([`docs/research/2026-08-24-supervisor-private-registry-pull.md`](../research/2026-08-24-supervisor-private-registry-pull.md)):
+Supervisor does support pulling an App's `image:` from an authenticated
+registry, via `DockerConfig`'s `/data/docker.json` (hostname → username/password),
+managed at Settings → Add-ons → Registries (`/docker/registries` API,
+`ha-config-apps-registries.ts`), independent of the App's repository entry. The
+private half of the App-distribution decision stands; `P0-11` is unblocked.
+One caveat for `P0-11`'s install documentation: only a *present-but-wrong*
+credential surfaces as a clear, typed `DockerRegistryAuthError`; a *missing*
+one degrades to a generic `DockerError` carrying the raw registry response
+text, indistinguishable at the type level from image-not-found.

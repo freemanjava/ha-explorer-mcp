@@ -117,3 +117,18 @@ added 30% bytes, while a batched statistics answer is inexplicably ~30% *larger*
 than the same ids fetched one by one (F-17).
 **Left open:** nothing above 200 ids measured, so doc §10's composite 500-entity
 limit is not carried forward.
+
+### 2026-08-24 · P0-10
+Read `home-assistant/supervisor@main`'s `docker/manager.py`, `docker/interface.py`,
+`const.py`, `validate.py`, `api/docker.py`, plus the frontend's
+`panels/config/apps/`: Supervisor does support private-registry pulls, keyed by
+hostname in `/data/docker.json`, entered at Settings → Add-ons → Registries.
+`docs/research/2026-08-24-supervisor-private-registry-pull.md`. F-19 answered;
+`P0-11` unblocked.
+**Surprise:** the auth-error clarity is conditional — a *wrong* stored
+credential raises a typed, registry-named `DockerRegistryAuthError`, but a
+*missing* one (nothing configured yet) falls through to a generic `DockerError`
+carrying raw registry text, indistinguishable from image-not-found.
+**Left open:** did not independently confirm `docker.json` survives an OS
+update (only that it lives beside other files this project already treats as
+durable).
