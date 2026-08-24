@@ -221,7 +221,16 @@ func (m *Manager) callOn(ctx context.Context, s *session, cmd Command) (result j
 	}
 	defer s.unregister(id)
 
-	if err := s.write(ctx, frame); err != nil {
+	if err := s.write(ctx, cmd, frame); err != nil {
+		// A policy denial from write is final, not a connection problem: the
+		// Call-level check ahead of everything else already catches this in
+		// practice, so reaching it here means a future second send site is
+		// missing its own early check. Either way retrying on another
+		// connection would not help, so this is reported as done, not as a
+		// transient failure to recover from.
+		if errors.Is(err, ErrPolicyDenied) {
+			return nil, true, err
+		}
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return nil, true, ctxErr
 		}
@@ -427,7 +436,16 @@ func (s *session) hasEnded() bool {
 	return s.ended
 }
 
-func (s *session) write(ctx context.Context, frame []byte) error {
+// write is the chokepoint a frame must pass through to reach the wire (F-18):
+// the gateway check sits here, not only at the top of Call, because Call
+// being the only route to write was previously an unenforced comment — a
+// second send site added later to internal/ha would have bypassed it
+// silently. No caller of write, however it got here, can turn a denied
+// command into bytes on the socket.
+func (s *session) write(ctx context.Context, cmd Command, frame []byte) error {
+	if err := checkCommand(cmd.CommandType()); err != nil {
+		return err
+	}
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
 	return s.conn.Write(ctx, websocket.MessageText, frame)

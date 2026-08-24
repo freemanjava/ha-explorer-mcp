@@ -11,6 +11,10 @@ arch:
 init: false
 
 # Security posture — architecture doc §15.2. Read-only diagnostics only.
+# These flags declare intent and bound blast radius; they are not the
+# enforcement point. hassio_api: false does not prevent supervisor/api from
+# being reachable over homeassistant_api (F-13) — the read-only guarantee is
+# enforced by internal/ha/gateway.go's allow-list and named deny set (P1-07).
 homeassistant_api: true
 hassio_api: false
 docker_api: false

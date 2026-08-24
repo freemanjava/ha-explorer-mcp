@@ -490,6 +490,13 @@ hassio_api: false \# enable only if a required Supervisor endpoint demands it
 
 If additional Supervisor endpoints are necessary for Apps/system metrics, enable only the minimal Supervisor access/role required. The default role is designed around info calls; manager/admin should not be used for observer v1.
 
+`hassio_api: false` declares intent and bounds blast radius — it is not the
+enforcement point. The App manifest is not a wall: Core still reaches the
+Supervisor API through the `supervisor/api` WebSocket command routed over
+`homeassistant_api: true` regardless of this flag (F-13). The refusal that
+actually matters is `internal/ha/gateway.go`'s named deny set, checked ahead
+of the allow-list and enforced at the point a frame becomes sendable (P1-07).
+
 # 16. Caching, Resilience and Performance
 
 | **Data**                           | **Suggested cache strategy**                                    |

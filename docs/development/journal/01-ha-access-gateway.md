@@ -22,3 +22,8 @@ that is correct.
 `internal/ha/gateway.go` holds the exact-match allow-list — 21 commands, each observed answering live HA 2026.8.3 in P0-04/P0-05/P0-07 — enforced at the top of `Manager.Call`, before a session is acquired or a frame encoded.
 **Surprise:** the check cannot live in `callOn`: its `transmitted=false` means "retry on the next connection", so a denial there would loop forever instead of failing. Denial must precede the retry loop, which also makes it independent of whether HA is reachable.
 **Left open:** `supervisor/api` is denied today only by absence — the named deny set and its distinct reason are `P1-07`. `config_entries/get_single` is deliberately unlisted (P0-04's consequence).
+
+### 2026-08-24 · P1-07
+Named deny set (`supervisor/api`, F-13) added to `internal/ha/gateway.go`'s `checkCommand`, ahead of the allow-list. The chokepoint moved from `Manager.Call` into `session.write` — the function that actually calls `conn.Write` — so the guarantee no longer rests on "`Call` is the only caller" being true forever.
+**Surprise:** enforcing in `session.write` meant `callOn`'s `write` error handling needed a third case: a policy denial there is final (`transmitted=true`), not a connection failure to retry on — reusing the existing tri-state signal correctly required naming *why* in a comment, since "transmitted" no longer literally means bytes went out.
+**Left open:** none — `TestSession_Write_DeniedCommand_NeverReachesSocket` dials and authenticates a raw connection outside `Manager`/`Call` entirely to prove the chokepoint holds without them.
