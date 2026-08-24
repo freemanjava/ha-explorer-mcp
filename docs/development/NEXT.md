@@ -6,6 +6,15 @@
 **▶ Active:** `P0-11` — Ship the App as a published multi-arch image
 · [`phases/00-spike-foundations.md`](phases/00-spike-foundations.md) · model: **claude-sonnet-5** · flags: `live-verify`
 
+**In progress, not closed:** code lands on branch `feat/P0-11` — `addon/Dockerfile`
+and `addon/build.yaml` deleted, `addon/config.yaml` carries `image:` with the
+`{arch}` placeholder, root `Dockerfile` + `.github/workflows/release.yml` publish
+to GHCR tagged from `config.yaml`'s `version:`, `docs/INSTALL.md` documents the
+install path including the `P0-10` registry-credential step. `make check` green,
+both new tests pass. **Waiting on:** the owner installing the published image on
+real Home Assistant OS and confirming it pulls and starts — the DoD's `Live:`
+clause, which is the point of this task and cannot be satisfied from here.
+
 > Advancing this pointer is part of finishing a task, together with ticking the
 > box, recomputing status and appending a journal entry. All four, or none.
 

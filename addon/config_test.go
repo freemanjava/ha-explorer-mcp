@@ -82,8 +82,8 @@ func TestAddonManifestSecurityPosture(t *testing.T) {
 
 	required := map[string]string{
 		"homeassistant_api": "true",
-		"hassio_api":         "false",
-		"protection":         "true",
+		"hassio_api":        "false",
+		"protection":        "true",
 	}
 	for key, want := range required {
 		got, present := m.scalars[key]
@@ -99,6 +99,52 @@ func TestAddonManifestSecurityPosture(t *testing.T) {
 	for _, entry := range m.mapList {
 		if strings.HasPrefix(entry, "config") {
 			t.Errorf("map: must not contain a config entry, found %q", entry)
+		}
+	}
+}
+
+// TestAddonManifestImageIsPinnedToVersion guards the App-distribution decision
+// (phases/00-spike-foundations.md, "App distribution"): the App ships as a
+// published image, and config.yaml's version: is the single source of truth
+// for the tag Supervisor pulls — see CLAUDE.md's "API & DTO Design" on not
+// writing the same fact twice.
+func TestAddonManifestImageIsPinnedToVersion(t *testing.T) {
+	m := parseManifest(t, "config.yaml")
+
+	image, ok := m.scalars["image"]
+	if !ok || image == "" {
+		t.Fatal("config.yaml must set image:")
+	}
+	if !strings.Contains(image, "{arch}") {
+		t.Errorf("image %q must contain the {arch} placeholder so Supervisor substitutes the App's architecture (aarch64/amd64)", image)
+	}
+
+	version, ok := m.scalars["version"]
+	if !ok || version == "" {
+		t.Fatal("config.yaml must set version:")
+	}
+
+	workflow, err := os.ReadFile("../.github/workflows/release.yml")
+	if err != nil {
+		t.Fatalf("read release workflow: %v", err)
+	}
+	wf := string(workflow)
+
+	if !strings.Contains(wf, "config.yaml") {
+		t.Error("release workflow must derive the image tag from addon/config.yaml's version:, not a separately maintained value")
+	}
+	if strings.Contains(wf, ":"+version) {
+		t.Errorf("release workflow must not hardcode the current version %q as a literal image tag — a version bump that forgets to update it must fail the build instead of leaving Supervisor pulling a stale image", version)
+	}
+}
+
+// TestAddonLocalBuildPathRemoved guards the other half of the same decision:
+// Supervisor never builds this App locally, so the local-build files must not
+// come back.
+func TestAddonLocalBuildPathRemoved(t *testing.T) {
+	for _, p := range []string{"Dockerfile", "build.yaml"} {
+		if _, err := os.Stat(p); !os.IsNotExist(err) {
+			t.Errorf("addon/%s must not exist — the App ships as a published image, Supervisor never builds it locally", p)
 		}
 	}
 }
