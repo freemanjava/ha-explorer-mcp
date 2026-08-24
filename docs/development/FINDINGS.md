@@ -498,3 +498,32 @@ estimate uses the larger batched figure, so the error is conservative.
 statistics estimate turns out to bind in practice. Cheapest probe: request one
 id alone and inside a batch and compare the rendered *field sets* per point via
 `cmd/spike/shape.go` — no values from the installation need be printed.
+
+### F-18 · The gateway check's single-chokepoint property is documented, not enforced · 2026-08-24
+
+**Kind:** `inconsistency`
+
+**What:** `P1-02` put `checkCommand` at the top of `Manager.Call`
+([`internal/ha/manager.go:175`](../../internal/ha/manager.go)), ahead of session
+acquisition and encoding, and the comment there asserts "Call is the only route
+to callOn, so this is the single place a command can be sent from". That is true
+today — `callOn` is unexported and has exactly one caller — but nothing fails if
+it stops being true. A second caller added inside `internal/ha` would reach
+`session.write` without passing the allow-list, and no test would notice: every
+denial assertion goes through `Call`.
+
+**Impact:** No defect today; the read-only guarantee holds as shipped. The cost
+is that the project's central security property rests on a comment rather than
+on something that breaks when violated — the same shape as the allow-list's
+pattern-vs-exact-match hazard the phase notes call out. It is cheapest to close
+now, while `P1-07` is already editing the denial path, and it would be a real
+defect the first time this package grows a second send site.
+
+**Triage:** `queue-next`
+
+**Outcome:** Open, pinned into `P1-07`'s scope and DoD 2026-08-24. Cheapest fix: move the check to the point
+where a frame becomes sendable rather than where a call begins — e.g. have
+`encodeCommand` (or a small `sendable` constructor) refuse an unlisted command,
+so no code path can produce a frame that was never checked, with `Call` keeping
+its early check so denial stays independent of connectivity. Add a test that
+asserts the property directly rather than through `Call`.

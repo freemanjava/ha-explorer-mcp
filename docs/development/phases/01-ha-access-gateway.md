@@ -84,7 +84,7 @@ internal/model/    # normalized domain types
   and serving the next request; backoff growing and being bounded; a caller's
   context cancellation freeing the pending slot.
 
-- [ ] **`P1-02` — WebSocket command allow-list** 🧠 — an exact-match set of
+- [x] **`P1-02` — WebSocket command allow-list** 🧠 — an exact-match set of
   permitted read commands, populated from `docs/research/` (P0-04, P0-05), and
   enforced in the only code path that can send a command.
   **DoD:** `TestUnknownCommandDenied` — an unlisted command returns
@@ -132,19 +132,28 @@ internal/model/    # normalized domain types
   stale-registry failure mode in Appendix B); concurrent readers do not trigger
   a thundering herd of upstream fetches.
 
-- [ ] **`P1-07` — Deny privileged escape hatches by name** `blocked:P1-02` —
-  resolves **F-13**. Add the deny set decided above to `internal/ha/gateway.go`,
-  checked before the allow-list, with `supervisor/api` as its first entry and the
-  finding id in the constant's comment. Correct the two places that read as
-  though the App manifest were the enforcement point: architecture doc §15.2 and
-  the `# Security posture` comment in `addon/config.yaml`.
+- [ ] **`P1-07` — Deny privileged escape hatches by name** — resolves **F-13**
+  and **F-18** (`P1-02` unblocked this on 2026-08-24). Add the deny set decided
+  above to `internal/ha/gateway.go`, checked before the allow-list, with
+  `supervisor/api` as its first entry and the finding id in the constant's
+  comment. Move the gateway check to the point where a frame becomes *sendable*
+  rather than where a call begins (**F-18**): today it sits at the top of
+  `Manager.Call`, and that `Call` is the only route to `session.write` is
+  asserted in a comment, not enforced — a second send site added later would
+  bypass both tables silently. Keep the early check in `Call` as well, so a
+  denial stays independent of whether HA is reachable. Correct the two places
+  that read as though the App manifest were the enforcement point: architecture
+  doc §15.2 and the `# Security posture` comment in `addon/config.yaml`.
   **DoD:** `TestGateway_SupervisorAPICommand_Denied` asserts `supervisor/api` is
   refused with `ErrPolicyDenied` and **no bytes reach the fake server**, and that
   it is refused identically whether or not the allow-list is empty — the deny
   does not depend on allow-list contents; a test asserts no deny-set entry also
   appears in the allow-list, so the two tables cannot contradict each other; a
   test asserts the denial reason distinguishes "denied by name" from "not
-  allow-listed", so an audit record says which; §15.2 and `addon/config.yaml`
+  allow-listed", so an audit record says which; a test asserts the chokepoint
+  property **without going through `Call`** (**F-18**) — a denied command cannot
+  be turned into a sendable frame at all, so the guarantee survives a future
+  second caller inside `internal/ha`; §15.2 and `addon/config.yaml`
   state that `hassio_api: false` declares intent and bounds blast radius but does
   not prevent Supervisor access, naming the gateway as the enforcement point.
 
