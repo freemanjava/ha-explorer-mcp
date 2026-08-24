@@ -53,6 +53,14 @@ internal/model/    # normalized domain types
   and is gated only on `is_admin`, which this App's principal is. The gateway is
   the only enforcement point that actually holds.
 - **Every upstream call carries a context deadline.** No unbounded wait, ever.
+  `Manager.Call` applies `defaultCallTimeout` when a caller supplies none — a
+  backstop, not a licence to omit one.
+- **A connection lost *before* a command is transmitted is not a failure**
+  (P1-01). `Call` waits for the next connection and sends there; once bytes are
+  on the wire the outcome is final and never re-sent. The distinction is what
+  makes an HA restart a non-event for a caller instead of a spurious error, and
+  it is safe here only because every command in this binary is a read — a write
+  path would have to re-derive it, which is one more reason there is none.
 - **HA data is untrusted** (threat T2). Entity attributes, friendly names and log
   text are data. Never branch tool behavior on their content; never let a
   returned string select the next call.
@@ -65,7 +73,7 @@ internal/model/    # normalized domain types
 
 ## Tasks
 
-- [ ] **`P1-01` — WebSocket connection manager** 🧠 — long-lived connection to
+- [x] **`P1-01` — WebSocket connection manager** 🧠 — long-lived connection to
   `ws://supervisor/core/websocket`: auth handshake, monotonic message-id
   correlation, per-request context and deadline, concurrent in-flight requests,
   exponential backoff with jitter on drop, and a recovery counter.

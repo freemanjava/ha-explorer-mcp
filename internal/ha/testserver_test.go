@@ -78,3 +78,37 @@ func servePingLoop(ctx context.Context, conn *websocket.Conn) {
 		}
 	}
 }
+
+// commandFrame is a command envelope as the fake server sees it on the wire.
+type commandFrame struct {
+	ID   uint64 `json:"id"`
+	Type string `json:"type"`
+}
+
+// serveCommands reads command frames until the connection closes, handing
+// each to handle. handle owns the reply, so a test can answer out of order,
+// answer late, or never answer at all.
+func serveCommands(ctx context.Context, conn *websocket.Conn, handle func(cmd commandFrame)) {
+	for {
+		var cmd commandFrame
+		if err := wsjson.Read(ctx, conn, &cmd); err != nil {
+			return
+		}
+		handle(cmd)
+	}
+}
+
+// writeResult writes the success form of HA's command result envelope.
+func writeResult(ctx context.Context, conn *websocket.Conn, id uint64, result any) error {
+	return wsjson.Write(ctx, conn, map[string]any{
+		"id": id, "type": "result", "success": true, "result": result,
+	})
+}
+
+// writeErrorResult writes the failure form of HA's command result envelope.
+func writeErrorResult(ctx context.Context, conn *websocket.Conn, id uint64, code, message string) error {
+	return wsjson.Write(ctx, conn, map[string]any{
+		"id": id, "type": "result", "success": false,
+		"error": map[string]any{"code": code, "message": message},
+	})
+}

@@ -72,3 +72,27 @@ func TestConnectWithBackoff_BoundedAttempts_GivesUp(t *testing.T) {
 		t.Fatalf("ConnectWithBackoff: got %v, want ErrUpstreamUnavailable after exhausting attempts", err)
 	}
 }
+
+func TestBackoffDelay_GrowsAndIsBounded(t *testing.T) {
+	// Growth: each attempt waits at least as long as the one before. Compared
+	// against the un-jittered base so the assertion cannot flake on jitter.
+	for attempt := range 8 {
+		base := backoffBase * time.Duration(1<<uint(attempt))
+		if base > backoffMax {
+			base = backoffMax
+		}
+		got := backoffDelay(attempt)
+		if got < base {
+			t.Fatalf("backoffDelay(%d) = %v, want at least the un-jittered %v", attempt, got, base)
+		}
+	}
+
+	// Bounded: no attempt, however large, exceeds backoffMax plus its jitter —
+	// including the ones whose shift overflows.
+	ceiling := backoffMax + time.Duration(backoffJitterFraction*float64(backoffMax))
+	for _, attempt := range []int{0, 5, 10, 40, 63, 64, 200} {
+		if got := backoffDelay(attempt); got > ceiling {
+			t.Fatalf("backoffDelay(%d) = %v, want at most %v", attempt, got, ceiling)
+		}
+	}
+}

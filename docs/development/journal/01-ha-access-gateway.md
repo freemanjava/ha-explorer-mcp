@@ -12,3 +12,8 @@ unrecoverable anywhere else — so if there was none, the entry is one line and
 that is correct.
 
 ---
+
+### 2026-08-24 · P1-01
+`internal/ha/manager.go`: long-lived multiplexing WS connection — id-correlated concurrent requests, per-call deadline, bounded backoff+jitter reconnect with a `Reconnects()` counter, typed `Command`/`CommandError` on the one send path P1-02 will guard.
+**Surprise:** the reconnect test's flake was a real defect — `Call` could be handed a session that died a microsecond earlier and report `ErrUpstreamUnavailable` while the manager was already reconnecting. Fixed by separating "transmitted" (final) from "not transmitted" (retry on the next connection).
+**Left open:** nothing observed against a live HA (no token reaches the agent); the manager is not yet wired into `cmd/server`.
