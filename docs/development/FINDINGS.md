@@ -409,13 +409,18 @@ CLAUDE.md requires to be measured against a real recorder rather than guessed.
 The source *order* recommended by `P0-07` does not depend on it — statistics win
 by 1–3 orders of magnitude per entity — so this blocks tuning, not design.
 
-**Triage:** `queue-next`
+**Triage:** `resolved`
 
-**Outcome:** Planned 2026-08-23 into **`P0-09`** — a `needs-verify` task that
-measures both commands at 1, 10, 50 and 200 entity ids over 24h and 7d against
-the real recorder and names starting budget values from those numbers. `P2-01`
-is flagged `blocked:P0-09` meanwhile, so the budget limits cannot be written
-before the measurement exists. Closes when `P0-09` closes.
+**Outcome:** Closed 2026-08-24 by **`P0-09`** —
+[`docs/research/2026-08-24-ha-multi-entity-query-cost.md`](../research/2026-08-24-ha-multi-entity-query-cost.md).
+Neither command is linear in entity count: cost tracks recorded rows, so the
+first 50 ids of a mixed 200-id set cost more than the remaining 150. One
+batched call beat N single-entity ones at every rung of both commands (1.4×–50×
+on time, identical bytes for history), the saving being round trips rather than
+payload. Starting values named for `MaxBytes`, `MaxHistoryPoints`, `MaxEntities`
+and `Deadline` per budget class, plus an entity-day pre-flight estimate, all
+attributed to the measurement — `P2-01` can now cite evidence. Spawned **F-17**
+(batched statistics bytes exceed the summed singles, unexplained, `defer`).
 
 ### F-15 · F-9's leak recurred: entity-id-keyed maps were not covered · 2026-08-23
 
@@ -467,3 +472,29 @@ deploy-blocking defect, not a style issue: nothing downstream of packaging
 Dockerfile and manifest to the repo root; vendor `go.mod`/`cmd`/`internal` into
 `addon/` as a pre-build step; or publish a prebuilt image and reference it via
 `config.yaml`'s `image:` field. Pick one at the next `devflow plan`.
+
+### F-17 · A batched statistics answer is ~30% larger than the same ids fetched singly · 2026-08-24
+
+**Kind:** `unknown`
+
+**What:** Measured by `P0-09`
+([`docs/research/2026-08-24-ha-multi-entity-query-cost.md`](../research/2026-08-24-ha-multi-entity-query-cost.md)):
+`recorder/statistics_during_period` over 200 statistic ids returns 131 530 B
+(24h) and 939 984 B (7d), while the *same* 200 ids fetched one per call sum to
+101 793 B and 721 895 B. Point counts are identical in both directions (1 196
+and 8 684), so the difference is ~25 B of extra serialization per point, not
+extra data, and the ratio is stable across both windows. History shows no such
+effect — batched and summed bytes agree within 200 B at every rung.
+
+**Impact:** Unknown pending verification, and small either way: statistics
+remain 8× smaller and 26× faster than history at fleet width, so the source
+order and the batching recommendation do not depend on it. It costs ~30%
+accuracy in the statistics half of `P2-01`'s pre-flight byte estimate. The
+estimate uses the larger batched figure, so the error is conservative.
+
+**Triage:** `defer`
+
+**Outcome:** Open, deferred. It becomes worth resolving only if `P2-01`'s
+statistics estimate turns out to bind in practice. Cheapest probe: request one
+id alone and inside a batch and compare the rendered *field sets* per point via
+`cmd/spike/shape.go` — no values from the installation need be printed.

@@ -105,3 +105,15 @@ session has been running since `P0-02` — the local DoD was never testing the
 real path. Filed as **F-16**, three candidate fixes named, none applied.
 **Left open:** which of the three fixes (relocate / vendor / prebuilt image)
 to take — deferred to the next `devflow plan`.
+
+### 2026-08-24 · P0-09
+`cmd/spike` rewritten as a multi-entity cost ladder (1/10/50/200 ids × 24h/7d,
+batched against a prefix-summed single-entity baseline); owner ran it against
+HA 2026.8.3. Batching wins on time at every rung (1.4×–50×) and costs nothing in
+bytes; budget starting values derived in
+`docs/research/2026-08-24-ha-multi-entity-query-cost.md`. F-14 closed.
+**Surprise:** cost tracks recorded rows, not entity count — 150 extra quiet ids
+added 30% bytes, while a batched statistics answer is inexplicably ~30% *larger*
+than the same ids fetched one by one (F-17).
+**Left open:** nothing above 200 ids measured, so doc §10's composite 500-entity
+limit is not carried forward.

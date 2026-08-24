@@ -141,7 +141,7 @@ docs/research/       # dated evidence produced by the verify tasks
   required (relocated Dockerfile, vendored build, or a prebuilt image reference)
   and that change is planned as its own task, never applied inside this one.
 
-- [ ] **`P0-09` — Verify multi-entity history & statistics cost** 🧠 `needs-verify`
+- [x] **`P0-09` — Verify multi-entity history & statistics cost** 🧠 `needs-verify`
   — resolves **F-14**. `P0-07` measured every query against exactly one entity,
   so the cost of the queries a fleet-wide detector actually issues is unknown:
   whether `history/history_during_period` and

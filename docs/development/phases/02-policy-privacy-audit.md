@@ -67,12 +67,20 @@ internal/audit/    # logger.go
 
 ## Tasks
 
-- [ ] **`P2-01` — Query budget** 🧠 `blocked:P0-09` — `QueryBudget{MaxHARequests,
+- [ ] **`P2-01` — Query budget** 🧠 — `QueryBudget{MaxHARequests,
   MaxHistoryPoints, MaxEntities, MaxBytes, Deadline}` attached to each
   invocation's context, with the two classes from doc §10 (normal read /
   composite diagnostic) as defaults **taken from `P0-09`'s measurement**, not
   from doc §10's admitted guesses (§26, F-14), each constant carrying the
-  measured number it came from in its comment.
+  measured number it came from in its comment. The measurement landed
+  2026-08-24 in
+  [`docs/research/2026-08-24-ha-multi-entity-query-cost.md`](../../research/2026-08-24-ha-multi-entity-query-cost.md):
+  `MaxBytes` 512 KB / 1 MB, `MaxHistoryPoints` 13 000 / 26 000 (bytes ÷ 37 B per
+  history point), `MaxEntities` 200 for both classes (nothing above 200 was
+  measured, so doc §10's composite 500 is not carried forward), `Deadline` 10 s
+  / 30 s. That file also gives the entity-day pre-flight estimate the budget
+  needs in order to refuse **before** issuing a query — enforcing `MaxBytes` on a
+  received response is enforcing it after the Pi has already paid.
   **DoD:** tests that each dimension independently trips `ErrBudgetExceeded`; the
   error names which limit was hit and what was retrieved so far; a request storm
   (repeated max-page calls) is rate-limited rather than served (threat T1,
