@@ -7,6 +7,13 @@ arch:
   - aarch64
   - amd64
 
+# Published image, not a local Supervisor build — App-distribution decision,
+# phases/00-spike-foundations.md. Supervisor substitutes {arch} with the
+# installing device's architecture (aarch64/amd64) and pulls this tag:version.
+# The package is private; see docs/INSTALL.md for the registry-credential step
+# Supervisor needs before the pull succeeds.
+image: "ghcr.io/freemanjava/ha-explorer-mcp/{arch}-ha-inspector-mcp"
+
 # The Go binary handles its own signal handling; no s6/tini init needed.
 init: false
 
