@@ -145,6 +145,126 @@ func TestAllowList_DenialReasonNamesTheTable(t *testing.T) {
 	}
 }
 
+// TestGateway_SupervisorAPICommand_Denied is P1-07's DoD: supervisor/api is
+// refused by name, with no bytes reaching the fake server.
+func TestGateway_SupervisorAPICommand_Denied(t *testing.T) {
+	m, rec := startGatewayFixture(t)
+	waitConnected(t, m)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	_, err := m.Call(ctx, BareCommand("supervisor/api"))
+	if !errors.Is(err, ErrPolicyDenied) {
+		t.Fatalf("Call returned %v, want ErrPolicyDenied", err)
+	}
+	assertNotTransmitted(t, rec, "supervisor/api")
+}
+
+// TestGateway_DenySet_IndependentOfAllowList proves the deny does not depend
+// on allow-list contents: supervisor/api is refused identically whether the
+// allow-list holds its usual entries or is empty (F-13).
+func TestGateway_DenySet_IndependentOfAllowList(t *testing.T) {
+	populated := checkCommand("supervisor/api")
+	if !errors.Is(populated, ErrPolicyDenied) {
+		t.Fatalf("checkCommand with a populated allow-list returned %v, want ErrPolicyDenied", populated)
+	}
+
+	original := allowedCommands
+	allowedCommands = map[string]struct{}{}
+	t.Cleanup(func() { allowedCommands = original })
+
+	empty := checkCommand("supervisor/api")
+	if !errors.Is(empty, ErrPolicyDenied) {
+		t.Fatalf("checkCommand with an empty allow-list returned %v, want ErrPolicyDenied", empty)
+	}
+	if populated.Error() != empty.Error() {
+		t.Fatalf("denial reason changed with the allow-list emptied: %q vs %q", populated, empty)
+	}
+}
+
+// TestGateway_DenySet_NotInAllowList keeps the two tables from contradicting
+// each other: nothing refused by name may also be permitted by the
+// allow-list.
+func TestGateway_DenySet_NotInAllowList(t *testing.T) {
+	for name := range deniedCommands {
+		if _, ok := allowedCommands[name]; ok {
+			t.Errorf("denied command %q also appears in the allow-list", name)
+		}
+	}
+}
+
+// TestGateway_DenialReason_DistinguishesDenyFromAllowList lets an audit
+// record say which table refused a command (P1-07).
+func TestGateway_DenialReason_DistinguishesDenyFromAllowList(t *testing.T) {
+	denied := checkCommand("supervisor/api")
+	if !strings.Contains(denied.Error(), "denied by name") {
+		t.Fatalf("denial reason %q does not say the command is denied by name", denied)
+	}
+	notAllowed := checkCommand("definitely_not_a_command")
+	if strings.Contains(notAllowed.Error(), "denied by name") {
+		t.Fatalf("denial reason %q for an unlisted command should not read as a named deny", notAllowed)
+	}
+}
+
+// TestSession_Write_DeniedCommand_NeverReachesSocket is F-18's chokepoint
+// property: a denied command cannot be turned into a sendable frame even
+// when the caller talks to the session directly, bypassing Manager.Call
+// entirely. This is what proves the guarantee survives a future second
+// send site inside internal/ha.
+func TestSession_Write_DeniedCommand_NeverReachesSocket(t *testing.T) {
+	rec := &recordingServer{}
+	srv := newFakeHAServer(t, func(ctx context.Context, conn *websocket.Conn) {
+		if !serveAuthHandshake(ctx, conn, testToken) {
+			return
+		}
+		serveCommands(ctx, conn, func(cmd commandFrame) {
+			rec.record(cmd.Type)
+			_ = writeResult(ctx, conn, cmd.ID, map[string]any{"echoed": cmd.Type})
+		})
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	conn, _, err := websocket.Dial(ctx, wsURL(srv), nil)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer conn.CloseNow()
+	if err := authenticate(ctx, conn, testToken); err != nil {
+		t.Fatalf("authenticate: %v", err)
+	}
+
+	s := newSession(conn, nil)
+	cmd := BareCommand("supervisor/api")
+	frame, err := encodeCommand(1, cmd)
+	if err != nil {
+		t.Fatalf("encodeCommand: %v", err)
+	}
+
+	if err := s.write(ctx, cmd, frame); !errors.Is(err, ErrPolicyDenied) {
+		t.Fatalf("session.write returned %v, want ErrPolicyDenied", err)
+	}
+
+	// Prove the connection was live by sending a permitted command on it,
+	// then assert the denied one never reached the server at any point.
+	allowedFrame, err := encodeCommand(2, BareCommand(CommandGetConfig))
+	if err != nil {
+		t.Fatalf("encodeCommand: %v", err)
+	}
+	if err := s.write(ctx, BareCommand(CommandGetConfig), allowedFrame); err != nil {
+		t.Fatalf("session.write of a permitted command: unexpected error: %v", err)
+	}
+	// Wait for the reply so the server's record() call for get_config has
+	// definitely happened before the assertion below — the fixture serves
+	// commands from one goroutine, in order, so a reply proves it.
+	if _, _, err := conn.Read(ctx); err != nil {
+		t.Fatalf("reading reply to the permitted command: %v", err)
+	}
+	assertNotTransmitted(t, rec, "supervisor/api")
+}
+
 func TestAllowList_PermittedCommandsAreSent(t *testing.T) {
 	m, rec := startGatewayFixture(t)
 

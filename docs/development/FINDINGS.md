@@ -391,7 +391,9 @@ which adds a named deny set in front of the gateway's allow-list — `supervisor
 first — asserted denied independently of both the allow-list and the App
 manifest, and corrects the §15.2 and `addon/config.yaml` wording in the same
 change. The design record for why a deny-list exists at all beside a fail-closed
-allow-list is in that phase's *Decisions*. Closes when `P1-07` closes.
+allow-list is in that phase's *Decisions*. **Closed 2026-08-24**: `P1-07` landed
+the named deny set in `internal/ha/gateway.go`, and architecture doc §15.2 and
+`addon/config.yaml` now say `hassio_api: false` is not the enforcement point.
 
 ### F-14 · Multi-entity history and statistics cost is unmeasured · 2026-08-23
 
@@ -528,12 +530,13 @@ defect the first time this package grows a second send site.
 
 **Triage:** `queue-next`
 
-**Outcome:** Open, pinned into `P1-07`'s scope and DoD 2026-08-24. Cheapest fix: move the check to the point
-where a frame becomes sendable rather than where a call begins — e.g. have
-`encodeCommand` (or a small `sendable` constructor) refuse an unlisted command,
-so no code path can produce a frame that was never checked, with `Call` keeping
-its early check so denial stays independent of connectivity. Add a test that
-asserts the property directly rather than through `Call`.
+**Outcome:** Pinned into `P1-07`'s scope and DoD 2026-08-24. **Closed 2026-08-24**:
+the check moved into `session.write`, the function that actually calls
+`conn.Write` — not `encodeCommand`, which only builds bytes and would still
+have let a caller skip the check by writing pre-built frame bytes directly.
+`Call` keeps its early check so denial stays independent of connectivity.
+`TestSession_Write_DeniedCommand_NeverReachesSocket` asserts the property by
+constructing a `session` directly and calling `write`, bypassing `Call`.
 
 ---
 

@@ -82,15 +82,35 @@ var allowedCommands = map[string]struct{}{
 	CommandStatisticsDuringPeriod:       {},
 }
 
+// deniedCommands is a small, explicit deny set of known privileged escape
+// hatches, consulted before the allow-list (F-13). An allow-list alone
+// already refuses everything here — this table exists so the refusal is
+// documented in the code that enforces it, not left to depend on nobody
+// having typed a name into allowedCommands.
+var deniedCommands = map[string]struct{}{
+	// supervisor/api accepts a free-form endpoint and method and runs as
+	// Core's Supervisor user, which Core 2026.8.3 puts in GROUP_ID_ADMIN: a
+	// single command that is both a universal escape hatch and a write path,
+	// the two shapes CLAUDE.md rules 1 and 2 forbid outright (F-13).
+	"supervisor/api": {},
+}
+
 // checkCommand decides whether name may be sent at all. It fails closed: an
 // unlisted command is refused, never passed through because it "looks
-// harmless". The reason names the table that refused it, so an audit record
-// can distinguish this from a command denied by name (P1-07).
+// harmless". The deny set is consulted first and does not depend on the
+// allow-list's contents, so a name refused here stays refused even if it is
+// (or later becomes) allow-listed by mistake — the guard test
+// TestGateway_DenySet_NotInAllowList exists precisely to catch that mistake
+// before it ships. The reason names the table that refused it, so an audit
+// record can distinguish "denied by name" from "not allow-listed" (P1-07).
 //
-// There is deliberately no parameter, flag or profile that widens this set at
-// runtime — read-only-ness is a property of what is linked in, not of
+// There is deliberately no parameter, flag or profile that widens either set
+// at runtime — read-only-ness is a property of what is linked in, not of
 // configuration (CLAUDE.md rule 1).
 func checkCommand(name string) error {
+	if _, ok := deniedCommands[name]; ok {
+		return fmt.Errorf("%w: websocket command %q is denied by name", ErrPolicyDenied, name)
+	}
 	if _, ok := allowedCommands[name]; !ok {
 		return fmt.Errorf("%w: websocket command %q is not allow-listed", ErrPolicyDenied, name)
 	}

@@ -132,7 +132,7 @@ internal/model/    # normalized domain types
   stale-registry failure mode in Appendix B); concurrent readers do not trigger
   a thundering herd of upstream fetches.
 
-- [ ] **`P1-07` — Deny privileged escape hatches by name** — resolves **F-13**
+- [x] **`P1-07` — Deny privileged escape hatches by name** — resolves **F-13**
   and **F-18** (`P1-02` unblocked this on 2026-08-24). Add the deny set decided
   above to `internal/ha/gateway.go`, checked before the allow-list, with
   `supervisor/api` as its first entry and the finding id in the constant's
