@@ -137,7 +137,15 @@ func TestManager_ConcurrentRequests_OutOfOrderReplies_ResolveCorrectCallers(t *t
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	commands := []string{"cmd_a", "cmd_b", "cmd_c", "cmd_d"}
+	// Four real allow-listed commands: since the gateway refuses anything
+	// unlisted before it reaches the wire (P1-02), a correlation test has to
+	// use commands that are actually permitted to travel.
+	commands := []string{
+		CommandGetConfig,
+		CommandGetStates,
+		CommandAreaRegistryList,
+		CommandTraceList,
+	}
 
 	var wg sync.WaitGroup
 	errs := make([]error, requests)

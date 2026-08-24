@@ -35,7 +35,7 @@ var defaultCallTimeout = 30 * time.Second
 // per command and marshal to a JSON object holding that command's arguments;
 // the manager owns the envelope's "id" and "type". There is deliberately no
 // way to send a free-form frame (CLAUDE.md rule 2), and CommandType is the
-// single value Phase 01's allow-list (P1-02) will match on.
+// single value the allow-list in gateway.go matches on.
 type Command interface {
 	// CommandType returns the HA command name.
 	CommandType() string
@@ -157,15 +157,25 @@ func (m *Manager) Close() {
 func (m *Manager) Reconnects() uint64 { return m.reconnects.Load() }
 
 // Call sends cmd and waits for its correlated reply. It returns
-// ErrUpstreamUnavailable if the connection dies with the request in flight, a
-// *CommandError if HA answered with a failure, and ctx's error if the caller
-// gave up first — three answers that must stay distinguishable.
+// ErrPolicyDenied if the command is not allow-listed — before any bytes leave
+// the process — ErrUpstreamUnavailable if the connection dies with the request
+// in flight, a *CommandError if HA answered with a failure, and ctx's error if
+// the caller gave up first — four answers that must stay distinguishable.
 //
 // An HA restart that lands between acquiring the connection and sending is a
 // non-event: nothing reached the wire, so Call waits for the next connection
 // and sends there. Once the command has been transmitted its outcome is final
 // and never re-sent.
 func (m *Manager) Call(ctx context.Context, cmd Command) (json.RawMessage, error) {
+	// The gateway check sits here, ahead of everything: ahead of acquiring a
+	// connection, ahead of encoding, ahead of any wait. A denial must not
+	// depend on whether HA happens to be reachable, and no denied command may
+	// ever be encoded into a frame. Call is the only route to callOn, so this
+	// is the single place a command can be sent from.
+	if err := checkCommand(cmd.CommandType()); err != nil {
+		return nil, err
+	}
+
 	if _, ok := ctx.Deadline(); !ok {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, defaultCallTimeout)
