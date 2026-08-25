@@ -4,6 +4,7 @@ package ha
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -52,12 +53,16 @@ func TestSupervisorProxyConnectivity(t *testing.T) {
 		t.Fatalf("Ping: WS round trip failed: %v", err)
 	}
 
-	cfg, err := GetConfig(ctx, http.DefaultClient, restURL, token)
+	body, err := NewRESTClient(restURL, token, http.DefaultClient, slog.Default()).Config(ctx)
 	if err != nil {
-		t.Fatalf("GetConfig: REST GET failed: %v", err)
+		t.Fatalf("Config: REST GET failed: %v", err)
+	}
+	var cfg map[string]any
+	if err := json.Unmarshal(body, &cfg); err != nil {
+		t.Fatalf("Config: response is not a JSON object: %v", err)
 	}
 	if _, ok := cfg["version"]; !ok {
-		t.Fatalf("GetConfig: response missing expected \"version\" field: %v", cfg)
+		t.Fatalf("Config: response missing expected \"version\" field: %v", cfg)
 	}
 }
 

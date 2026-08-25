@@ -3,8 +3,8 @@
 <!-- BOUNDED FILE — rewritten in place, never appended to. Keep under ~100 lines.
      Anything that grows goes to journal/. This file is read by every session. -->
 
-**▶ Active:** `P1-03` — REST reader with route/method allow-list
-· [`phases/01-ha-access-gateway.md`](phases/01-ha-access-gateway.md) · model: **claude-opus-5** · flags: 🧠
+**▶ Active:** `P1-04` — Typed HA errors and graceful degradation
+· [`phases/01-ha-access-gateway.md`](phases/01-ha-access-gateway.md) · model: **claude-sonnet-5** · flags: —
 
 > Advancing this pointer is part of finishing a task, together with ticking the
 > box, recomputing status and appending a journal entry. All four, or none.
@@ -16,18 +16,21 @@ cycle. Remove a row when its task closes.
 
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
-| 1 | `P1-03` | REST reader with route/method allow-list | 01 | claude-opus-5 | 🧠 |
-| 2 | `P1-04` | Typed HA errors and graceful degradation | 01 | claude-sonnet-5 | |
-| 3 | `P1-05` | Normalized domain model | 01 | claude-sonnet-5 | |
+| 1 | `P1-04` | Typed HA errors and graceful degradation | 01 | claude-sonnet-5 | |
+| 2 | `P1-05` | Normalized domain model | 01 | claude-sonnet-5 | |
 
-**Order rationale:** `P0-10` and `P0-11` both closed 2026-08-24/25 — the App now
-has a working deploy path, live-verified on real Home Assistant OS, and
-**F-16** is resolved. Phase 01 resumes in its previous order: `P1-03` reuses
-the denial contract both allow-list tables establish, `P1-04` consolidates the
-error taxonomy the gateway and manager already return between them, and
-`P1-05` is pulled forward because Phase 02's `P2-02` / `P2-03` are blocked on
-its domain model. Phase 02 stays otherwise unqueued, planned as a block once
-Phase 01's readers exist.
+**Order rationale:** `P1-03` closed 2026-08-25 — both allow-lists (WebSocket
+commands, REST routes) now exist and share one denial contract, so `P1-04`
+comes next: it consolidates the error taxonomy the gateway, the manager and
+the new REST client currently return between them, and `P1-03` already added
+two sentinels (`ErrNotFound`, `ErrResponseTooLarge`) that need a home in it.
+`P1-05` follows because Phase 02's `P2-02` / `P2-03` are blocked on its domain
+model. Phase 02 stays otherwise unqueued, planned as a block once Phase 01's
+readers exist.
+
+**The queue is down to two rows.** Run `devflow plan` after `P1-04` to write
+Phase 02's block; all seven open `queue-next` findings are already pinned into
+existing DoDs, so this is planning ahead, not draining an inbox.
 
 **Two decisions are waiting**, neither blocking today's queue: the App's
 Supervisor permission level (phase 00 — gates Phase 03's tool catalog) and the
@@ -52,7 +55,7 @@ done
 | phase | theme | done / total |
 |------:|-------|:------------:|
 | 00 | Spike & Foundations | 13 / 15 |
-| 01 | HA Access & Read-Only Gateway | 4 / 9 |
+| 01 | HA Access & Read-Only Gateway | 5 / 9 |
 | 02 | Policy, Privacy, Budget & Audit | 0 / 7 |
 | 03 | MCP Server & Inventory Tools | 0 / 8 |
 | 04 | History, Statistics & Detection | 0 / 5 |
@@ -68,7 +71,7 @@ gated: they open only on an explicit owner decision plus a fresh security review
 Phases 05–07 carry no task boxes yet — theirs are written by `devflow plan` when
 the phase before them closes.
 
-Last refreshed: 2026-08-25 (`devflow next` — `P0-11`)
+Last refreshed: 2026-08-25 (`devflow next` — `P1-03`)
 
 ## Open findings
 
@@ -102,11 +105,11 @@ unblocked.
 
 Last 5 closed tasks, one line each. Older entries live in `journal/`.
 
+- 2026-08-25 · `P1-03` — REST reader landed in `internal/ha/rest.go` as a `RESTClient` with typed per-route methods (`Config`, `States`, `State`, `HistoryPeriod`, `LogbookPeriod`) and typed option structs instead of any caller-supplied query map; `gateway.go` gained the exact-match route-template table, a GET-only method check consulted ahead of it, and `validateEntityID` (Core's `domain.object_id` shape), so `../../config` is refused at parameter validation rather than escaped and sent. The method check is a backstop, not the guarantee: the client has no method parameter at all, and `TestNoNonGetRequestPathExists` asserts `http.MethodPost/Put/Patch/Delete` never appear in `rest.go`. Oversized bodies are read to cap+1 and refused with `ErrResponseTooLarge` (the test offers an unbounded body, so a client that buffered whole would never return); `ErrNotFound` added for 404. `make check` green.
 - 2026-08-25 · `P0-11` — App now ships as a published multi-arch image: `addon/Dockerfile`/`build.yaml` deleted, `addon/config.yaml` carries `image:` with the `{arch}` placeholder, root `Dockerfile` (build stage pinned to `$BUILDPLATFORM` — cross-arch under QEMU segfaulted Go's own `asm`/`compile`) + `.github/workflows/release.yml` publish to GHCR tagged from `version:`. Live-verified on real Home Assistant OS/Raspberry Pi: pulls and starts. Three issues only surfaced there, none caught by `make check` or a local `docker build`: (1) Supervisor refuses a repository without a root `repository.yaml`, undocumented in the phase file's plan — added; (2) `COPY`'d binary wasn't executable — `chmod +x` added for both binary and `run.sh`; (3) even after that, `addon/apparmor.txt` granted the binary only `mr` (mmap+read) — AppArmor denies `exec` as a separate, stricter check than Unix file permissions, invisible to any test that doesn't run under the real profile; fixed to `mrix`. `docs/INSTALL.md` documents the registry-credential step. New tests `TestAddonManifestImageIsPinnedToVersion`, `TestAddonLocalBuildPathRemoved`; `make check` green. F-16 resolved.
 - 2026-08-24 · `P0-10` — read `home-assistant/supervisor@main`'s `docker/manager.py`, `docker/interface.py`, `const.py`, `validate.py`, `api/docker.py` plus the frontend's `panels/config/apps/`: Supervisor does support pulling an App image from a private registry, credentials keyed by hostname in `/data/docker.json`, entered at Settings → Add-ons → Registries — confirms the private half of the App-distribution decision and unblocks `P0-11`; a *missing* credential (vs. a wrong one) degrades to a generic, untyped pull error worth a troubleshooting-doc line; `docs/research/2026-08-24-supervisor-private-registry-pull.md`. F-19 answered.
 - 2026-08-24 · `P1-07` — named deny set landed in `internal/ha/gateway.go`: `supervisor/api` (F-13) refused before the allow-list, identically whether the allow-list is empty or populated. The chokepoint moved from `Manager.Call` (an unenforced comment, F-18) to `session.write` itself — the last function before `conn.Write` — so a denial no longer depends on `Call` being the only send site; a test constructs a `session` directly, bypassing `Call` entirely, and proves a denied frame still never reaches the socket. Architecture doc §15.2 and `addon/config.yaml` corrected: `hassio_api: false` bounds blast radius but is not the enforcement point. `make check` green.
 - 2026-08-24 · `P1-02` — WebSocket command allow-list landed in `internal/ha/gateway.go`: 21 exact-match command names, every one observed answering live HA 2026.8.3 in P0-04/P0-05/P0-07, enforced at the top of `Manager.Call` ahead of session acquisition and frame encoding, so a denial never depends on HA being reachable and no denied command is ever encoded into a frame. New `ErrPolicyDenied` sentinel; the denial tests assert on the fake server's wire rather than the return value, and a guard test rejects any allow-list entry containing a mutation verb; `make check` green.
-- 2026-08-24 · `P1-01` — WebSocket connection manager landed in `internal/ha/manager.go`: one long-lived authenticated connection, monotonic id correlation for concurrent out-of-order replies, a per-call deadline with a 30s backstop, bounded backoff-with-jitter reconnect behind a `Reconnects()` counter, and a typed `Command` interface that is the single send path P1-02's allow-list will guard. A flaky reconnect test turned out to be a real race and is fixed; `make check` green.
 
 ## Project facts
 
