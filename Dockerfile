@@ -4,7 +4,13 @@
 # never by Supervisor, which only ever pulls the image config.yaml's `image:`
 # names (docs/research/2026-08-24-supervisor-addon-build-context.md).
 
-FROM golang:1.25-alpine AS build
+# Build stage pinned to the host's native platform, not the target one: Go
+# cross-compiles natively via GOARCH, so running the toolchain itself under
+# QEMU emulation (the default when a multi-platform build's stages all follow
+# --platform) is both slower and, observed in practice, prone to segfaults in
+# `asm`/`compile` under emulation. Only the tiny final stage needs to actually
+# be the target arch, and it runs nothing — it just copies a static binary.
+FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
