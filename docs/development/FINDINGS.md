@@ -384,7 +384,7 @@ access is false; the manifest declares intent and bounds a future bug's blast
 radius, it is not a wall. The architecture doc §15.2 and the `P0-02` manifest
 comment both read as though it were.
 
-**Triage:** `queue-next`
+**Triage:** `resolved`
 
 **Outcome:** Planned 2026-08-23 into **`P1-07`** (`phases/01-ha-access-gateway.md`),
 which adds a named deny set in front of the gateway's allow-list — `supervisor/api`
@@ -469,7 +469,7 @@ Home Assistant Supervisor — only the hand-run repo-root build works. This is a
 deploy-blocking defect, not a style issue: nothing downstream of packaging
 (all of Phase 03+) can be run on real hardware until it is fixed.
 
-**Triage:** `queue-next`
+**Triage:** `resolved`
 
 **Outcome:** Planned 2026-08-24 into **`P0-11`**. Of the three candidate fixes
 named in `docs/research/2026-08-24-supervisor-addon-build-context.md`, the owner
@@ -477,8 +477,11 @@ chose the third — publish a prebuilt multi-arch image and reference it via
 `config.yaml`'s `image:`, deleting the local-build path entirely; rationale and
 rejected alternatives are recorded as the **App distribution** decision in
 `phases/00-spike-foundations.md`. The private-registry half of that choice
-spawned **F-19**, verified first by `P0-10`. This finding closes when `P0-11`
-closes, which its `live-verify` flag ties to a real install on the owner's Pi.
+spawned **F-19**, verified first by `P0-10`. **Closed 2026-08-25**: `P0-11` closed, live-verified on the owner's real Home
+Assistant OS / Raspberry Pi — the App pulls from GHCR and starts. Three defects
+surfaced only under the real Supervisor and are recorded in that task's journal
+entry (missing `repository.yaml`, non-executable `COPY`'d binary, AppArmor
+granting `mr` where `exec` needs `ix`).
 
 ### F-17 · A batched statistics answer is ~30% larger than the same ids fetched singly · 2026-08-24
 
@@ -528,7 +531,7 @@ pattern-vs-exact-match hazard the phase notes call out. It is cheapest to close
 now, while `P1-07` is already editing the denial path, and it would be a real
 defect the first time this package grows a second send site.
 
-**Triage:** `queue-next`
+**Triage:** `resolved`
 
 **Outcome:** Pinned into `P1-07`'s scope and DoD 2026-08-24. **Closed 2026-08-24**:
 the check moved into `session.write`, the function that actually calls
@@ -561,7 +564,7 @@ shape and its behavior across restarts decide what `P0-11` must document as the
 install procedure — a private App that installs with an indistinguishable
 "image not found" is a support burden, not a deploy path.
 
-**Triage:** `queue-next`
+**Triage:** `resolved`
 
 **Outcome:** Planned 2026-08-24 into **`P0-10`**, queued ahead of `P0-11`, which
 is `blocked:P0-10` for exactly this reason. **Answered** by `P0-10`

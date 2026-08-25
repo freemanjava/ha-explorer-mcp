@@ -62,6 +62,13 @@ internal/audit/    # logger.go
   `changed_variables` carry whole state objects — `friendly_name`, `icon` — and
   a `context.user_id`. Classification follows the entities a payload embeds, at
   whatever depth they appear.
+- **Masking is not redaction, and the split is deliberate.** Redaction removes a
+  value because it must never be seen; masking removes a value's *meaning* while
+  preserving its *shape in time*, because the shape is the diagnostic signal and
+  the meaning is the exposure. They share the response boundary and nothing else:
+  `internal/policy` decides both, `internal/redact` applies both, and a response
+  marks the two differently so the agent never reasons about `state_A` as a real
+  state name.
 - `SUPERVISOR_TOKEN` is never returned and never logged, at any level, in any
   build.
 
@@ -101,7 +108,9 @@ internal/audit/    # logger.go
   **a payload is classified by the entities it embeds**, so a trace whose
   `changed_variables` contain a `PRIVATE` entity's state, or a `context.user_id`,
   classifies `PRIVATE` even though `trace/get` is a diagnostic endpoint (F-12),
-  asserted with a captured trace fixture.
+  asserted with a captured trace fixture; the three profiles `mask` (default),
+  `allow` and `deny` are selectable and the **default resolves to `mask`**,
+  asserted by a test that constructs a profile from empty configuration.
 
 - [ ] **`P2-03` — Redaction** 🧠 — strip `SECRET` values from anything crossing
   the response boundary, including nested attributes and error messages.
@@ -113,7 +122,15 @@ internal/audit/    # logger.go
   the agent knows something was withheld; the walk descends into **nested state
   objects**, not only top-level attributes — a fixture trace with secrets and a
   `context.user_id` planted inside `trace["trigger/N"][i].changed_variables`
-  comes back redacted at that depth (F-12).
+  comes back redacted at that depth (F-12); **masking of `PRIVATE` values is
+  applied at this same boundary** per the *PRIVATE handling* decision — a test
+  asserts a `person.*` history comes back with opaque state tokens while its
+  timestamps and transition count match the unmasked input exactly, that the
+  same underlying state maps to the same token within one response and to a
+  *different* token in a second response over the same data, that
+  `get_config` latitude/longitude are coarsened to one decimal while
+  `location_name` is untouched, and that every masked field is visibly marked
+  masked and distinguishable from a redacted one.
 
 - [ ] **`P2-04` — Response size cap and pagination contract** — a single place
   that enforces the byte cap and emits cursor pagination for every `list_*`
@@ -134,16 +151,45 @@ internal/audit/    # logger.go
 
 ## Decisions
 
-- [ ] **`needs-decision` — Default handling of PRIVATE domains**
-  Q6 from the architecture doc. `person.*`, `device_tracker.*`, locks and alarm
-  history are exactly the data that makes occupancy patterns reconstructable by
-  whatever cloud model is on the other end of the MCP connection — and also
-  exactly the data needed to diagnose a flaky presence sensor. Options: **deny by
-  default** (safest, some diagnostics simply unavailable); **mask by default**
-  (states become opaque tokens; outage/availability analysis still works,
-  occupancy does not); **allow with bounded history** (most useful, largest
-  exposure). The owner knows who else is in the household and which LLM this
-  will talk to; a model does not.
+- [x] **PRIVATE handling — mask by default** — decided 2026-08-25
+
+  **Decision.** The default privacy profile **masks** `PRIVATE` data rather than
+  denying or allowing it. A `PRIVATE` entity's states are replaced with stable
+  opaque tokens (`state_A`, `state_B`, …) while **timestamps, ordering and
+  transition counts are preserved verbatim**. The installation's own coordinates
+  (`get_config` → `latitude` / `longitude`) are **coarsened to one decimal
+  place** (~11 km) rather than withheld, and `location_name` passes through
+  unchanged. `allow` and `deny` remain selectable profiles for owners who want
+  either end.
+
+  **Rationale.** The two properties are separable: availability, flapping,
+  outage and correlation analysis need *when a value changed and how often*,
+  while occupancy reconstruction needs *what the value was*. Masking keeps the
+  first and destroys the second, so the diagnostic purpose of this server
+  survives without handing an occupancy timeline to whatever cloud model is on
+  the other end of the MCP connection (threat T3). Coarsened coordinates keep
+  sun-elevation, weather and timezone correlation working — real diagnostic
+  inputs — while removing address-level identification; withholding them would
+  degrade those correlations to buy nothing masking does not already buy, since
+  `location_name` is the owner's own label and carries no address.
+
+  **Rejected.** *Deny by default* — safest, but a flaky presence sensor or an
+  unreliable lock is exactly the kind of fault this server exists to diagnose,
+  and denying it makes the default profile one every owner immediately loosens;
+  a default that gets turned off is not a default. *Allow with bounded history* —
+  a 24 h window is still a full occupancy timeline, and bounding the window
+  bounds the volume rather than the exposure.
+
+  **Consequences.** `internal/policy` decides *that* a value is masked and
+  *which* token it gets (classification and profile); `internal/redact` applies
+  the substitution at the response boundary, the same boundary `SECRET` stripping
+  runs at. Token assignment must be **stable within one response** — the same
+  underlying state maps to the same token throughout — or transition counting
+  becomes unreadable; it must **not** be stable across responses, or the tokens
+  become a de-facto stable identifier that leaks the value by correlation. A
+  masked field is marked masked, exactly as a redacted one is marked redacted
+  (`P2-03`): the agent must be able to tell a masked state from a real one, or
+  it will reason about `state_A` as though it were a state name.
 
 - [ ] **`needs-decision` — Persistence beyond cache and audit**
   Q10. Memory-only keeps the App small on a Raspberry Pi and makes every restart
