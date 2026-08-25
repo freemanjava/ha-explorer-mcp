@@ -1,0 +1,15 @@
+#!/bin/sh
+# Blocks a commit if gitleaks finds a likely secret in the staged diff.
+# Enable once per clone: git config core.hooksPath githooks
+# CLAUDE.md rule 4 (SUPERVISOR_TOKEN never leaves) and the broader
+# "HA data is untrusted" posture both depend on secrets never reaching a
+# commit in the first place — this is the local half of that guarantee: CI
+# (.github/workflows/ci.yml, job `secrets`) is the half that can't be skipped.
+set -e
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+	echo "pre-commit: gitleaks not installed — refusing to commit unchecked (brew install gitleaks)" >&2
+	exit 1
+fi
+
+gitleaks protect --staged --redact --verbose

@@ -85,6 +85,23 @@ file when running as an App). No config file is read from `/config` — ever.
   `main` is the integration branch.
 - Code and its plan updates (`NEXT.md`, phase checkboxes, journal) land in the
   same change, so status never drifts from reality.
+- **No `Co-Authored-By: Claude` (or similar) trailer in commits on this
+  repository.** The repo is public; the owner's decision, 2026-08-25.
+- **Secret scanning is mandatory, not advisory, on this repository** — it was
+  rebuilt from scratch once already to scrub leaked PII/identity from history
+  before going public, and that is not repeatable at low cost a second time.
+  Two independent layers, both `gitleaks` (`brew install gitleaks`):
+  - **Local:** `git config core.hooksPath githooks` once per clone enables
+    `githooks/pre-commit`, which refuses to commit if `gitleaks` isn't
+    installed (fail closed, not skip) and blocks any commit whose staged diff
+    trips a rule.
+  - **CI:** `.github/workflows/ci.yml`'s `secrets` job runs `gitleaks-action`
+    on every push and PR — the layer a clone that skipped the hook can't
+    bypass.
+  Neither layer is a substitute for judgment: real HA data (entity ids, area
+  names, tokens) must never enter a commit, test fixture, or doc in the first
+  place — rule 6 and rule 4 below apply here too, not just to the running
+  server.
 
 ---
 

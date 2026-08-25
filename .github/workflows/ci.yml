@@ -6,6 +6,20 @@ on:
   pull_request:
 
 jobs:
+  # Backstop for CLAUDE.md's "SUPERVISOR_TOKEN never leaves" and the broader
+  # no-secrets-in-history posture: this gate can't be skipped by a clone that
+  # never ran `git config core.hooksPath githooks` (see githooks/pre-commit).
+  secrets:
+    name: secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   check:
     name: build + vet + lint + test
     runs-on: ubuntu-latest
