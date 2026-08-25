@@ -3,7 +3,7 @@
 <!-- BOUNDED FILE — rewritten in place, never appended to. Keep under ~100 lines.
      Anything that grows goes to journal/. This file is read by every session. -->
 
-**▶ Active:** `P2-02` — Privacy classification and profiles
+**▶ Active:** `P2-03` — Redaction and masking
 · [`phases/02-policy-privacy-audit.md`](phases/02-policy-privacy-audit.md) · model: **claude-opus-5** · flags: 🧠
 
 > Advancing this pointer is part of finishing a task, together with ticking the
@@ -16,10 +16,9 @@ cycle. Remove a row when its task closes.
 
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
-| 1 | `P2-02` | Privacy classification and profiles | 02 | claude-opus-5 | 🧠 |
-| 2 | `P2-03` | Redaction and masking | 02 | claude-opus-5 | 🧠 |
-| 3 | `P2-04` | Response size cap and pagination contract | 02 | claude-sonnet-5 | |
-| 4 | `P2-05` | Audit logger | 02 | claude-sonnet-5 | |
+| 1 | `P2-03` | Redaction and masking | 02 | claude-opus-5 | 🧠 |
+| 2 | `P2-04` | Response size cap and pagination contract | 02 | claude-sonnet-5 | |
+| 3 | `P2-05` | Audit logger | 02 | claude-sonnet-5 | |
 
 **Order rationale.** Phase 01 finishes first: `P2-01` charges its budget against
 the typed failures `P1-04` defines, and `P2-02` / `P2-03` classify and mask the
@@ -66,7 +65,7 @@ done
 |------:|-------|:------------:|
 | 00 | Spike & Foundations | 13 / 15 |
 | 01 | HA Access & Read-Only Gateway | 8 / 9 |
-| 02 | Policy, Privacy, Budget & Audit | 2 / 7 |
+| 02 | Policy, Privacy, Budget & Audit | 3 / 7 |
 | 03 | MCP Server & Inventory Tools | 0 / 8 |
 | 04 | History, Statistics & Detection | 0 / 5 |
 | 05 | Diagnostics & Evidence Engine | 0 / 1 |
@@ -75,15 +74,15 @@ done
 
 Counts include each phase's `needs-decision` entries, which are boxes too — one
 of Phase 01's five ticks is its deny-list decision, not a task; of Phase 02's
-two, one is its PRIVATE-handling decision, settled 2026-08-25, and one is
-`P2-01`.
+three, one is its PRIVATE-handling decision, settled 2026-08-25; the other two
+are `P2-01` and `P2-02`.
 
 Phases 00–04 are milestone M1 (v1 observer). Phase 05 is M2. Phases 06–07 are
 gated: they open only on an explicit owner decision plus a fresh security review.
 Phases 05–07 carry no task boxes yet — theirs are written by `devflow plan` when
 the phase before them closes.
 
-Last refreshed: 2026-08-25 (`devflow next` — `P2-01` closed)
+Last refreshed: 2026-08-25 (`devflow next` — `P2-02` closed)
 
 ## Open findings
 
@@ -106,7 +105,9 @@ their triage still read `queue-next` (**F-13**, **F-18** → `P1-07` · **F-16**
 its tasks close, not when they are queued.
 
 The three open ones are each already pinned into a DoD, none needing a box:
-**F-10**, **F-12** → `P2-02` / `P2-03`, now queued · **F-11** → `P3-07` plus a
+**F-10**, **F-12** → `P2-02` (closed 2026-08-25 — installation coordinates and
+embedded-entity payloads both classify now) and `P2-03`, which applies that
+classification and is what closes them · **F-11** → `P3-07` plus a
 Phase 05 §13.1 bullet. Both `defer`s stay deferred: **F-6** (Phase 05 owns it),
 **F-17** — `P2-01` landed with the conservative batched figure in its statistics
 estimate and a comment saying so, exactly as the deferral anticipated, so
@@ -118,6 +119,13 @@ timings rather than measured, `defer` until Phase 03 wires the limiter.
 
 Last 5 closed tasks, one line each. Older entries live in `journal/`.
 
+- 2026-08-25 · `P2-02` — Privacy classification and profiles in
+  `internal/policy`: `Sensitivity` (normal/private/secret) decided by readable
+  tables — private domains, occupancy device classes, secret key fragments,
+  location attributes, `get_config` coordinates — plus `ClassifyPayload`, which
+  classifies by the entities a payload embeds at any depth (F-12), and
+  `Profile` (mask default / allow / deny) with `ErrPolicyDenied` refusing bulk
+  history over a private domain.
 - 2026-08-25 · `P2-01` — Query budget in `internal/policy`: `QueryBudget`
   charged per dimension against measured class limits, attached to the
   invocation context with its deadline, a pre-flight entity-day estimate that
@@ -134,8 +142,6 @@ Last 5 closed tasks, one line each. Older entries live in `journal/`.
 - 2026-08-25 · `P1-04` — Full error taxonomy: `ErrUnsupported` + `ErrDeadline`
   added, `CommandError.Unwrap` maps HA's `unauthorized`/`not_found` codes, ctx
   deadlines wrapped distinctly from `ErrUpstreamUnavailable` in WS and REST.
-- 2026-08-25 · `P1-03` — REST reader: typed per-route methods, exact-match route
-  table, GET-only backstop, `ErrNotFound` + `ErrResponseTooLarge`.
 
 ## Project facts
 

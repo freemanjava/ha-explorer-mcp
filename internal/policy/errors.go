@@ -23,4 +23,13 @@ var (
 	// spend, and neither substitutes for the other. Errors carrying it are
 	// *RateLimitError.
 	ErrRateLimited = errors.New("policy: rate limited")
+
+	// ErrPolicyDenied indicates the privacy profile refuses to serve a
+	// request at all, rather than serving it masked. It must stay
+	// distinguishable all the way to the MCP response from "absent"
+	// (ErrNotFound) and "cannot check" (ErrUnsupported): a refusal is a
+	// decision this server made, not a fact about the installation, and an
+	// empty list would claim the opposite (CLAUDE.md rule 7). Errors carrying
+	// it are *PolicyError.
+	ErrPolicyDenied = errors.New("policy: denied by privacy profile")
 )

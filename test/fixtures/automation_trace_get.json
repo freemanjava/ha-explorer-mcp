@@ -1,0 +1,106 @@
+{
+  "run_id": "01JC4ZQK7X8V2M9N0P1Q2R3S4T",
+  "item_id": "1724500000000",
+  "domain": "automation",
+  "state": "stopped",
+  "script_execution": "finished",
+  "last_step": "action/0",
+  "blueprint_inputs": null,
+  "timestamp": {
+    "start": "2026-08-22T19:04:11.512345+00:00",
+    "finish": "2026-08-22T19:04:11.640210+00:00"
+  },
+  "trace": {
+    "trigger/1": [
+      {
+        "path": "trigger/1",
+        "timestamp": "2026-08-22T19:04:11.512345+00:00",
+        "changed_variables": {
+          "this": {
+            "entity_id": "automation.evening_lights",
+            "state": "on",
+            "attributes": {
+              "friendly_name": "Evening lights",
+              "icon": "mdi:lightbulb-group",
+              "id": "1724500000000",
+              "last_triggered": "2026-08-22T19:04:11.512345+00:00"
+            },
+            "last_changed": "2026-08-20T06:12:00.000000+00:00",
+            "context": {
+              "id": "01JC4ZQK7X8V2M9N0P1Q2R3S4T",
+              "parent_id": null,
+              "user_id": "5f2a91c04b7e4d3f8a6c1e0d9b3a7c25"
+            }
+          },
+          "trigger": {
+            "platform": "state",
+            "entity_id": "device_tracker.owner_phone",
+            "from_state": {
+              "entity_id": "device_tracker.owner_phone",
+              "state": "not_home",
+              "attributes": {
+                "friendly_name": "Owner phone",
+                "source_type": "gps",
+                "latitude": 52.370216,
+                "longitude": 4.895168,
+                "gps_accuracy": 12
+              },
+              "last_changed": "2026-08-22T18:41:03.100000+00:00",
+              "context": {
+                "id": "01JC4ZP0000000000000000000",
+                "parent_id": null,
+                "user_id": null
+              }
+            },
+            "to_state": {
+              "entity_id": "device_tracker.owner_phone",
+              "state": "home",
+              "attributes": {
+                "friendly_name": "Owner phone",
+                "source_type": "gps",
+                "latitude": 52.379189,
+                "longitude": 4.899431,
+                "gps_accuracy": 8
+              },
+              "last_changed": "2026-08-22T19:04:11.500000+00:00",
+              "context": {
+                "id": "01JC4ZQK7X8V2M9N0P1Q2R3S4T",
+                "parent_id": null,
+                "user_id": null
+              }
+            }
+          }
+        },
+        "result": {"result": true}
+      }
+    ],
+    "condition/0": [
+      {
+        "path": "condition/0",
+        "timestamp": "2026-08-22T19:04:11.560000+00:00",
+        "changed_variables": {},
+        "result": {"result": true, "entities": ["sun.sun"]}
+      }
+    ],
+    "action/0": [
+      {
+        "path": "action/0",
+        "timestamp": "2026-08-22T19:04:11.601000+00:00",
+        "changed_variables": {},
+        "result": {"params": {"domain": "light", "service": "turn_on"}}
+      }
+    ]
+  },
+  "config": {
+    "id": "1724500000000",
+    "alias": "Evening lights",
+    "triggers": [{"trigger": "state", "entity_id": "device_tracker.owner_phone", "to": "home"}],
+    "conditions": [{"condition": "sun", "after": "sunset"}],
+    "actions": [{"action": "light.turn_on", "target": {"entity_id": "light.hallway"}}]
+  },
+  "context": {
+    "id": "01JC4ZQK7X8V2M9N0P1Q2R3S4T",
+    "parent_id": null,
+    "user_id": "5f2a91c04b7e4d3f8a6c1e0d9b3a7c25"
+  }
+}
