@@ -297,6 +297,58 @@ func sequenceLen(raw map[string]any, keys ...string) int {
 	return 0
 }
 
+// supervisorInfoWire is the strictly-typed shape of a /supervisor/info
+// response. Unlike the registry mappers above, a field HA/Supervisor renamed
+// or retyped is not degraded to Partial here: json.Unmarshal fails the whole
+// call, so a mutated shape is reported rather than mapped into garbage
+// (P1-08 DoD). /supervisor/info is Supervisor's own status endpoint, not a
+// Core registry HA upgrades independently, so this project chooses to trust
+// its shape more strictly than Core's.
+type supervisorInfoWire struct {
+	Version       string `json:"version"`
+	VersionLatest string `json:"version_latest"`
+	Channel       string `json:"channel"`
+	Supported     bool   `json:"supported"`
+	Healthy       bool   `json:"healthy"`
+	Addons        []struct {
+		Slug            string `json:"slug"`
+		Name            string `json:"name"`
+		Version         string `json:"version"`
+		VersionLatest   string `json:"version_latest"`
+		UpdateAvailable bool   `json:"update_available"`
+		State           string `json:"state"`
+		Repository      string `json:"repository"`
+	} `json:"addons"`
+}
+
+// MapSupervisorInfo maps a /supervisor/info response into model.SupervisorInfo.
+func MapSupervisorInfo(raw json.RawMessage) (model.SupervisorInfo, error) {
+	var wire supervisorInfoWire
+	if err := json.Unmarshal(raw, &wire); err != nil {
+		return model.SupervisorInfo{}, fmt.Errorf("%w: decoding /supervisor/info: %v", ErrUnexpectedMessage, err)
+	}
+
+	info := model.SupervisorInfo{
+		Version:       wire.Version,
+		VersionLatest: wire.VersionLatest,
+		Channel:       wire.Channel,
+		Supported:     wire.Supported,
+		Healthy:       wire.Healthy,
+	}
+	for _, a := range wire.Addons {
+		info.Apps = append(info.Apps, model.App{
+			Slug:            a.Slug,
+			Name:            a.Name,
+			Version:         a.Version,
+			VersionLatest:   a.VersionLatest,
+			UpdateAvailable: a.UpdateAvailable,
+			State:           a.State,
+			Repository:      a.Repository,
+		})
+	}
+	return info, nil
+}
+
 // --- permissive field extraction -------------------------------------------
 //
 // Every accessor here reports absence or a type mismatch as "not present"

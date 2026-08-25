@@ -57,7 +57,7 @@ internal/mcp/      # server.go, system_tools.go, entity_tools.go, automation_too
   without killing the server; a test asserts every registered tool receives a
   budget (no tool can be registered without one).
 
-- [ ] **`P3-02` — `get_system_overview` and `get_system_health`** `blocked:P1-08`
+- [ ] **`P3-02` — `get_system_overview` and `get_system_health`**
   — root discovery snapshot (version, installation, inventory counts, headline
   health) and the Supervisor-backed resource/service health, built on `P1-08`'s
   reader at the default role: component versions, hostname, machine, arch, Core
@@ -97,7 +97,7 @@ internal/mcp/      # server.go, system_tools.go, entity_tools.go, automation_too
   interpreted (threat T2).
 
 - [ ] **`P3-06` — `list_areas`, `list_automations`, `list_repairs`,
-  `list_apps`** `blocked:P1-08` — area/floor/label topology, automation inventory
+  `list_apps`** — area/floor/label topology, automation inventory
   with enabled state and `last_triggered`, native HA Repairs/issues, and the
   Supervisor App inventory. `list_apps` is implementable rather than permanently
   `unsupported` because the 2026-08-25 decision grants `/supervisor/info`, whose

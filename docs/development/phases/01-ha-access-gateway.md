@@ -157,7 +157,7 @@ internal/model/    # normalized domain types
   state that `hassio_api: false` declares intent and bounds blast radius but does
   not prevent Supervisor access, naming the gateway as the enforcement point.
 
-- [ ] **`P1-08` — Supervisor REST adapter and manifest permission** — the
+- [x] **`P1-08` — Supervisor REST adapter and manifest permission** — the
   2026-08-25 Supervisor decision grants `hassio_api: true` at the default role,
   and nothing in the tree reads Supervisor yet: `internal/ha/rest.go` speaks only
   to Core through the proxy. Add a Supervisor reader — its own small interface,

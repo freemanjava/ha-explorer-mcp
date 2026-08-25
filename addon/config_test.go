@@ -82,7 +82,7 @@ func TestAddonManifestSecurityPosture(t *testing.T) {
 
 	required := map[string]string{
 		"homeassistant_api": "true",
-		"hassio_api":        "false",
+		"hassio_api":        "true",
 		"protection":        "true",
 	}
 	for key, want := range required {
@@ -94,6 +94,14 @@ func TestAddonManifestSecurityPosture(t *testing.T) {
 		if got != want {
 			t.Errorf("key %q = %q, want %q", key, got, want)
 		}
+	}
+
+	// hassio_role must stay unset (the default role) — a role above default
+	// would grant broad /core/.+ or /host/.+ write access, which doc §15.2
+	// rules out for observer v1 (phase 00 "Supervisor permission level"
+	// decision, 2026-08-25).
+	if role, present := m.scalars["hassio_role"]; present {
+		t.Errorf("hassio_role must stay unset (the default role), got %q", role)
 	}
 
 	for _, entry := range m.mapList {

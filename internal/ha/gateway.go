@@ -168,6 +168,61 @@ func checkRoute(method, template string) error {
 	return nil
 }
 
+// The Supervisor REST endpoints this binary is permitted to request, as exact
+// paths — never a prefix or pattern rule, for the same reason as
+// allowedRoutes above. Every entry is granted by hassio_api: true at the
+// **default** role and nothing above it (phase 00 "Supervisor permission
+// level" decision, 2026-08-25): each is commented with the evidence row in
+// docs/research/2026-08-23-supervisor-permissions.md that established it.
+// Notably absent: any */stats route beyond the App's own, /addons (the
+// manager-only collection), /core/.+ and /host/.+ beyond /host/info — all of
+// them need a role this project deliberately does not request.
+const (
+	SupervisorRouteInfo           = "/info"              // api_bypass — granted at hassio_api: false too
+	SupervisorRouteSupervisorInfo = "/supervisor/info"   // default role — embeds the App inventory (addons[])
+	SupervisorRouteOSInfo         = "/os/info"           // default role
+	SupervisorRouteHostInfo       = "/host/info"         // default role
+	SupervisorRouteResolutionInfo = "/resolution/info"   // default role
+	SupervisorRouteNetworkInfo    = "/network/info"      // default role
+	SupervisorRouteHardwareInfo   = "/hardware/info"     // default role
+	SupervisorRouteJobsInfo       = "/jobs/info"         // default role
+	SupervisorRouteAddonSelfInfo  = "/addons/self/info"  // api_bypass — granted at hassio_api: false too
+	SupervisorRouteAddonSelfStats = "/addons/self/stats" // api_bypass — this App's own container only
+	SupervisorRoutePing           = "/supervisor/ping"   // no_security_check — liveness only
+)
+
+// allowedSupervisorRoutes is an exact-match set of concrete paths. Unlike
+// allowedRoutes above, none of these carry a path parameter — every one names
+// a fixed Supervisor resource — so there is no template-vs-expansion
+// distinction to preserve here.
+var allowedSupervisorRoutes = map[string]struct{}{
+	SupervisorRouteInfo:           {},
+	SupervisorRouteSupervisorInfo: {},
+	SupervisorRouteOSInfo:         {},
+	SupervisorRouteHostInfo:       {},
+	SupervisorRouteResolutionInfo: {},
+	SupervisorRouteNetworkInfo:    {},
+	SupervisorRouteHardwareInfo:   {},
+	SupervisorRouteJobsInfo:       {},
+	SupervisorRouteAddonSelfInfo:  {},
+	SupervisorRouteAddonSelfStats: {},
+	SupervisorRoutePing:           {},
+}
+
+// checkSupervisorRoute decides whether a Supervisor REST request may be
+// issued at all, mirroring checkRoute's method-then-table order and its
+// fail-closed guarantee: both checks happen before any bytes leave the
+// process.
+func checkSupervisorRoute(method, route string) error {
+	if method != http.MethodGet {
+		return fmt.Errorf("%w: Supervisor method %q is not permitted; this binary issues GET only", ErrPolicyDenied, method)
+	}
+	if _, ok := allowedSupervisorRoutes[route]; !ok {
+		return fmt.Errorf("%w: Supervisor route %q is not allow-listed", ErrPolicyDenied, route)
+	}
+	return nil
+}
+
 // entityIDPattern is Core's own entity-id shape: a lowercase domain and object
 // id joined by a single dot. It is deliberately narrower than "whatever URL
 // escaping survives" — a value that cannot contain a slash, a dot segment or a

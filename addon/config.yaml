@@ -19,11 +19,20 @@ init: false
 
 # Security posture — architecture doc §15.2. Read-only diagnostics only.
 # These flags declare intent and bound blast radius; they are not the
-# enforcement point. hassio_api: false does not prevent supervisor/api from
-# being reachable over homeassistant_api (F-13) — the read-only guarantee is
-# enforced by internal/ha/gateway.go's allow-list and named deny set (P1-07).
+# enforcement point. supervisor/api is reachable over homeassistant_api
+# regardless of hassio_api (F-13) — the read-only guarantee is enforced by
+# internal/ha/gateway.go's allow-list and named deny set (P1-07).
+#
+# hassio_api: true at the default role (hassio_role unset) grants only paths
+# ending in /info — /supervisor/info (which embeds the installed-App
+# inventory), /os/info, /host/info, /resolution/info, /network/info,
+# /hardware/info, /jobs/info — plus what api_bypass already granted at false
+# (/info, /addons/self/*). It grants no */stats beyond this App's own and no
+# write-capable path whatsoever: a role above default would (docs/research/
+# 2026-08-23-supervisor-permissions.md; phase 00 "Supervisor permission
+# level" decision, 2026-08-25).
 homeassistant_api: true
-hassio_api: false
+hassio_api: true
 docker_api: false
 host_network: false
 full_access: false
