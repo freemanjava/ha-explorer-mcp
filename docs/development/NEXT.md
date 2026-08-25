@@ -3,8 +3,8 @@
 <!-- BOUNDED FILE — rewritten in place, never appended to. Keep under ~100 lines.
      Anything that grows goes to journal/. This file is read by every session. -->
 
-**▶ Active:** `P1-06` — Registry cache with TTL and observation time
-· [`phases/01-ha-access-gateway.md`](phases/01-ha-access-gateway.md) · model: **claude-sonnet-5** · flags: —
+**▶ Active:** `P2-01` — Query budget
+· [`phases/02-policy-privacy-audit.md`](phases/02-policy-privacy-audit.md) · model: **claude-opus-5** · flags: 🧠
 
 > Advancing this pointer is part of finishing a task, together with ticking the
 > box, recomputing status and appending a journal entry. All four, or none.
@@ -16,12 +16,11 @@ cycle. Remove a row when its task closes.
 
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
-| 1 | `P1-06` | Registry cache with TTL and observation time | 01 | claude-sonnet-5 | |
-| 2 | `P2-01` | Query budget | 02 | claude-opus-5 | 🧠 |
-| 3 | `P2-02` | Privacy classification and profiles | 02 | claude-opus-5 | 🧠 |
-| 4 | `P2-03` | Redaction and masking | 02 | claude-opus-5 | 🧠 |
-| 5 | `P2-04` | Response size cap and pagination contract | 02 | claude-sonnet-5 | |
-| 6 | `P2-05` | Audit logger | 02 | claude-sonnet-5 | |
+| 1 | `P2-01` | Query budget | 02 | claude-opus-5 | 🧠 |
+| 2 | `P2-02` | Privacy classification and profiles | 02 | claude-opus-5 | 🧠 |
+| 3 | `P2-03` | Redaction and masking | 02 | claude-opus-5 | 🧠 |
+| 4 | `P2-04` | Response size cap and pagination contract | 02 | claude-sonnet-5 | |
+| 5 | `P2-05` | Audit logger | 02 | claude-sonnet-5 | |
 
 **Order rationale.** Phase 01 finishes first: `P2-01` charges its budget against
 the typed failures `P1-04` defines, and `P2-02` / `P2-03` classify and mask the
@@ -67,7 +66,7 @@ done
 | phase | theme | done / total |
 |------:|-------|:------------:|
 | 00 | Spike & Foundations | 13 / 15 |
-| 01 | HA Access & Read-Only Gateway | 7 / 9 |
+| 01 | HA Access & Read-Only Gateway | 8 / 9 |
 | 02 | Policy, Privacy, Budget & Audit | 1 / 7 |
 | 03 | MCP Server & Inventory Tools | 0 / 8 |
 | 04 | History, Statistics & Detection | 0 / 5 |
@@ -84,7 +83,7 @@ gated: they open only on an explicit owner decision plus a fresh security review
 Phases 05–07 carry no task boxes yet — theirs are written by `devflow plan` when
 the phase before them closes.
 
-Last refreshed: 2026-08-25 (`devflow next` — `P1-05` closed)
+Last refreshed: 2026-08-25 (`devflow next` — `P1-06` closed)
 
 ## Open findings
 
@@ -116,6 +115,10 @@ Phase 05 §13.1 bullet. Both `defer`s stay deferred: **F-6** (Phase 05 owns it),
 
 Last 5 closed tasks, one line each. Older entries live in `journal/`.
 
+- 2026-08-25 · `P1-06` — `RegistryCache` in `internal/ha`: TTL + single-flight
+  refill per doc §16 for entity/device/area/config-entries registries; every
+  served value carries its observation time; a fake `caller` (no real
+  WebSocket) makes TTL expiry and concurrency deterministic in tests.
 - 2026-08-25 · `P1-05` — Normalized domain model: `Entity`, `DeviceRef`,
   `Integration`, `Area`, `Automation`, `Health`, `Evidence` in `internal/model`;
   explicit permissive mapping in `internal/ha` marks a value `Partial` on a
@@ -127,8 +130,6 @@ Last 5 closed tasks, one line each. Older entries live in `journal/`.
   table, GET-only backstop, `ErrNotFound` + `ErrResponseTooLarge`.
 - 2026-08-25 · `P0-11` — App ships as a published multi-arch GHCR image;
   live-verified on the owner's Pi. F-16 resolved.
-- 2026-08-24 · `P0-10` — Supervisor *can* pull a private-registry App image;
-  credentials live in `/data/docker.json`. F-19 answered.
 
 ## Project facts
 
