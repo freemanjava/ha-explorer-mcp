@@ -95,7 +95,7 @@ internal/model/    # normalized domain types
   whose name matches a mutation verb (`update|create|delete|remove|set|call`),
   so a future addition cannot slip one in.
 
-- [ ] **`P1-03` — REST reader with route/method allow-list** 🧠 — `GET`-only
+- [x] **`P1-03` — REST reader with route/method allow-list** 🧠 — `GET`-only
   client for `http://supervisor/core/api/`, exact route templates
   (`/config`, `/states`, `/states/{entity_id}`, `/history/period/{ts}`, optional
   logbook), `SUPERVISOR_TOKEN` auth, deadline per request, bounded response read.
