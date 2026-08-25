@@ -123,7 +123,7 @@ internal/model/    # normalized domain types
   Unicode `friendly_name` round-trips safely (Appendix B); `internal/model`
   imports nothing from `internal/ha`.
 
-- [ ] **`P1-06` — Registry cache with TTL and observation time** — TTL caching
+- [x] **`P1-06` — Registry cache with TTL and observation time** — TTL caching
   per doc §16 (entity registry 30–60s, device registry / areas ~5min, config
   entries 1–5min, system info ~30s), with every cached value carrying its
   observation timestamp.
