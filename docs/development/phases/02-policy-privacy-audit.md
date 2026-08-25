@@ -94,7 +94,7 @@ internal/audit/    # logger.go
   Appendix B); a tool that finishes inside budget reports its consumption; the
   deadline cancels in-flight upstream calls rather than leaving them running.
 
-- [ ] **`P2-02` — Privacy classification and profiles** 🧠 — classify entities
+- [x] **`P2-02` — Privacy classification and profiles** 🧠 — classify entities
   `NORMAL` / `PRIVATE` / `SECRET` per doc §5.1, with a configurable profile
   controlling how `PRIVATE` is handled (allow / mask / deny).
   **DoD:** `person.*`, `device_tracker.*`, `lock.*`, `alarm_control_panel.*` and
