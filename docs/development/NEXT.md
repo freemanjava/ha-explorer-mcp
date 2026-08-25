@@ -3,8 +3,8 @@
 <!-- BOUNDED FILE — rewritten in place, never appended to. Keep under ~100 lines.
      Anything that grows goes to journal/. This file is read by every session. -->
 
-**▶ Active:** `P1-08` — Supervisor REST adapter and manifest permission
-· [`phases/01-ha-access-gateway.md`](phases/01-ha-access-gateway.md) · model: **claude-sonnet-5** · flags: —
+**▶ Active:** `P3-01` — MCP server bootstrap and tool registry
+· [`phases/03-inventory-tools.md`](phases/03-inventory-tools.md) · model: **claude-opus-5** · flags: 🧠
 
 > Advancing this pointer is part of finishing a task, together with ticking the
 > box, recomputing status and appending a journal entry. All four, or none.
@@ -16,30 +16,25 @@ cycle. Remove a row when its task closes.
 
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
-| 1 | `P1-08` | Supervisor REST adapter and manifest permission | 01 | claude-sonnet-5 | |
-| 2 | `P3-01` | MCP server bootstrap and tool registry | 03 | claude-opus-5 | 🧠 |
-| 3 | `P3-02` | `get_system_overview` / `get_system_health` | 03 | claude-sonnet-5 | `blocked:P1-08` |
-| 4 | `P3-03` | `list_integrations` / `get_integration` | 03 | claude-sonnet-5 | |
-| 5 | `P3-04` | `list_devices` / `get_device` | 03 | claude-sonnet-5 | |
-| 6 | `P3-05` | `list_entities` / `get_entity` | 03 | claude-sonnet-5 | |
-| 7 | `P3-06` | `list_areas` / `list_automations` / `list_repairs` / `list_apps` | 03 | claude-sonnet-5 | `blocked:P1-08` |
-| 8 | `P3-07` | `get_automation` / `get_automation_traces` | 03 | claude-sonnet-5 | |
+| 1 | `P3-01` | MCP server bootstrap and tool registry | 03 | claude-opus-5 | 🧠 |
+| 2 | `P3-02` | `get_system_overview` / `get_system_health` | 03 | claude-sonnet-5 | |
+| 3 | `P3-03` | `list_integrations` / `get_integration` | 03 | claude-sonnet-5 | |
+| 4 | `P3-04` | `list_devices` / `get_device` | 03 | claude-sonnet-5 | |
+| 5 | `P3-05` | `list_entities` / `get_entity` | 03 | claude-sonnet-5 | |
+| 6 | `P3-06` | `list_areas` / `list_automations` / `list_repairs` / `list_apps` | 03 | claude-sonnet-5 | |
+| 7 | `P3-07` | `get_automation` / `get_automation_traces` | 03 | claude-sonnet-5 | |
 
 **Order rationale.** `P2-05` closed Phase 02: `internal/audit` reused
 `P2-03`'s redaction rather than growing a second copy, so `P3-01` can wire
 audit middleware into every invocation against a record shape that already
-exists. `P1-08` is next because it is a layer below the tools and two of them
-cannot be written without it: the 2026-08-25 Supervisor decision grants
-endpoints nothing in the tree reads yet, so `P3-02` and `P3-06` are
-`blocked:P1-08`. Then Phase 03 in its written order — `P3-01` first because
-everything registers into it, `P3-07` last because it is the most
-compatibility-sensitive surface in the phase. Phase 04's five follow this queue
-unbroken: the catalog decision below rules out an interleaved release cut, so
-there is no reason to reorder them against Phase 03.
-
-**One new box.** `P1-08` is the only task this `plan` wrote. Phase 03's eight
-already existed; the four decisions settled here folded into the `P3-01`,
-`P3-02` and `P3-06` DoDs rather than producing boxes of their own.
+exists. `P1-08` closed Phase 01: `SupervisorClient` now reads the endpoints
+the 2026-08-25 Supervisor decision grants, so `P3-02` and `P3-06`'s
+`blocked:P1-08` is lifted — both queued unblocked. Phase 03 now runs in its
+written order — `P3-01` first because everything registers into it, `P3-07`
+last because it is the most compatibility-sensitive surface in the phase.
+Phase 04's five follow this queue unbroken: the catalog decision below rules
+out an interleaved release cut, so there is no reason to reorder them against
+Phase 03.
 
 **Four decisions settled 2026-08-25.** *Transport:* **stdio only** — no
 listening port, no client-auth subsystem, and every log line goes to stderr
@@ -72,7 +67,7 @@ done
 | phase | theme | done / total |
 |------:|-------|:------------:|
 | 00 | Spike & Foundations | 15 / 15 |
-| 01 | HA Access & Read-Only Gateway | 9 / 10 |
+| 01 | HA Access & Read-Only Gateway | 10 / 10 |
 | 02 | Policy, Privacy, Budget & Audit | 6 / 7 |
 | 03 | MCP Server & Inventory Tools | 1 / 8 |
 | 04 | History, Statistics & Detection | 0 / 5 |
@@ -82,17 +77,18 @@ done
 
 Counts include each phase's `needs-decision` entries, which are boxes too. Phase
 00 is now fully ticked — its last two were the HA-version and Supervisor
-decisions, both settled 2026-08-25. Phase 01's one open box is `P1-08`, now the
-active task; its transport decision is ticked. Phase 02's one remaining open box
-is the Q10 persistence decision — `P2-05` closed 2026-08-25. Phase 03's one tick
-is its catalog-scope decision.
+decisions, both settled 2026-08-25. **Phase 01 is now fully ticked** — `P1-08`
+closed 2026-08-25: `SupervisorClient` and its own route allow-list in
+`internal/ha`, `addon/config.yaml` flipped to `hassio_api: true`. Phase 02's one
+remaining open box is the Q10 persistence decision — `P2-05` closed 2026-08-25.
+Phase 03's one tick is its catalog-scope decision.
 
 Phases 00–04 are milestone M1 (v1 observer). Phase 05 is M2. Phases 06–07 are
 gated: they open only on an explicit owner decision plus a fresh security review.
 Phases 05–07 carry no task boxes yet — theirs are written by `devflow plan` when
 the phase before them closes.
 
-Last refreshed: 2026-08-25 (`devflow next` — `P2-05` closed, pointer advanced to `P1-08`)
+Last refreshed: 2026-08-25 (`devflow next` — `P1-08` closed, Phase 01 done, pointer advanced to `P3-01`)
 
 ## Open findings
 
@@ -124,6 +120,15 @@ measure them is the `plan` after `P3-01` closes, not this one.
 
 Last 5 closed tasks, one line each. Older entries live in `journal/`.
 
+- 2026-08-25 · `P1-08` — `internal/ha/supervisor.go`: `SupervisorClient` reads
+  Supervisor's own API — its own base (`http://supervisor`), its own
+  exact-match GET-only route table holding only the eleven endpoints the
+  default role and `api_bypass` grant; Supervisor unreachable maps to
+  `ErrUnsupported`, distinct from Core's `ErrUpstreamUnavailable`, so a
+  Core-based answer keeps working with Supervisor absent; `/supervisor/info`
+  is mapped to `model.SupervisorInfo` through a strictly-typed decode that
+  fails loudly on a retyped field rather than degrading to `Partial`;
+  `addon/config.yaml` now sets `hassio_api: true` at the default role.
 - 2026-08-25 · `P2-05` — `internal/audit`: `Logger.Emit` runs
   `Record.Parameters` through the invocation's `*redact.Redactor` before
   logging, so secret literals and masked-private values never reach the trail
@@ -150,11 +155,6 @@ Last 5 closed tasks, one line each. Older entries live in `journal/`.
   classifies by the entities a payload embeds at any depth (F-12), and
   `Profile` (mask default / allow / deny) with `ErrPolicyDenied` refusing bulk
   history over a private domain.
-- 2026-08-25 · `P2-01` — Query budget in `internal/policy`: `QueryBudget`
-  charged per dimension against measured class limits, attached to the
-  invocation context with its deadline, a pre-flight entity-day estimate that
-  refuses before the recorder is asked, and a token-bucket rate limiter for
-  request storms (threat T1).
 
 ## Project facts
 

@@ -478,7 +478,7 @@ Auth: SUPERVISOR_TOKEN (never returned/logged)
 ## 15.2 App permissions baseline
 
 homeassistant_api: true  
-hassio_api: false \# enable only if a required Supervisor endpoint demands it  
+hassio_api: true \# default role (hassio_role unset) — decided 2026-08-25, see below  
   
 \# Desired security posture:  
 \# no docker_api  
@@ -488,14 +488,24 @@ hassio_api: false \# enable only if a required Supervisor endpoint demands it
 \# AppArmor profile  
 \# no /config mapping
 
-If additional Supervisor endpoints are necessary for Apps/system metrics, enable only the minimal Supervisor access/role required. The default role is designed around info calls; manager/admin should not be used for observer v1.
+The default role is designed around info calls: it grants every Supervisor
+path ending in `/info` (`/supervisor/info`, `/os/info`, `/host/info`,
+`/resolution/info`, `/network/info`, `/hardware/info`, `/jobs/info`), and
+nothing above it — no `*/stats` beyond this App's own, no `/addons`
+collection, no `/core/.+` or `/host/.+` write-capable surface. `manager`/`admin`
+must not be used for observer v1 (docs/research/2026-08-23-supervisor-permissions.md;
+phase 00 "Supervisor permission level" decision).
 
-`hassio_api: false` declares intent and bounds blast radius — it is not the
-enforcement point. The App manifest is not a wall: Core still reaches the
+`hassio_api` (at any role) declares intent and bounds blast radius — it is not
+the enforcement point. The App manifest is not a wall: Core still reaches the
 Supervisor API through the `supervisor/api` WebSocket command routed over
 `homeassistant_api: true` regardless of this flag (F-13). The refusal that
 actually matters is `internal/ha/gateway.go`'s named deny set, checked ahead
-of the allow-list and enforced at the point a frame becomes sendable (P1-07).
+of the allow-list and enforced at the point a frame becomes sendable (P1-07),
+plus the Supervisor REST route allow-list `internal/ha/gateway.go` holds
+separately for `SupervisorClient`, which permits only the endpoints above and
+denies everything else — including anything the default role's `/.+/info$`
+regex would otherwise admit but this project chooses not to request (P1-08).
 
 # 16. Caching, Resilience and Performance
 
