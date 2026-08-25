@@ -1,0 +1,16 @@
+[
+  {
+    "entity_id": 12345,
+    "unique_id": "bad-id-type",
+    "platform": "zha",
+    "device_id": "dev-kitchen-sensor-1"
+  },
+  {
+    "entity_id": "sensor.no_platform",
+    "device_id": "dev-2"
+  },
+  {
+    "entity_id": "",
+    "platform": "zha"
+  }
+]

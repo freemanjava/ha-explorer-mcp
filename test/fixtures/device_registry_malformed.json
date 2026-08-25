@@ -1,0 +1,10 @@
+[
+  {
+    "id": 999,
+    "manufacturer": "BadIDType"
+  },
+  {
+    "id": "dev-bad-connections",
+    "connections": ["not-a-pair", ["only-one"], ["type", "value"]]
+  }
+]

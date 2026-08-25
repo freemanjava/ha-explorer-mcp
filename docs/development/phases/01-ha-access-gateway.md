@@ -113,7 +113,7 @@ internal/model/    # normalized domain types
   caller can degrade on, and never a generic failure that would abort a whole
   diagnostic; a test asserts no error string carries a token or a raw payload.
 
-- [ ] **`P1-05` — Normalized domain model** — `Entity`, `DeviceRef`,
+- [x] **`P1-05` — Normalized domain model** — `Entity`, `DeviceRef`,
   `Integration`, `Area`, `Automation`, `Health`, `Evidence` in `internal/model`,
   with explicit mapping from raw HA payloads. No HA JSON struct is exposed above
   `internal/ha`.

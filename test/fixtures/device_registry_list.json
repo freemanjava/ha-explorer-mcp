@@ -1,0 +1,29 @@
+[
+  {
+    "id": "dev-kitchen-sensor-1",
+    "config_entries": ["entry-zha-1"],
+    "area_id": "area-kitchen",
+    "name": "Kitchen Sensor",
+    "name_by_user": null,
+    "manufacturer": "Aqara",
+    "model": "WSDCGQ11LM",
+    "sw_version": "1.0.2",
+    "hw_version": null,
+    "serial_number": null,
+    "connections": [["zigbee", "00:11:22:33:44:55"]],
+    "identifiers": [["zha", "00:11:22:33:44:55"]],
+    "via_device_id": "dev-hub",
+    "disabled_by": null
+  },
+  {
+    "id": "dev-hub",
+    "config_entries": ["entry-hub-1", "entry-hub-1-sub"],
+    "area_id": null,
+    "name": "Zigbee Hub",
+    "manufacturer": "Generic",
+    "model": "Hub v2",
+    "connections": [["ethernet", "aa:bb:cc:dd:ee:ff"]],
+    "identifiers": [["hub", "hub-serial-123"]],
+    "disabled_by": null
+  }
+]
