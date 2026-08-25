@@ -5,7 +5,7 @@ profile ha_inspector_mcp flags=(attach_disconnected,mediate_deleted) {
 
   # Read-only diagnostics: the binary, its shared libs, and standard runtime
   # paths only. No write access anywhere in the container filesystem.
-  /usr/bin/ha-inspector-mcp mr,
+  /usr/bin/ha-inspector-mcp mrix,
   /run.sh r,
   /lib/** mr,
   /usr/lib/** mr,
