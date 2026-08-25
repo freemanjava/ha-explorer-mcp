@@ -578,3 +578,35 @@ One caveat for `P0-11`'s install documentation: only a *present-but-wrong*
 credential surfaces as a clear, typed `DockerRegistryAuthError`; a *missing*
 one degrades to a generic `DockerError` carrying the raw registry response
 text, indistinguishable at the type level from image-not-found.
+
+### F-20 · The invocation rate limit's numbers are the only unmeasured constants in `P2-01` · 2026-08-25
+
+**Kind:** `unknown`
+
+**What:** `P2-01`'s budget dimensions all carry a measured provenance
+([`docs/research/2026-08-24-ha-multi-entity-query-cost.md`](../research/2026-08-24-ha-multi-entity-query-cost.md)),
+but the token bucket that answers the DoD's request-storm requirement does not:
+`invocationBurst = 10` and `invocationInterval = 500ms`
+([`internal/policy/ratelimit.go`](../../internal/policy/ratelimit.go)) are
+*derived* from that run's single-call timings (worst in-budget call 339 ms cold
+⇒ ~3 back-to-back calls saturate one recorder read stream), not observed. The
+2026-08-24 run measured the cost of one call, never a stream of them, so what a
+sustained 2/s arrival rate does to a Pi's recorder is unmeasured — the exact
+shape of F-14, which the phase's own design note calls "a limit nobody measured
+is a guess wearing a constant's name".
+
+**Impact:** Unknown pending verification, and currently inert: nothing calls
+`Allow()` yet — the limiter is wired at the MCP invocation boundary, which does
+not exist until Phase 03. Both error directions are plausible: too permissive
+lets a storm through the mitigation for threat T1, too strict refuses a normal
+interactive investigation's opening fan-out. Neither can be judged without a
+sustained-arrival measurement against a real recorder.
+
+**Triage:** `defer`
+
+**Outcome:** Open. Deferred rather than queued because nothing consumes the
+constants until `P3-01` wires the limiter, and the cheapest probe wants an MCP
+server to storm. Revisit when Phase 03 is planned: the probe is `cmd/spike`
+issuing a fixed-rate stream of max-page history calls while Core CPU and
+recorder latency are watched — the measurement the 2026-08-24 run explicitly did
+not make ("whether the widest calls degraded the installation while they ran").
