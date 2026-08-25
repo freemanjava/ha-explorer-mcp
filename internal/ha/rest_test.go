@@ -248,7 +248,14 @@ func TestRESTClient_Errors_NeverCarryTheToken(t *testing.T) {
 	_, denyErr := c.State(ctx, "../../config")
 	_, unreachErr := NewRESTClient("http://127.0.0.1:1", testToken, http.DefaultClient, nil).Config(ctx)
 
-	for _, err := range []error{statusErr, denyErr, unreachErr} {
+	deadlineSrv, _ := countingServer(t, func(w http.ResponseWriter, r *http.Request) {
+		<-r.Context().Done()
+	})
+	deadlineCtx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	_, deadlineErr := testClient(t, deadlineSrv).Config(deadlineCtx)
+
+	for _, err := range []error{statusErr, denyErr, unreachErr, deadlineErr} {
 		if err == nil {
 			t.Fatal("expected an error to inspect")
 		}
@@ -352,11 +359,32 @@ func TestRESTClient_NoCallerDeadline_AppliesBackstop(t *testing.T) {
 	}()
 	select {
 	case err := <-done:
-		if err == nil {
-			t.Fatal("Config: want a deadline error, got nil")
+		if !errors.Is(err, ErrDeadline) {
+			t.Fatalf("Config: got %v, want ErrDeadline", err)
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("Config: no deadline applied — call did not return")
+	}
+}
+
+// A caller's own deadline, not just the backstop, must surface as
+// ErrDeadline — distinguishable from ErrUpstreamUnavailable, which means the
+// connection itself failed rather than the caller giving up first.
+func TestConfig_CallerDeadlineExceeded_ReturnsErrDeadline(t *testing.T) {
+	srv, _ := countingServer(t, func(w http.ResponseWriter, r *http.Request) {
+		<-r.Context().Done()
+	})
+	c := testClient(t, srv)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	_, err := c.Config(ctx)
+	if !errors.Is(err, ErrDeadline) {
+		t.Fatalf("Config: got %v, want ErrDeadline", err)
+	}
+	if errors.Is(err, ErrUpstreamUnavailable) {
+		t.Fatalf("Config: %v also matches ErrUpstreamUnavailable, want it distinguishable from ErrDeadline", err)
 	}
 }
 

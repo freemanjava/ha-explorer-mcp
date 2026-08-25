@@ -193,7 +193,13 @@ func (c *RESTClient) get(ctx context.Context, template, path string, query url.V
 	if err != nil {
 		// The transport error is not wrapped: it can quote the request URL,
 		// and a URL is one refactor away from carrying a credential
-		// (CLAUDE.md rule 4). The route template says enough.
+		// (CLAUDE.md rule 4). The route template says enough. ctx.Err() is
+		// checked separately: it is a fixed stdlib string, safe to wrap, and
+		// tells apart "our own deadline" from "the connection failed" — the
+		// only way http.Client's error surfaces a deadline timeout.
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return nil, fmt.Errorf("%w: GET %s", wrapDeadline(ctxErr), template)
+		}
 		return nil, fmt.Errorf("%w: GET %s", ErrUpstreamUnavailable, template)
 	}
 	defer func() { _ = resp.Body.Close() }()
@@ -220,7 +226,7 @@ func (c *RESTClient) get(ctx context.Context, template, path string, query url.V
 // statusError maps an HTTP status onto this project's sentinels. "Absent"
 // (ErrNotFound) and "could not reach" (ErrUpstreamUnavailable) are different
 // answers and must stay distinguishable all the way to the MCP response
-// (CLAUDE.md, Error Handling); P1-04 consolidates the full taxonomy.
+// (CLAUDE.md, Error Handling).
 func statusError(status int, template string) error {
 	switch {
 	case status == http.StatusOK:
