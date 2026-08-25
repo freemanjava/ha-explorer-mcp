@@ -3,8 +3,8 @@
 <!-- BOUNDED FILE — rewritten in place, never appended to. Keep under ~100 lines.
      Anything that grows goes to journal/. This file is read by every session. -->
 
-**▶ Active:** `P2-03` — Redaction and masking
-· [`phases/02-policy-privacy-audit.md`](phases/02-policy-privacy-audit.md) · model: **claude-opus-5** · flags: 🧠
+**▶ Active:** `P2-04` — Response size cap and pagination contract
+· [`phases/02-policy-privacy-audit.md`](phases/02-policy-privacy-audit.md) · model: **claude-sonnet-5** · flags: —
 
 > Advancing this pointer is part of finishing a task, together with ticking the
 > box, recomputing status and appending a journal entry. All four, or none.
@@ -16,9 +16,8 @@ cycle. Remove a row when its task closes.
 
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
-| 1 | `P2-03` | Redaction and masking | 02 | claude-opus-5 | 🧠 |
-| 2 | `P2-04` | Response size cap and pagination contract | 02 | claude-sonnet-5 | |
-| 3 | `P2-05` | Audit logger | 02 | claude-sonnet-5 | |
+| 1 | `P2-04` | Response size cap and pagination contract | 02 | claude-sonnet-5 | |
+| 2 | `P2-05` | Audit logger | 02 | claude-sonnet-5 | |
 
 **Order rationale.** Phase 01 finishes first: `P2-01` charges its budget against
 the typed failures `P1-04` defines, and `P2-02` / `P2-03` classify and mask the
@@ -65,7 +64,7 @@ done
 |------:|-------|:------------:|
 | 00 | Spike & Foundations | 13 / 15 |
 | 01 | HA Access & Read-Only Gateway | 8 / 9 |
-| 02 | Policy, Privacy, Budget & Audit | 3 / 7 |
+| 02 | Policy, Privacy, Budget & Audit | 4 / 7 |
 | 03 | MCP Server & Inventory Tools | 0 / 8 |
 | 04 | History, Statistics & Detection | 0 / 5 |
 | 05 | Diagnostics & Evidence Engine | 0 / 1 |
@@ -74,15 +73,15 @@ done
 
 Counts include each phase's `needs-decision` entries, which are boxes too — one
 of Phase 01's five ticks is its deny-list decision, not a task; of Phase 02's
-three, one is its PRIVATE-handling decision, settled 2026-08-25; the other two
-are `P2-01` and `P2-02`.
+four, one is its PRIVATE-handling decision, settled 2026-08-25; the other three
+are `P2-01`, `P2-02` and `P2-03`.
 
 Phases 00–04 are milestone M1 (v1 observer). Phase 05 is M2. Phases 06–07 are
 gated: they open only on an explicit owner decision plus a fresh security review.
 Phases 05–07 carry no task boxes yet — theirs are written by `devflow plan` when
 the phase before them closes.
 
-Last refreshed: 2026-08-25 (`devflow next` — `P2-02` closed)
+Last refreshed: 2026-08-25 (`devflow next` — `P2-03` closed)
 
 ## Open findings
 
@@ -90,7 +89,7 @@ Last refreshed: 2026-08-25 (`devflow next` — `P2-02` closed)
      grep -c '^\*\*Triage:\*\* `queue-next`' docs/development/FINDINGS.md  (etc.)
      This block exists so captured work cannot quietly rot: every session sees it. -->
 
-`blocks-active` 0 · `queue-next` 3 · `defer` 3 · `unknown` 3 (open)
+`blocks-active` 0 · `queue-next` 1 · `defer` 3 · `unknown` 3 (open)
 
 > Any `blocks-active` is stop-work. If `queue-next` is non-zero and the queue
 > above has fewer than 3 rows, drain it with `devflow plan` before continuing —
@@ -104,11 +103,12 @@ their triage still read `queue-next` (**F-13**, **F-18** → `P1-07` · **F-16**
 `P0-11` · **F-19** → `P0-10`) — the count read 7, not 3. A finding closes when
 its tasks close, not when they are queued.
 
-The three open ones are each already pinned into a DoD, none needing a box:
-**F-10**, **F-12** → `P2-02` (closed 2026-08-25 — installation coordinates and
-embedded-entity payloads both classify now) and `P2-03`, which applies that
-classification and is what closes them · **F-11** → `P3-07` plus a
-Phase 05 §13.1 bullet. Both `defer`s stay deferred: **F-6** (Phase 05 owns it),
+`P2-03` closed **F-10** and **F-12**: the classification `P2-02` made is now
+applied at the response boundary — installation coordinates coarsened,
+embedded trace payloads redacted and masked at depth. The one still open,
+**F-11**, is pinned into `P3-07` plus a Phase 05 §13.1 bullet and needs no box.
+
+Both `defer`s stay deferred: **F-6** (Phase 05 owns it),
 **F-17** — `P2-01` landed with the conservative batched figure in its statistics
 estimate and a comment saying so, exactly as the deferral anticipated, so
 nothing has changed to make resolving it worthwhile. `P2-01` filed a third:
@@ -119,6 +119,12 @@ timings rather than measured, `defer` until Phase 03 wires the limiter.
 
 Last 5 closed tasks, one line each. Older entries live in `journal/`.
 
+- 2026-08-25 · `P2-03` — `internal/redact`: one `Redactor` per response applies
+  policy's decisions at the boundary — SECRET keys and secret literals become
+  `[redacted]`, PRIVATE states become `[masked:state_<nonce>X]` tokens scoped
+  to one entity's timeline, get_config coordinates coarsen to one decimal, and
+  every withheld field is marked rather than dropped; a slog handler closes the
+  log-line route.
 - 2026-08-25 · `P2-02` — Privacy classification and profiles in
   `internal/policy`: `Sensitivity` (normal/private/secret) decided by readable
   tables — private domains, occupancy device classes, secret key fragments,
@@ -139,10 +145,6 @@ Last 5 closed tasks, one line each. Older entries live in `journal/`.
   `Integration`, `Area`, `Automation`, `Health`, `Evidence` in `internal/model`;
   explicit permissive mapping in `internal/ha` marks a value `Partial` on a
   malformed/missing field instead of panicking or zeroing it.
-- 2026-08-25 · `P1-04` — Full error taxonomy: `ErrUnsupported` + `ErrDeadline`
-  added, `CommandError.Unwrap` maps HA's `unauthorized`/`not_found` codes, ctx
-  deadlines wrapped distinctly from `ErrUpstreamUnavailable` in WS and REST.
-
 ## Project facts
 
 | | |

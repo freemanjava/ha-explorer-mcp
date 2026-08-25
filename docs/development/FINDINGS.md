@@ -302,12 +302,14 @@ having already filtered by principal — it has not. Every privacy decision this
 server makes is the *only* one made. Home coordinates in particular arrive from
 `get_config` on a path that has nothing to do with the history tools where the
 doc's privacy profiles currently focus.
-**Triage:** `queue-next`
+**Triage:** `resolved`
 **Outcome:** Planned 2026-08-23 into **`P2-02`**, which now carries it as a DoD
 assertion (installation coordinates classify `PRIVATE` on the classification
 table) plus a Phase 02 design note stating that HA filters nothing by principal.
 No new box: this sharpens the classification task rather than adding a separate
-reviewable change. Closes when `P2-02` closes.
+reviewable change. **Closed 2026-08-25:** `P2-02` classified the coordinates
+and `P2-03` applied it — `Redactor.Config` coarsens `latitude` / `longitude` to
+one decimal and leaves `location_name` untouched, asserted by test.
 
 ### F-11 · Automation tools need a defined degraded mode, not just a happy path · 2026-08-23
 
@@ -353,13 +355,16 @@ a straight contradiction of the doc §4 privacy model. `internal/policy` must
 classify trace payloads by their embedded entities, and `internal/redact` must
 walk into `changed_variables`, not only into top-level attributes.
 
-**Triage:** `queue-next`
+**Triage:** `resolved`
 
 **Outcome:** Planned 2026-08-23 into **`P2-02`** (payloads classify by the
 entities they embed, asserted with a captured trace fixture) and **`P2-03`** (the
 redaction walk descends into nested state objects, asserted at
 `changed_variables` depth), plus a Phase 02 design note that sensitivity travels
-with embedded payloads, not with the endpoint. Closes when both close.
+with embedded payloads, not with the endpoint. **Closed 2026-08-25:** both
+landed — `ClassifyPayload` walks embedded entities, and `P2-03`'s redaction walk
+comes back clean at `changed_variables` depth against a planted-secret trace
+fixture.
 
 ### F-13 · `hassio_api: false` does not prevent Supervisor access · 2026-08-23
 
