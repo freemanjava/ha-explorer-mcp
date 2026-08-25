@@ -132,7 +132,7 @@ internal/audit/    # logger.go
   `location_name` is untouched, and that every masked field is visibly marked
   masked and distinguishable from a redacted one.
 
-- [ ] **`P2-04` — Response size cap and pagination contract** — a single place
+- [x] **`P2-04` — Response size cap and pagination contract** — a single place
   that enforces the byte cap and emits cursor pagination for every `list_*`
   tool: default limit 50, max 200.
   **DoD:** a response approaching `MaxBytes` after aggregation is cut at a record
@@ -140,6 +140,19 @@ internal/audit/    # logger.go
   (Appendix B); `limit > 200` is clamped with an explicit note, not silently
   honored; a cursor from a changed underlying list does not produce duplicate or
   skipped records without saying so.
+
+  Landed as `internal/page`: `Paginate[T]` sorts nothing itself — it trusts the
+  caller's list is already ascending by `keyOf`, the same order every list_*
+  query already returns — and cuts at the first of three boundaries (resolved
+  limit, cumulative `byteSize` against `maxBytes`, list end), always keeping a
+  record whole even if one alone exceeds the cap, so a page is never empty and
+  never mid-structure. The cursor encodes the last returned key, not an index,
+  so resuming after a list changed elsewhere skips exactly the keys already
+  seen and nothing else — no separate "list changed" signal is needed because
+  the ordering guarantee makes duplication and skipping structurally
+  impossible, not just rare. `ResolveLimit` reports `clamped` as a distinct
+  field from `truncated`, so a request for `limit=9999` is visibly cut down
+  regardless of whether the page it produced was itself truncated.
 
 - [ ] **`P2-05` — Audit logger** — one structured record per MCP invocation in
   the shape of doc §17, plus operational logs with no secrets and no full

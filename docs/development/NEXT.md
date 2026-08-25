@@ -3,7 +3,7 @@
 <!-- BOUNDED FILE — rewritten in place, never appended to. Keep under ~100 lines.
      Anything that grows goes to journal/. This file is read by every session. -->
 
-**▶ Active:** `P2-04` — Response size cap and pagination contract
+**▶ Active:** `P2-05` — Audit logger
 · [`phases/02-policy-privacy-audit.md`](phases/02-policy-privacy-audit.md) · model: **claude-sonnet-5** · flags: —
 
 > Advancing this pointer is part of finishing a task, together with ticking the
@@ -16,8 +16,7 @@ cycle. Remove a row when its task closes.
 
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
-| 1 | `P2-04` | Response size cap and pagination contract | 02 | claude-sonnet-5 | |
-| 2 | `P2-05` | Audit logger | 02 | claude-sonnet-5 | |
+| 1 | `P2-05` | Audit logger | 02 | claude-sonnet-5 | |
 
 **Order rationale.** Phase 01 finishes first: `P2-01` charges its budget against
 the typed failures `P1-04` defines, and `P2-02` / `P2-03` classify and mask the
@@ -64,7 +63,7 @@ done
 |------:|-------|:------------:|
 | 00 | Spike & Foundations | 13 / 15 |
 | 01 | HA Access & Read-Only Gateway | 8 / 9 |
-| 02 | Policy, Privacy, Budget & Audit | 4 / 7 |
+| 02 | Policy, Privacy, Budget & Audit | 5 / 7 |
 | 03 | MCP Server & Inventory Tools | 0 / 8 |
 | 04 | History, Statistics & Detection | 0 / 5 |
 | 05 | Diagnostics & Evidence Engine | 0 / 1 |
@@ -81,7 +80,7 @@ gated: they open only on an explicit owner decision plus a fresh security review
 Phases 05–07 carry no task boxes yet — theirs are written by `devflow plan` when
 the phase before them closes.
 
-Last refreshed: 2026-08-25 (`devflow next` — `P2-03` closed)
+Last refreshed: 2026-08-25 (`devflow next` — `P2-04` closed)
 
 ## Open findings
 
@@ -119,6 +118,12 @@ timings rather than measured, `defer` until Phase 03 wires the limiter.
 
 Last 5 closed tasks, one line each. Older entries live in `journal/`.
 
+- 2026-08-25 · `P2-04` — `internal/page`: `Paginate[T]` cuts a caller-sorted
+  list at the first of resolved limit / cumulative `byteSize` vs `MaxBytes` /
+  list end, always keeping a whole record even when one alone exceeds the cap;
+  the cursor encodes the last-returned key (not an index), so a list changed
+  between calls cannot duplicate or skip records by construction; `clamped`
+  and `truncated` are reported as distinct fields.
 - 2026-08-25 · `P2-03` — `internal/redact`: one `Redactor` per response applies
   policy's decisions at the boundary — SECRET keys and secret literals become
   `[redacted]`, PRIVATE states become `[masked:state_<nonce>X]` tokens scoped
@@ -141,10 +146,6 @@ Last 5 closed tasks, one line each. Older entries live in `journal/`.
   refill per doc §16 for entity/device/area/config-entries registries; every
   served value carries its observation time; a fake `caller` (no real
   WebSocket) makes TTL expiry and concurrency deterministic in tests.
-- 2026-08-25 · `P1-05` — Normalized domain model: `Entity`, `DeviceRef`,
-  `Integration`, `Area`, `Automation`, `Health`, `Evidence` in `internal/model`;
-  explicit permissive mapping in `internal/ha` marks a value `Partial` on a
-  malformed/missing field instead of panicking or zeroing it.
 ## Project facts
 
 | | |
