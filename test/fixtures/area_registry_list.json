@@ -1,0 +1,4 @@
+[
+  {"area_id": "area-kitchen", "name": "Kitchen", "floor_id": "floor-1", "icon": "mdi:chef-hat", "labels": []},
+  {"area_id": "area-living-room", "name": "Living Room", "floor_id": "floor-1", "icon": null, "labels": ["shared"]}
+]

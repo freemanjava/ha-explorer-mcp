@@ -1,0 +1,28 @@
+[
+  {
+    "entry_id": "entry-zha-1",
+    "domain": "zha",
+    "title": "Zigbee Home Automation",
+    "state": "loaded",
+    "source": "user",
+    "disabled_by": null,
+    "reason": null
+  },
+  {
+    "entry_id": "entry-hue-1",
+    "domain": "hue",
+    "title": "Philips Hue Bridge",
+    "state": "setup_error",
+    "source": "user",
+    "disabled_by": null,
+    "reason": "cannot_connect"
+  },
+  {
+    "entry_id": "entry-hub-1",
+    "domain": "hub",
+    "title": "Zigbee Hub",
+    "state": "loaded",
+    "source": "user",
+    "disabled_by": null
+  }
+]

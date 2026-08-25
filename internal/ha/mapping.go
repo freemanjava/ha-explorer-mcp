@@ -1,0 +1,393 @@
+package ha
+
+import (
+	"encoding/json"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/freemanjava/ha-explorer-mcp/internal/model"
+)
+
+// This file is the explicit mapping boundary CLAUDE.md's API & DTO Design
+// section requires: raw HA JSON is decoded permissively into map[string]any
+// here and only here, so a field HA renamed, dropped or mistyped on an
+// upgrade degrades one value to partial instead of panicking the process
+// (CLAUDE.md, Error Handling — "fail fast on programmer errors, be tolerant
+// of external data"). internal/model never sees a HA JSON shape.
+
+// MapEntityRegistryList maps a config/entity_registry/list (or /get_single
+// element) result — a JSON array of entity registry entries — into Entities.
+// A malformed element (not a JSON object) is skipped from the slice and does
+// not abort the rest; a malformed *field* inside an otherwise-decodable
+// element maps to a Partial entity instead.
+func MapEntityRegistryList(raw json.RawMessage) ([]model.Entity, error) {
+	var elements []map[string]any
+	if err := json.Unmarshal(raw, &elements); err != nil {
+		return nil, fmt.Errorf("ha: decoding entity registry list: %w", err)
+	}
+	entities := make([]model.Entity, 0, len(elements))
+	for _, e := range elements {
+		entities = append(entities, MapEntity(e))
+	}
+	return entities, nil
+}
+
+// MapEntity maps one entity registry entry. raw is the entry already decoded
+// to a generic JSON object (a map/slice/string/float64/bool/nil tree), so a
+// wrong-typed field is a missed type assertion here rather than a decode
+// error the caller has to route around.
+func MapEntity(raw map[string]any) model.Entity {
+	var reasons []string
+
+	entityID, ok := stringField(raw, "entity_id")
+	if !ok || entityID == "" {
+		reasons = append(reasons, "entity_id missing or not a string")
+	}
+	platform, ok := stringField(raw, "platform")
+	if !ok {
+		reasons = append(reasons, "platform missing or not a string")
+	}
+
+	e := model.Entity{
+		ID:             model.EntityID(entityID),
+		Domain:         entityDomain(entityID),
+		UniqueID:       optString(raw, "unique_id"),
+		Platform:       platform,
+		DeviceID:       model.DeviceID(optString(raw, "device_id")),
+		AreaID:         model.AreaID(optString(raw, "area_id")),
+		ConfigEntryID:  model.ConfigEntryID(optString(raw, "config_entry_id")),
+		Name:           optString(raw, "name"),
+		OriginalName:   optString(raw, "original_name"),
+		Icon:           optString(raw, "icon"),
+		OriginalIcon:   optString(raw, "original_icon"),
+		EntityCategory: optString(raw, "entity_category"),
+		DeviceClass:    firstNonEmpty(optString(raw, "device_class"), optString(raw, "original_device_class")),
+		DisabledBy:     optString(raw, "disabled_by"),
+		HiddenBy:       optString(raw, "hidden_by"),
+		HasEntityName:  optBool(raw, "has_entity_name"),
+		TranslationKey: optString(raw, "translation_key"),
+		Labels:         optStringSlice(raw, "labels"),
+	}
+	if t, ok := optTime(raw, "created_at"); ok {
+		e.CreatedAt = t
+	}
+	if t, ok := optTime(raw, "modified_at"); ok {
+		e.ModifiedAt = t
+	}
+	if len(reasons) > 0 {
+		e.Partial = true
+		e.PartialReason = strings.Join(reasons, "; ")
+	}
+	return e
+}
+
+// entityDomain extracts the "domain" half of a "domain.object_id" entity id.
+// An entity id that does not contain the separator (already reported partial
+// by the caller) yields an empty domain rather than panicking on a missing
+// index.
+func entityDomain(entityID string) string {
+	if i := strings.IndexByte(entityID, '.'); i > 0 {
+		return entityID[:i]
+	}
+	return ""
+}
+
+// MapDeviceRegistryList maps a config/device_registry/list result into
+// DeviceRefs, following the same per-element tolerance as
+// MapEntityRegistryList.
+func MapDeviceRegistryList(raw json.RawMessage) ([]model.DeviceRef, error) {
+	var elements []map[string]any
+	if err := json.Unmarshal(raw, &elements); err != nil {
+		return nil, fmt.Errorf("ha: decoding device registry list: %w", err)
+	}
+	devices := make([]model.DeviceRef, 0, len(elements))
+	for _, e := range elements {
+		devices = append(devices, MapDevice(e))
+	}
+	return devices, nil
+}
+
+// MapDevice maps one device registry entry.
+func MapDevice(raw map[string]any) model.DeviceRef {
+	var reasons []string
+
+	id, ok := stringField(raw, "id")
+	if !ok || id == "" {
+		reasons = append(reasons, "id missing or not a string")
+	}
+
+	d := model.DeviceRef{
+		ID:            model.DeviceID(id),
+		ConfigEntryID: model.ConfigEntryID(firstConfigEntry(raw)),
+		Name:          firstNonEmpty(optString(raw, "name_by_user"), optString(raw, "name")),
+		AreaID:        model.AreaID(optString(raw, "area_id")),
+		Manufacturer:  optString(raw, "manufacturer"),
+		Model:         optString(raw, "model"),
+		SWVersion:     optString(raw, "sw_version"),
+		HWVersion:     optString(raw, "hw_version"),
+		SerialNumber:  optString(raw, "serial_number"),
+		Connections:   optPairSlice(raw, "connections"),
+		Identifiers:   optPairSlice(raw, "identifiers"),
+		ViaDeviceID:   model.DeviceID(optString(raw, "via_device_id")),
+		DisabledBy:    optString(raw, "disabled_by"),
+	}
+	if len(reasons) > 0 {
+		d.Partial = true
+		d.PartialReason = strings.Join(reasons, "; ")
+	}
+	return d
+}
+
+// firstConfigEntry returns a device's primary config entry id. Core 2026.8
+// carries it as a "config_entries" array (a device may belong to more than
+// one), replacing the older singular "config_entry_id" field on some
+// releases; both are checked so an adapter degrades on either shape rather
+// than silently returning empty (architecture doc §8, CLAUDE.md Reliability:
+// "never assume a field survives an HA upgrade").
+func firstConfigEntry(raw map[string]any) string {
+	if s := optString(raw, "config_entry_id"); s != "" {
+		return s
+	}
+	if arr, ok := raw["config_entries"].([]any); ok && len(arr) > 0 {
+		if s, ok := arr[0].(string); ok {
+			return s
+		}
+	}
+	return ""
+}
+
+// MapAreaRegistryList maps a config/area_registry/list result into Areas.
+func MapAreaRegistryList(raw json.RawMessage) ([]model.Area, error) {
+	var elements []map[string]any
+	if err := json.Unmarshal(raw, &elements); err != nil {
+		return nil, fmt.Errorf("ha: decoding area registry list: %w", err)
+	}
+	areas := make([]model.Area, 0, len(elements))
+	for _, e := range elements {
+		areas = append(areas, MapArea(e))
+	}
+	return areas, nil
+}
+
+// MapArea maps one area registry entry.
+func MapArea(raw map[string]any) model.Area {
+	var reasons []string
+
+	id, ok := stringField(raw, "area_id")
+	if !ok || id == "" {
+		reasons = append(reasons, "area_id missing or not a string")
+	}
+	name, ok := stringField(raw, "name")
+	if !ok {
+		reasons = append(reasons, "name missing or not a string")
+	}
+
+	a := model.Area{
+		ID:      model.AreaID(id),
+		Name:    name,
+		FloorID: optString(raw, "floor_id"),
+		Icon:    optString(raw, "icon"),
+		Labels:  optStringSlice(raw, "labels"),
+	}
+	if len(reasons) > 0 {
+		a.Partial = true
+		a.PartialReason = strings.Join(reasons, "; ")
+	}
+	return a
+}
+
+// MapConfigEntriesGet maps a config_entries/get result — a bare JSON array,
+// distinct from get_single's {"config_entry": {...}} envelope (research doc
+// finding 2; get_single is not allow-listed, see gateway.go) — into
+// Integrations.
+func MapConfigEntriesGet(raw json.RawMessage) ([]model.Integration, error) {
+	var elements []map[string]any
+	if err := json.Unmarshal(raw, &elements); err != nil {
+		return nil, fmt.Errorf("ha: decoding config entries: %w", err)
+	}
+	integrations := make([]model.Integration, 0, len(elements))
+	for _, e := range elements {
+		integrations = append(integrations, MapIntegration(e))
+	}
+	return integrations, nil
+}
+
+// MapIntegration maps one config entry.
+func MapIntegration(raw map[string]any) model.Integration {
+	var reasons []string
+
+	id, ok := stringField(raw, "entry_id")
+	if !ok || id == "" {
+		reasons = append(reasons, "entry_id missing or not a string")
+	}
+	domain, ok := stringField(raw, "domain")
+	if !ok {
+		reasons = append(reasons, "domain missing or not a string")
+	}
+
+	state := optString(raw, "state")
+	i := model.Integration{
+		ID:         model.ConfigEntryID(id),
+		Domain:     domain,
+		Title:      optString(raw, "title"),
+		State:      state,
+		Source:     optString(raw, "source"),
+		Disabled:   optString(raw, "disabled_by") != "",
+		DisabledBy: optString(raw, "disabled_by"),
+		Reason:     optString(raw, "reason"),
+	}
+	if len(reasons) > 0 {
+		i.Partial = true
+		i.PartialReason = strings.Join(reasons, "; ")
+	}
+	return i
+}
+
+// MapAutomation maps one automation/config result. That command answers for
+// a single entity id passed by the caller and does not echo it back, so
+// entityID comes from the request, not the payload (research doc — no
+// element schema is shared across commands; this one is keyed by request,
+// not response).
+func MapAutomation(entityID model.EntityID, raw map[string]any) model.Automation {
+	var reasons []string
+
+	id, ok := stringField(raw, "id")
+	if !ok {
+		reasons = append(reasons, "id missing or not a string")
+	}
+	alias, ok := stringField(raw, "alias")
+	if !ok {
+		reasons = append(reasons, "alias missing or not a string")
+	}
+
+	a := model.Automation{
+		EntityID:       entityID,
+		ID:             id,
+		Alias:          alias,
+		Mode:           optString(raw, "mode"),
+		TriggerCount:   sequenceLen(raw, "trigger", "triggers"),
+		ConditionCount: sequenceLen(raw, "condition", "conditions"),
+		ActionCount:    sequenceLen(raw, "action", "actions"),
+	}
+	if len(reasons) > 0 {
+		a.Partial = true
+		a.PartialReason = strings.Join(reasons, "; ")
+	}
+	return a
+}
+
+// sequenceLen counts a HA automation config sequence. HA accepts both the
+// plural and, for a single step, the singular key holding a bare object
+// instead of a one-element array — both forms are counted as 1 in that case,
+// never parsed for content (CLAUDE.md rule 6).
+func sequenceLen(raw map[string]any, keys ...string) int {
+	for _, k := range keys {
+		v, ok := raw[k]
+		if !ok {
+			continue
+		}
+		if arr, ok := v.([]any); ok {
+			return len(arr)
+		}
+		if v != nil {
+			return 1
+		}
+	}
+	return 0
+}
+
+// --- permissive field extraction -------------------------------------------
+//
+// Every accessor here reports absence or a type mismatch as "not present"
+// rather than panicking a type assertion, so one malformed field degrades the
+// value it belongs to instead of the whole mapping call.
+
+func stringField(raw map[string]any, key string) (string, bool) {
+	v, ok := raw[key]
+	if !ok {
+		return "", false
+	}
+	s, ok := v.(string)
+	return s, ok
+}
+
+func optString(raw map[string]any, key string) string {
+	s, _ := stringField(raw, key)
+	return s
+}
+
+func optBool(raw map[string]any, key string) bool {
+	b, _ := raw[key].(bool)
+	return b
+}
+
+func optStringSlice(raw map[string]any, key string) []string {
+	arr, ok := raw[key].([]any)
+	if !ok {
+		return nil
+	}
+	out := make([]string, 0, len(arr))
+	for _, v := range arr {
+		if s, ok := v.(string); ok {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// optPairSlice reads a HA `[[a, b], [a, b], ...]` field (device registry
+// connections/identifiers). A malformed pair is skipped rather than aborting
+// the whole field.
+func optPairSlice(raw map[string]any, key string) [][2]string {
+	arr, ok := raw[key].([]any)
+	if !ok {
+		return nil
+	}
+	out := make([][2]string, 0, len(arr))
+	for _, v := range arr {
+		pair, ok := v.([]any)
+		if !ok || len(pair) != 2 {
+			continue
+		}
+		a, aok := pair[0].(string)
+		b, bok := pair[1].(string)
+		if !aok || !bok {
+			continue
+		}
+		out = append(out, [2]string{a, b})
+	}
+	return out
+}
+
+// optTime reads an RFC 3339 timestamp field. HA has also been observed
+// encoding created_at/modified_at as a Unix epoch float on some releases; both
+// are accepted so an upgrade that changes the encoding degrades to "field
+// absent", not a decode error for the whole entry.
+func optTime(raw map[string]any, key string) (time.Time, bool) {
+	v, ok := raw[key]
+	if !ok {
+		return time.Time{}, false
+	}
+	switch t := v.(type) {
+	case string:
+		parsed, err := time.Parse(time.RFC3339, t)
+		if err != nil {
+			return time.Time{}, false
+		}
+		return parsed, true
+	case float64:
+		return time.Unix(0, int64(t*float64(time.Second))).UTC(), true
+	default:
+		return time.Time{}, false
+	}
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
+}

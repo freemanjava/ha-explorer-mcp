@@ -1,0 +1,13 @@
+{
+  "id": "1735689600000",
+  "alias": "Turn on porch light at sunset",
+  "description": "",
+  "mode": "single",
+  "trigger": [
+    {"platform": "sun", "event": "sunset"}
+  ],
+  "condition": [],
+  "action": [
+    {"service": "light.turn_on", "target": {"entity_id": "light.porch"}}
+  ]
+}
