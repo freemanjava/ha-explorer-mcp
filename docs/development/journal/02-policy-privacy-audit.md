@@ -34,3 +34,16 @@ withheld field is marked, and a `slog.Handler` closes the log-line route.
 in the same state got the same token, which withholds the meaning and hands
 over the correlation. Tokens are now scoped per entity; the decision record was
 amended in the same change.
+
+### 2026-08-25 · `P2-04`
+`internal/page` cuts one page from a caller-sorted list, cutting at the first
+of resolved limit / cumulative byte size / list end, always keeping a whole
+record even when one alone exceeds `maxBytes`.
+**Surprise:** an index-based cursor was the obvious first design and the wrong
+one — resuming from "record 3" breaks the moment record 2 is deleted. Keying
+the cursor to the last-returned sort key instead makes duplicate/skip
+structurally impossible rather than something to detect and flag, so the DoD's
+"without saying so" clause needed no extra signal in the result at all.
+**Left open:** no `list_*` tool exists yet to call it (Phase 03); `keyOf` and
+`byteSize` are caller-supplied rather than JSON-marshal defaults, a choice to
+revisit once a real tool response shape exists to measure against.
