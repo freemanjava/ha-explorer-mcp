@@ -207,42 +207,69 @@ docs/research/       # dated evidence produced by the verify tasks
 
 ## Decisions
 
-- [ ] **`needs-decision` — Supported Home Assistant version policy**
-  Q8 from the architecture doc. The CI compatibility matrix, the number of
-  adapter variants the project must carry, and how loudly an unsupported API
-  fails all follow from this. Options: **current release only** (smallest
-  adapter surface, users must stay current); **current + N previous** (N is the
-  cost multiplier on every compatibility-sensitive adapter and on CI time);
-  **best effort, no promise** (cheapest now, produces silent wrong results
-  later — the failure mode the doc's §18 exists to prevent). A model cannot pick
-  this: it depends on which HA version the owner's Raspberry Pi actually runs
-  and how often they upgrade.
+- [x] **Supported Home Assistant version policy — current release only** — decided 2026-08-25
 
-- [ ] **`needs-decision` — Supervisor permission level for the App manifest**
-  Raised by `P0-06`; evidence in
+  **Decision:** The project supports **the current Home Assistant release only**.
+  One adapter variant per compatibility-sensitive surface, one CI target. Against
+  a version outside that window a compatibility-sensitive tool returns
+  `unsupported` naming the detected version as the reason — it never maps a
+  response it does not recognize into the domain model.
+
+  **Why:** Q8 from the architecture doc. Every alternative multiplies work on
+  exactly the surfaces that are hardest to test — trace retrieval, statistics,
+  registry shapes — and the project's whole value rests on the distinction
+  between "here is the answer" and "I cannot check". A second supported version
+  buys tolerance for a skipped upgrade and charges for it in every adapter, for
+  a single-installation deployment where the owner controls the upgrade cadence.
+
+  **Rejected:** *Current + N previous* — tolerates a skipped upgrade cycle, but N
+  is a cost multiplier on every compatibility-sensitive adapter and on CI time,
+  paid permanently for a benefit that is the owner's scheduling convenience.
+  *Best effort, no promise* — cheapest now, and the one option that can return
+  silently wrong data on an unrecognized version, which is the failure doc §18
+  exists to prevent.
+
+  **Consequences:** Feature detection is not optional decoration — it is what
+  keeps this decision honest, so every compatibility-sensitive adapter
+  feature-detects and reports its status (`CLAUDE.md`, Reliability). CI targets
+  one HA version. The observed baseline is **2026.8.3** (`P0-04`/`P0-05`
+  evidence). `P3-07`'s DoD already distinguishes version-unsupported from
+  permission-refused from empty; this decision is what that distinction is
+  measured against.
+
+- [x] **Supervisor permission level — `hassio_api: true`, default role** — decided 2026-08-25
+
+  **Decision:** The App manifest declares **`hassio_api: true` with the default
+  role** (`hassio_role` stays unset, which is `default`). No role above default,
+  now or as part of observer v1.
+
+  **Why:** Raised by `P0-06`; evidence in
   [`docs/research/2026-08-23-supervisor-permissions.md`](../../research/2026-08-23-supervisor-permissions.md).
-  The current manifest (`hassio_api: false`) reaches `/info`,
-  `/addons/self/info`, `/addons/self/stats` and `/supervisor/ping` — enough for a
-  partial `get_system_health` (all four component versions, hostname, machine,
-  arch, Core state, own resource use) and **not enough for `list_apps`**, which
-  has no enumeration path at all and would answer `unsupported`. Options:
-  **(a) keep `hassio_api: false`** — smallest surface, `list_apps` is dropped
-  from v1 and `get_system_health` ships partial; **(b) `hassio_api: true` with
-  the default role** — one line, `hassio_role` is already `default` when unset;
-  adds `/supervisor/info` (which embeds the installed-App inventory, so
-  `list_apps` becomes implementable), `/os/info`, `/host/info` (disk),
-  `/resolution/info` (repairs/unsupported), `/network/info`, `/hardware/info`,
-  `/jobs/info`, and no `*/stats` and no write-capable path whatsoever;
-  **(c) a role above default** — `homeassistant` would add Core CPU/RAM
-  (`/core/stats`), `manager` would add the richer `/addons` list and other Apps'
-  stats, and both grant broad `/core/.+` or `/host/.+` write access that doc
-  §15.2 rules out for observer v1. A model cannot pick this: it trades the
-  project's stated minimal-permission posture against two of the twenty v1
-  tools, and it is the owner's App on the owner's installation.
+  The default role adds `/supervisor/info` (which embeds the installed-App
+  inventory, so `list_apps` becomes implementable), `/os/info`, `/host/info`,
+  `/resolution/info`, `/network/info`, `/hardware/info` and `/jobs/info` — and
+  grants **no `*/stats` and no write-capable path whatsoever**. It is the level
+  at which two of the twenty v1 tools stop being degraded without the manifest
+  claiming any ability to change anything.
 
-  Not a factor in the trade, but on the record: `hassio_api: false` does not
-  *prevent* Supervisor access — see **F-13**. The choice is about declared
-  intent and the blast radius of a future bug, not about a wall.
+  **Rejected:** *Keep `hassio_api: false`* — smallest declared surface, but
+  `list_apps` has no enumeration path at all and would ship permanently
+  `unsupported`, and `get_system_health` ships partial; the surface saved is
+  declaratory rather than real (see F-13). *A role above default* —
+  `homeassistant` would add Core CPU/RAM via `/core/stats` and `manager` the
+  richer `/addons` list, but both grant broad `/core/.+` or `/host/.+` **write**
+  access, which doc §15.2 rules out for observer v1. The gain is telemetry; the
+  cost is a write-capable grant in an App whose entire premise is that no write
+  path exists.
+
+  **Consequences:** `addon/config.yaml` sets `hassio_api: true`. The Supervisor
+  route allow-list in `internal/ha` gains the endpoints above and **nothing
+  else** — the manifest widening is not a licence for the gateway to widen with
+  it; `supervisor/api` and the rest of the deny set stay denied by name (F-13,
+  `P1-07`). `P3-02`'s `get_system_health` and `P3-06`'s `list_apps` are planned
+  against the permitted set, and both still degrade to `unsupported` with a
+  reason when Supervisor is absent (Appendix B) — the permission being granted
+  does not mean it is always reachable.
 
 - [x] **App distribution — published image, not a local Supervisor build** — decided 2026-08-24
 

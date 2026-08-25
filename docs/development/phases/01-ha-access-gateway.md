@@ -157,6 +157,34 @@ internal/model/    # normalized domain types
   state that `hassio_api: false` declares intent and bounds blast radius but does
   not prevent Supervisor access, naming the gateway as the enforcement point.
 
+- [ ] **`P1-08` — Supervisor REST adapter and manifest permission** — the
+  2026-08-25 Supervisor decision grants `hassio_api: true` at the default role,
+  and nothing in the tree reads Supervisor yet: `internal/ha/rest.go` speaks only
+  to Core through the proxy. Add a Supervisor reader — its own small interface,
+  its own base (`http://supervisor`), `SUPERVISOR_TOKEN` as bearer — with a
+  `GET`-only exact-match route allow-list holding **only** the endpoints the
+  default role actually grants (`/info`, `/supervisor/info`, `/os/info`,
+  `/host/info`, `/resolution/info`, `/network/info`, `/hardware/info`,
+  `/jobs/info`, `/addons/self/info`, `/addons/self/stats`, `/supervisor/ping`),
+  each entry commented with the evidence line in
+  [`docs/research/2026-08-23-supervisor-permissions.md`](../../research/2026-08-23-supervisor-permissions.md)
+  that established it. Flip `addon/config.yaml` to `hassio_api: true` and update
+  its `# Security posture` comment to say what the role does and does not grant.
+  Map to `internal/model`, never return the Supervisor payload shape. Supervisor
+  being unreachable is `ErrUnsupported` with a reason, not an error that breaks a
+  Core-based answer (`CLAUDE.md`, Reliability).
+  **DoD:** a test asserts every route in the set is `GET` and exact-match, and
+  that a route outside it — including `/core/stats`, `/addons` and anything
+  under `/host/` beyond `/host/info` — is refused with `ErrPolicyDenied` **before
+  any bytes reach the fake server**; a test asserts no non-`GET` method reaches
+  the transport at all; `TestSupervisorClient_TokenNeverReturned` asserts
+  `SUPERVISOR_TOKEN` appears in no response, no error string and no log line
+  (`CLAUDE.md` rule 4); Supervisor absent while Core is up yields
+  `ErrUnsupported` with a reason and leaves Core reads working (Appendix B); a
+  mutated `/supervisor/info` shape fails loudly rather than mapping garbage; the
+  manifest test asserts `hassio_api: true` and `hassio_role` unset, and that
+  `docker_api`, `host_network` and `full_access` are still false.
+
 ## Decisions
 
 - [x] **Gateway carries a named deny-list, checked before the allow-list** —
@@ -189,15 +217,34 @@ internal/model/    # normalized domain types
   comment. `P1-07` implements and asserts it; the architecture doc §15.2 wording
   is corrected in the same change.
 
-- [ ] **`needs-decision` — MCP transport and client authentication**
-  Q7 from the architecture doc. This decides the network exposure of the whole
-  server (threat T5) and cannot be inferred from the code. Options: **stdio only**
-  (no listening port; the MCP client must run beside the App — safest, most
-  restrictive); **HTTP on the App's internal network with a shared secret**
-  (reachable from other Apps / the LAN, needs an auth story); **HTTP behind HA
-  Ingress** (authenticated by HA's own session, but constrains which clients can
-  connect). The answer determines whether Phase 03 needs an auth subsystem at
-  all. Depends on which AI client the owner actually intends to point at this.
+- [x] **MCP transport and client authentication — stdio only** — decided 2026-08-25
+
+  **Decision:** The server speaks MCP over **stdio only**. It opens no listening
+  socket, in any build. The MCP client runs beside the App and is connected to
+  the process's stdin/stdout by whoever starts it. **There is no client
+  authentication subsystem**, because there is no network client to authenticate.
+
+  **Why:** Q7 from the architecture doc; this is the decision that sets the whole
+  server's network exposure (threat T5). With no listening port, T5's attack
+  surface is not mitigated but absent, and the auth story that every other option
+  requires never has to be built, reviewed, or kept correct. That matches how the
+  rest of the project is built: read-only-ness is enforced by what is linked in,
+  not by a runtime flag (ADR-008), and the same reasoning applies to a port.
+
+  **Rejected:** *HTTP behind HA Ingress* — authenticated by HA's own session, so
+  no secret to manage, but it constrains which MCP clients can connect (they must
+  speak Ingress) and still puts a listener in the process. *HTTP on the App's
+  internal network with a shared secret* — most flexible for a remote client, and
+  the widest T5 exposure: reachable from other Apps and the LAN, with a secret
+  whose distribution, rotation and comparison all become this project's problem.
+
+  **Consequences:** `P3-01` wires exactly one transport and no auth middleware;
+  its DoD's "a client completes initialize and `tools/list`" is exercised over
+  stdio. `addon/config.yaml` declares no `ports:` and no `ingress:`. Logging must
+  respect the transport: **stdout carries the MCP framing, so every log line goes
+  to stderr** — a stray write to stdout corrupts the protocol stream. Reopening
+  this for a remote client is a new decision plus a fresh security review, not a
+  configuration change.
 
 ## Phase Definition of Done
 

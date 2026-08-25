@@ -17,34 +17,45 @@ cycle. Remove a row when its task closes.
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
 | 1 | `P2-05` | Audit logger | 02 | claude-sonnet-5 | |
+| 2 | `P1-08` | Supervisor REST adapter and manifest permission | 01 | claude-sonnet-5 | |
+| 3 | `P3-01` | MCP server bootstrap and tool registry | 03 | claude-opus-5 | 🧠 |
+| 4 | `P3-02` | `get_system_overview` / `get_system_health` | 03 | claude-sonnet-5 | `blocked:P1-08` |
+| 5 | `P3-03` | `list_integrations` / `get_integration` | 03 | claude-sonnet-5 | |
+| 6 | `P3-04` | `list_devices` / `get_device` | 03 | claude-sonnet-5 | |
+| 7 | `P3-05` | `list_entities` / `get_entity` | 03 | claude-sonnet-5 | |
+| 8 | `P3-06` | `list_areas` / `list_automations` / `list_repairs` / `list_apps` | 03 | claude-sonnet-5 | `blocked:P1-08` |
+| 9 | `P3-07` | `get_automation` / `get_automation_traces` | 03 | claude-sonnet-5 | |
 
-**Order rationale.** Phase 01 finishes first: `P2-01` charges its budget against
-the typed failures `P1-04` defines, and `P2-02` / `P2-03` classify and mask the
-domain values `P1-05` maps — classifying raw HA JSON would put a privacy
-decision inside `internal/ha`, where the dependency direction forbids it.
-`P1-06` closes Phase 01 because its observation timestamp is the `cache age`
-every tool response carries. Inside Phase 02, enforcement before application:
-`P2-01` (its `MaxBytes` is what `P2-04` cuts against, constants already measured
-by `P0-09`) → `P2-02` (decide what is sensitive) → `P2-03` (apply it at the
-boundary) → `P2-04` (truncation must cut an already-masked response) → `P2-05`
-(the audit record reuses `P2-03`'s redaction rather than growing a second copy).
+**Order rationale.** `P2-05` closes Phase 02 first: the audit record reuses
+`P2-03`'s redaction rather than growing a second copy, and `P3-01` wires audit
+middleware into every invocation — a registry built before the record exists
+would have to be rewired. `P1-08` comes next because it is a layer below the
+tools and two of them cannot be written without it: the 2026-08-25 Supervisor
+decision grants endpoints nothing in the tree reads yet, so `P3-02` and `P3-06`
+are `blocked:P1-08`. Then Phase 03 in its written order — `P3-01` first because
+everything registers into it, `P3-07` last because it is the most
+compatibility-sensitive surface in the phase. Phase 04's five follow this queue
+unbroken: the catalog decision below rules out an interleaved release cut, so
+there is no reason to reorder them against Phase 03.
 
-**No new boxes.** Phase 02's five were written when the phase was drafted; this
-`plan` settled the decision blocking `P2-02`, folded its consequences into the
-`P2-02` / `P2-03` DoDs, and ordered the block into the queue.
+**One new box.** `P1-08` is the only task this `plan` wrote. Phase 03's eight
+already existed; the four decisions settled here folded into the `P3-01`,
+`P3-02` and `P3-06` DoDs rather than producing boxes of their own.
 
-**Decision settled 2026-08-25 — PRIVATE handling: mask by default.** `PRIVATE`
-states become opaque tokens with timestamps and transition counts preserved;
-installation coordinates coarsen to one decimal, `location_name` passes through;
-`allow` / `deny` stay selectable. Rationale and rejected alternatives in
-[`phases/02-policy-privacy-audit.md`](phases/02-policy-privacy-audit.md).
+**Four decisions settled 2026-08-25.** *Transport:* **stdio only** — no
+listening port, no client-auth subsystem, and every log line goes to stderr
+because stdout carries the framing (phase 01). *Supervisor:* **`hassio_api:
+true` at the default role** — `list_apps` becomes implementable and
+`get_system_health` stops being partial; still no `*/stats` and no write-capable
+path (phase 00). *Catalog:* **the full twenty before release** — no reduced first
+cut; a tool the evidence rules out ships answering `unsupported`, not missing
+(phase 03). *HA versions:* **current release only** — one adapter variant, one CI
+target, `unsupported` with the detected version outside it (phase 00). Rationale
+and rejected alternatives in each phase file.
 
-**Two decisions remain**, neither blocking this queue, both required before
-Phase 03 is planned: the App's Supervisor permission level (phase 00 — gates the
-tool catalog) and the MCP transport and client authentication (phase 01 — gates
-whether Phase 03 needs an auth subsystem, and decides the server's whole network
-exposure, threat T5). Phase 02's Q10 (persistence) is deliberately not asked
-yet: it waits on Phase 05 producing a diagnostic memory-only cannot deliver.
+**One decision remains open**, not blocking this queue: Phase 02's Q10
+(persistence), deliberately not asked yet — it waits on Phase 05 producing a
+diagnostic memory-only cannot deliver.
 
 `cmd/spike` is the probe vehicle these tasks reuse: `HA_URL` + `HA_TOKEN`, it
 reports field names and types only. The owner runs it and pastes the report; no
@@ -61,26 +72,27 @@ done
 
 | phase | theme | done / total |
 |------:|-------|:------------:|
-| 00 | Spike & Foundations | 13 / 15 |
-| 01 | HA Access & Read-Only Gateway | 8 / 9 |
+| 00 | Spike & Foundations | 15 / 15 |
+| 01 | HA Access & Read-Only Gateway | 9 / 10 |
 | 02 | Policy, Privacy, Budget & Audit | 5 / 7 |
-| 03 | MCP Server & Inventory Tools | 0 / 8 |
+| 03 | MCP Server & Inventory Tools | 1 / 8 |
 | 04 | History, Statistics & Detection | 0 / 5 |
 | 05 | Diagnostics & Evidence Engine | 0 / 1 |
 | 06 | Proposal Mode — gated | 0 / 1 |
 | 07 | Controlled Change (Admin) — gated | 0 / 1 |
 
-Counts include each phase's `needs-decision` entries, which are boxes too — one
-of Phase 01's five ticks is its deny-list decision, not a task; of Phase 02's
-four, one is its PRIVATE-handling decision, settled 2026-08-25; the other three
-are `P2-01`, `P2-02` and `P2-03`.
+Counts include each phase's `needs-decision` entries, which are boxes too. Phase
+00 is now fully ticked — its last two were the HA-version and Supervisor
+decisions, both settled 2026-08-25. Phase 01's one open box is the new `P1-08`;
+its transport decision is ticked. Phase 02's two open are `P2-05` and the Q10
+persistence decision. Phase 03's one tick is its catalog-scope decision.
 
 Phases 00–04 are milestone M1 (v1 observer). Phase 05 is M2. Phases 06–07 are
 gated: they open only on an explicit owner decision plus a fresh security review.
 Phases 05–07 carry no task boxes yet — theirs are written by `devflow plan` when
 the phase before them closes.
 
-Last refreshed: 2026-08-25 (`devflow next` — `P2-04` closed)
+Last refreshed: 2026-08-25 (`devflow plan` — four decisions settled, Phase 03 queued)
 
 ## Open findings
 
@@ -97,22 +109,16 @@ Last refreshed: 2026-08-25 (`devflow next` — `P2-04` closed)
 > An open `unknown` outranks the queue: it is an assumption the plan already
 > rests on. Run `devflow verify` before building further on it.
 
-The 2026-08-25 `plan` closed four findings whose tasks had already landed while
-their triage still read `queue-next` (**F-13**, **F-18** → `P1-07` · **F-16** →
-`P0-11` · **F-19** → `P0-10`) — the count read 7, not 3. A finding closes when
-its tasks close, not when they are queued.
+The 2026-08-25 `plan` drained the inbox again and wrote no boxes from it. The
+one `queue-next`, **F-11**, was already planned into `P3-07` (now queue row 9)
+plus a Phase 05 §13.1 bullet — it closes when `P3-07` closes, not now.
 
-`P2-03` closed **F-10** and **F-12**: the classification `P2-02` made is now
-applied at the response boundary — installation coordinates coarsened,
-embedded trace payloads redacted and masked at depth. The one still open,
-**F-11**, is pinned into `P3-07` plus a Phase 05 §13.1 bullet and needs no box.
-
-Both `defer`s stay deferred: **F-6** (Phase 05 owns it),
-**F-17** — `P2-01` landed with the conservative batched figure in its statistics
-estimate and a comment saying so, exactly as the deferral anticipated, so
-nothing has changed to make resolving it worthwhile. `P2-01` filed a third:
-**F-20**, the invocation rate limit's constants are derived from single-call
-timings rather than measured, `defer` until Phase 03 wires the limiter.
+All three `defer`s were re-triaged and stay deferred: **F-6** (Phase 05 owns
+it) · **F-17** — `P2-01` landed with the conservative batched figure and a
+comment saying so, exactly as the deferral anticipated · **F-20** — the
+invocation rate limit's constants are still unmeasured, and `P3-01` is what
+first wires the limiter into a running server, so the earliest honest point to
+measure them is the `plan` after `P3-01` closes, not this one.
 
 ## Recent
 
@@ -146,6 +152,7 @@ Last 5 closed tasks, one line each. Older entries live in `journal/`.
   refill per doc §16 for entity/device/area/config-entries registries; every
   served value carries its observation time; a fake `caller` (no real
   WebSocket) makes TTL expiry and concurrency deterministic in tests.
+
 ## Project facts
 
 | | |

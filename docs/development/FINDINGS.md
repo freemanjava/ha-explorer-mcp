@@ -206,8 +206,8 @@ difference, but one that costs nothing to defer until Phase 04 closes.
 
 **Triage:** `defer`
 
-**Outcome:** Re-triaged again at the 2026-08-24 `plan` and **left deferred** on
-the same grounds, which have not changed: Phase 04 has not closed and Phase 05
+**Outcome:** Re-triaged at the 2026-08-25 `plan` and **left deferred** again on
+unchanged grounds. Previously re-triaged 2026-08-24 on the same grounds: Phase 04 has not closed and Phase 05
 still has no boxes. Originally re-triaged at the 2026-08-23 `plan`. It is
 owned by Phase 05's `needs-decision — Zigbee/mesh metric normalization` entry,
 Phase 05 has no boxes yet, and verifying it needs a running Zigbee installation
@@ -335,7 +335,8 @@ discovering it in Phase 05, where it is a rewrite rather than a branch.
 branches and a *permission*-flavored `unsupported` distinct from the
 version-flavored one, with the degraded path exercised by a test rather than
 only documented; Phase 05's candidate scope gained the matching §13.1 degraded
-workflow bullet. Closes when `P3-07` closes.
+workflow bullet. Closes when `P3-07` closes — re-confirmed at the 2026-08-25
+`plan`, which queued `P3-07` as row 9; no further box is needed.
 
 ### F-12 · Automation traces embed whole entity states and a user id · 2026-08-23
 
@@ -509,9 +510,12 @@ estimate uses the larger batched figure, so the error is conservative.
 
 **Triage:** `defer`
 
-**Outcome:** Open, re-triaged at the 2026-08-24 `plan` and **left deferred**:
-`P2-01` is not yet written, so nothing consumes the answer, and the error runs
-in the conservative direction. It becomes worth resolving only if `P2-01`'s
+**Outcome:** Open. Re-triaged at the 2026-08-25 `plan` and **left deferred**:
+`P2-01` landed with the conservative batched figure and a comment saying so,
+exactly as the deferral anticipated, so nothing has changed to make resolving it
+worthwhile. Re-triaged 2026-08-24 on the then-current grounds that `P2-01` was
+not yet written, so nothing consumed the answer, and the error runs in the
+conservative direction. It becomes worth resolving only if `P2-01`'s
 statistics estimate turns out to bind in practice. Cheapest probe: request one
 id alone and inside a batch and compare the rendered *field sets* per point via
 `cmd/spike/shape.go` — no values from the installation need be printed.
@@ -611,7 +615,10 @@ sustained-arrival measurement against a real recorder.
 
 **Outcome:** Open. Deferred rather than queued because nothing consumes the
 constants until `P3-01` wires the limiter, and the cheapest probe wants an MCP
-server to storm. Revisit when Phase 03 is planned: the probe is `cmd/spike`
+server to storm. Re-triaged at the 2026-08-25 `plan`, which queued `P3-01` as
+row 3 but did **not** promote this: the limiter still does not run anywhere, so
+measuring now would measure nothing. The revisit point is now exact — the `plan`
+after `P3-01` closes. The probe: the probe is `cmd/spike`
 issuing a fixed-rate stream of max-page history calls while Core CPU and
 recorder latency are watched — the measurement the 2026-08-24 run explicitly did
 not make ("whether the widest calls degraded the installation while they ran").

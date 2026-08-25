@@ -45,22 +45,31 @@ internal/mcp/      # server.go, system_tools.go, entity_tools.go, automation_too
 ## Tasks
 
 - [ ] **`P3-01` — MCP server bootstrap and tool registry** 🧠 — wire the official
-  Go SDK, the transport chosen in Phase 01's decision, the static tool table, and
-  per-invocation budget + audit + panic recovery middleware.
-  **DoD:** a client completes initialize and `tools/list`; a test asserts the
-  registry exposes exactly the expected tool names and that **every** registered
-  tool is annotated read-only; a panic inside a tool returns an error to the
-  client and is audited, without killing the server; a test asserts every
-  registered tool receives a budget (no tool can be registered without one).
+  Go SDK over **stdio** (Phase 01's transport decision, 2026-08-25 — no listening
+  socket, no auth middleware), the static tool table, and per-invocation budget +
+  audit + panic recovery middleware. Route every log sink to **stderr**: stdout
+  carries the MCP framing, so a stray write there corrupts the protocol stream.
+  **DoD:** a client completes initialize and `tools/list` over stdio; a test
+  asserts the registry exposes exactly the expected tool names and that **every**
+  registered tool is annotated read-only; a test asserts the configured logger
+  writes nothing to stdout at any level, so a future log line cannot corrupt the
+  stream; a panic inside a tool returns an error to the client and is audited,
+  without killing the server; a test asserts every registered tool receives a
+  budget (no tool can be registered without one).
 
-- [ ] **`P3-02` — `get_system_overview` and `get_system_health`** — root
-  discovery snapshot (version, installation, inventory counts, headline health)
-  and the Supervisor-backed resource/service health from P0-06's evidence.
+- [ ] **`P3-02` — `get_system_overview` and `get_system_health`** `blocked:P1-08`
+  — root discovery snapshot (version, installation, inventory counts, headline
+  health) and the Supervisor-backed resource/service health, built on `P1-08`'s
+  reader at the default role: component versions, hostname, machine, arch, Core
+  state, own resource use, plus `/os/info`, `/host/info` disk and
+  `/resolution/info`. No `/core/stats` — the 2026-08-25 decision does not grant
+  it, so Core CPU/RAM is absent by design, not missing by accident.
   **DoD:** overview returns counts without dumping entities (assert the response
   contains no per-entity list); `get_system_health` degrades to `unsupported`
-  with a reason when the Supervisor permission established in P0-06 is absent,
-  and the overview still succeeds (Appendix B: Supervisor absent while Core is
-  available).
+  with a reason when Supervisor is unreachable, and the overview still succeeds
+  (Appendix B: Supervisor absent while Core is available); a test asserts the
+  response never claims a Core CPU/RAM figure — the field is absent or explicitly
+  `unsupported`, never zero.
 
 - [ ] **`P3-03` — `list_integrations` and `get_integration`** — config-entry
   summary with entity/device/unavailable counts, and the per-integration
@@ -88,12 +97,18 @@ internal/mcp/      # server.go, system_tools.go, entity_tools.go, automation_too
   interpreted (threat T2).
 
 - [ ] **`P3-06` — `list_areas`, `list_automations`, `list_repairs`,
-  `list_apps`** — area/floor/label topology, automation inventory with enabled
-  state and `last_triggered`, native HA Repairs/issues, and the Supervisor App
-  inventory where permitted.
-  **DoD:** each is paginated and provenance-stamped; `list_apps` returns
-  `unsupported` (not empty) when Supervisor access is unavailable; repairs are
-  returned with their severity/issue id so an agent can cite them as evidence.
+  `list_apps`** `blocked:P1-08` — area/floor/label topology, automation inventory
+  with enabled state and `last_triggered`, native HA Repairs/issues, and the
+  Supervisor App inventory. `list_apps` is implementable rather than permanently
+  `unsupported` because the 2026-08-25 decision grants `/supervisor/info`, whose
+  payload embeds the installed-App inventory; that embedded list is its only
+  enumeration path, and no `*/stats` is available, so per-App resource use is out
+  of scope.
+  **DoD:** each is paginated and provenance-stamped; `list_apps` enumerates from
+  `/supervisor/info` and returns `unsupported` (not empty) when Supervisor is
+  unreachable — a test asserts the two cases are distinguishable in the response;
+  repairs are returned with their severity/issue id so an agent can cite them as
+  evidence.
 
 - [ ] **`P3-07` — `get_automation` and `get_automation_traces`** — implemented
   strictly to the scope P0-05 proved reachable, behind a compatibility adapter
@@ -115,12 +130,36 @@ internal/mcp/      # server.go, system_tools.go, entity_tools.go, automation_too
 
 ## Decisions
 
-- [ ] **`needs-decision` — Tool catalog scope for the first usable release**
-  The doc lists twenty tools. Whether the first release the owner actually points
-  an agent at is the full twenty, or a smaller set exercised end-to-end first,
-  changes the order of this phase and Phase 04. Revisit once Phase 00's evidence
-  says which tools are implementable at all — some may be re-scoped by P0-05/P0-06
-  before this question is even well-formed.
+- [x] **Tool catalog scope for the first usable release — the full twenty** — decided 2026-08-25
+
+  **Decision:** The first release the owner points an agent at is the **full
+  twenty-tool catalog**: Phase 03 complete, then Phase 04 complete. No reduced
+  first cut, and no tool is dropped to reach a release date. Tools whose evidence
+  says they are not implementable at the permitted level are not silently
+  dropped either — they ship answering `unsupported` with a reason.
+
+  **Why:** The product is a diagnostic that separates what it observed from what
+  it could not check. A partial catalog degrades that promise in a way the agent
+  cannot see: an investigation that cannot reach history or statistics does not
+  return a smaller answer, it returns a differently-shaped one, and the owner has
+  no way to tell which. Shipping the whole catalog keeps "no answer" a real
+  answer rather than a missing tool.
+
+  **Rejected:** *Inventory core first* (`P3-01`–`P3-06`, then traces and Phase
+  04) — reaches a usable agent sooner and exercises the pipeline end-to-end
+  earlier, but produces exactly the half-visible degradation above and invites a
+  release that quietly becomes permanent. *A minimal probe set*
+  (`P3-01`/`P3-02`/`P3-05`) — fastest to a real session, most re-planning
+  afterward, and the least representative of how the tools behave together.
+
+  **Consequences:** Phase 03 keeps its written order — `P3-01` first because
+  everything registers into it, `P3-07` last because it is the most
+  compatibility-sensitive — and Phase 04 follows without an interleaved release
+  cut. Both phases' Definitions of Done stand as written. The tool-count claim is
+  a fact that will otherwise drift: `P3-01`'s registry test asserting the exact
+  expected tool names is what keeps "twenty" true rather than aspirational.
+  `list_apps` and `get_system_health` are in scope at the level the 2026-08-25
+  Supervisor decision permits, not above it.
 
 ## Phase Definition of Done
 
