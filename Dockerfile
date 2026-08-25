@@ -24,6 +24,6 @@ FROM alpine:3.20
 RUN apk add --no-cache ca-certificates
 COPY --from=build /out/ha-inspector-mcp /usr/bin/ha-inspector-mcp
 COPY addon/rootfs/run.sh /run.sh
-RUN chmod +x /run.sh
+RUN chmod +x /usr/bin/ha-inspector-mcp /run.sh
 
 ENTRYPOINT ["/run.sh"]
