@@ -112,7 +112,7 @@ internal/audit/    # logger.go
   `allow` and `deny` are selectable and the **default resolves to `mask`**,
   asserted by a test that constructs a profile from empty configuration.
 
-- [ ] **`P2-03` — Redaction** 🧠 — strip `SECRET` values from anything crossing
+- [x] **`P2-03` — Redaction** 🧠 — strip `SECRET` values from anything crossing
   the response boundary, including nested attributes and error messages.
   **DoD:** `TestSupervisorTokenNeverReturned` — the live token value planted in
   an entity attribute, a device name, an error string and a log line is absent
@@ -190,6 +190,14 @@ internal/audit/    # logger.go
   masked field is marked masked, exactly as a redacted one is marked redacted
   (`P2-03`): the agent must be able to tell a masked state from a real one, or
   it will reason about `state_A` as though it were a state name.
+
+  **Refined 2026-08-25 during `P2-03`.** "Stable within one response" is
+  narrowed to *stable within one entity's timeline*: two private entities in
+  the same underlying state get **different** tokens. Sharing one would say
+  their states agree — the meaning withheld and the correlation handed over
+  anyway, which is the exposure the decision exists to prevent. Transition
+  counting only ever compares an entity against itself, so nothing diagnostic
+  is lost.
 
 - [ ] **`needs-decision` — Persistence beyond cache and audit**
   Q10. Memory-only keeps the App small on a Raspberry Pi and makes every restart
