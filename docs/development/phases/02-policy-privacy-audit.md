@@ -154,13 +154,25 @@ internal/audit/    # logger.go
   field from `truncated`, so a request for `limit=9999` is visibly cut down
   regardless of whether the page it produced was itself truncated.
 
-- [ ] **`P2-05` — Audit logger** — one structured record per MCP invocation in
+- [x] **`P2-05` — Audit logger** — one structured record per MCP invocation in
   the shape of doc §17, plus operational logs with no secrets and no full
   payloads at INFO.
   **DoD:** a record is emitted for success, for policy denial and for budget
   exhaustion alike; `TestAuditNeverContainsSecrets` plants secrets in parameters
   and asserts the record carries redacted parameters; a test asserts no result
   body is persisted by default; audit emission failure never fails the tool call.
+
+  Landed as `internal/audit`: `Logger.Emit` takes the invocation's
+  `*redact.Redactor` and runs `Record.Parameters` through the same
+  `Payload` boundary a response uses, so a secret or a masked-private value in
+  a tool argument never reaches the trail either — no second redaction copy.
+  `Status` (`success` / `denied` / `budget_exceeded` / `error`) and `Reason`
+  keep a refusal, a budget cutoff and a success distinguishable in the trail,
+  matching the three-way split CLAUDE.md's Error Handling requires. The result
+  body is not a `Record` concern by default — `Logger.WithBody()` opts a
+  specific logger instance in — and `Emit` wraps its own work in `recover` (with
+  a nested recover around the failure log line itself) so a broken sink or an
+  unformattable payload cannot fail the tool call it is recording.
 
 ## Decisions
 

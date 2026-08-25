@@ -3,8 +3,8 @@
 <!-- BOUNDED FILE — rewritten in place, never appended to. Keep under ~100 lines.
      Anything that grows goes to journal/. This file is read by every session. -->
 
-**▶ Active:** `P2-05` — Audit logger
-· [`phases/02-policy-privacy-audit.md`](phases/02-policy-privacy-audit.md) · model: **claude-sonnet-5** · flags: —
+**▶ Active:** `P1-08` — Supervisor REST adapter and manifest permission
+· [`phases/01-ha-access-gateway.md`](phases/01-ha-access-gateway.md) · model: **claude-sonnet-5** · flags: —
 
 > Advancing this pointer is part of finishing a task, together with ticking the
 > box, recomputing status and appending a journal entry. All four, or none.
@@ -16,23 +16,22 @@ cycle. Remove a row when its task closes.
 
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
-| 1 | `P2-05` | Audit logger | 02 | claude-sonnet-5 | |
-| 2 | `P1-08` | Supervisor REST adapter and manifest permission | 01 | claude-sonnet-5 | |
-| 3 | `P3-01` | MCP server bootstrap and tool registry | 03 | claude-opus-5 | 🧠 |
-| 4 | `P3-02` | `get_system_overview` / `get_system_health` | 03 | claude-sonnet-5 | `blocked:P1-08` |
-| 5 | `P3-03` | `list_integrations` / `get_integration` | 03 | claude-sonnet-5 | |
-| 6 | `P3-04` | `list_devices` / `get_device` | 03 | claude-sonnet-5 | |
-| 7 | `P3-05` | `list_entities` / `get_entity` | 03 | claude-sonnet-5 | |
-| 8 | `P3-06` | `list_areas` / `list_automations` / `list_repairs` / `list_apps` | 03 | claude-sonnet-5 | `blocked:P1-08` |
-| 9 | `P3-07` | `get_automation` / `get_automation_traces` | 03 | claude-sonnet-5 | |
+| 1 | `P1-08` | Supervisor REST adapter and manifest permission | 01 | claude-sonnet-5 | |
+| 2 | `P3-01` | MCP server bootstrap and tool registry | 03 | claude-opus-5 | 🧠 |
+| 3 | `P3-02` | `get_system_overview` / `get_system_health` | 03 | claude-sonnet-5 | `blocked:P1-08` |
+| 4 | `P3-03` | `list_integrations` / `get_integration` | 03 | claude-sonnet-5 | |
+| 5 | `P3-04` | `list_devices` / `get_device` | 03 | claude-sonnet-5 | |
+| 6 | `P3-05` | `list_entities` / `get_entity` | 03 | claude-sonnet-5 | |
+| 7 | `P3-06` | `list_areas` / `list_automations` / `list_repairs` / `list_apps` | 03 | claude-sonnet-5 | `blocked:P1-08` |
+| 8 | `P3-07` | `get_automation` / `get_automation_traces` | 03 | claude-sonnet-5 | |
 
-**Order rationale.** `P2-05` closes Phase 02 first: the audit record reuses
-`P2-03`'s redaction rather than growing a second copy, and `P3-01` wires audit
-middleware into every invocation — a registry built before the record exists
-would have to be rewired. `P1-08` comes next because it is a layer below the
-tools and two of them cannot be written without it: the 2026-08-25 Supervisor
-decision grants endpoints nothing in the tree reads yet, so `P3-02` and `P3-06`
-are `blocked:P1-08`. Then Phase 03 in its written order — `P3-01` first because
+**Order rationale.** `P2-05` closed Phase 02: `internal/audit` reused
+`P2-03`'s redaction rather than growing a second copy, so `P3-01` can wire
+audit middleware into every invocation against a record shape that already
+exists. `P1-08` is next because it is a layer below the tools and two of them
+cannot be written without it: the 2026-08-25 Supervisor decision grants
+endpoints nothing in the tree reads yet, so `P3-02` and `P3-06` are
+`blocked:P1-08`. Then Phase 03 in its written order — `P3-01` first because
 everything registers into it, `P3-07` last because it is the most
 compatibility-sensitive surface in the phase. Phase 04's five follow this queue
 unbroken: the catalog decision below rules out an interleaved release cut, so
@@ -74,7 +73,7 @@ done
 |------:|-------|:------------:|
 | 00 | Spike & Foundations | 15 / 15 |
 | 01 | HA Access & Read-Only Gateway | 9 / 10 |
-| 02 | Policy, Privacy, Budget & Audit | 5 / 7 |
+| 02 | Policy, Privacy, Budget & Audit | 6 / 7 |
 | 03 | MCP Server & Inventory Tools | 1 / 8 |
 | 04 | History, Statistics & Detection | 0 / 5 |
 | 05 | Diagnostics & Evidence Engine | 0 / 1 |
@@ -83,16 +82,17 @@ done
 
 Counts include each phase's `needs-decision` entries, which are boxes too. Phase
 00 is now fully ticked — its last two were the HA-version and Supervisor
-decisions, both settled 2026-08-25. Phase 01's one open box is the new `P1-08`;
-its transport decision is ticked. Phase 02's two open are `P2-05` and the Q10
-persistence decision. Phase 03's one tick is its catalog-scope decision.
+decisions, both settled 2026-08-25. Phase 01's one open box is `P1-08`, now the
+active task; its transport decision is ticked. Phase 02's one remaining open box
+is the Q10 persistence decision — `P2-05` closed 2026-08-25. Phase 03's one tick
+is its catalog-scope decision.
 
 Phases 00–04 are milestone M1 (v1 observer). Phase 05 is M2. Phases 06–07 are
 gated: they open only on an explicit owner decision plus a fresh security review.
 Phases 05–07 carry no task boxes yet — theirs are written by `devflow plan` when
 the phase before them closes.
 
-Last refreshed: 2026-08-25 (`devflow plan` — four decisions settled, Phase 03 queued)
+Last refreshed: 2026-08-25 (`devflow next` — `P2-05` closed, pointer advanced to `P1-08`)
 
 ## Open findings
 
@@ -110,7 +110,7 @@ Last refreshed: 2026-08-25 (`devflow plan` — four decisions settled, Phase 03 
 > rests on. Run `devflow verify` before building further on it.
 
 The 2026-08-25 `plan` drained the inbox again and wrote no boxes from it. The
-one `queue-next`, **F-11**, was already planned into `P3-07` (now queue row 9)
+one `queue-next`, **F-11**, was already planned into `P3-07` (now queue row 8)
 plus a Phase 05 §13.1 bullet — it closes when `P3-07` closes, not now.
 
 All three `defer`s were re-triaged and stay deferred: **F-6** (Phase 05 owns
@@ -124,6 +124,13 @@ measure them is the `plan` after `P3-01` closes, not this one.
 
 Last 5 closed tasks, one line each. Older entries live in `journal/`.
 
+- 2026-08-25 · `P2-05` — `internal/audit`: `Logger.Emit` runs
+  `Record.Parameters` through the invocation's `*redact.Redactor` before
+  logging, so secret literals and masked-private values never reach the trail
+  either; `Status` (success/denied/budget_exceeded/error) plus `Reason` keep a
+  refusal, a budget cutoff and a success distinguishable; the result body is
+  excluded unless `Logger.WithBody()` opts in; `Emit` recovers its own panics
+  so a broken sink cannot fail the tool call it is recording.
 - 2026-08-25 · `P2-04` — `internal/page`: `Paginate[T]` cuts a caller-sorted
   list at the first of resolved limit / cumulative `byteSize` vs `MaxBytes` /
   list end, always keeping a whole record even when one alone exceeds the cap;
@@ -148,10 +155,6 @@ Last 5 closed tasks, one line each. Older entries live in `journal/`.
   invocation context with its deadline, a pre-flight entity-day estimate that
   refuses before the recorder is asked, and a token-bucket rate limiter for
   request storms (threat T1).
-- 2026-08-25 · `P1-06` — `RegistryCache` in `internal/ha`: TTL + single-flight
-  refill per doc §16 for entity/device/area/config-entries registries; every
-  served value carries its observation time; a fake `caller` (no real
-  WebSocket) makes TTL expiry and concurrency deterministic in tests.
 
 ## Project facts
 
