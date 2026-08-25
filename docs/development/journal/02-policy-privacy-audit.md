@@ -47,3 +47,16 @@ structurally impossible rather than something to detect and flag, so the DoD's
 **Left open:** no `list_*` tool exists yet to call it (Phase 03); `keyOf` and
 `byteSize` are caller-supplied rather than JSON-marshal defaults, a choice to
 revisit once a real tool response shape exists to measure against.
+
+### 2026-08-25 · `P2-05`
+`internal/audit` emits one record per invocation, running `Parameters` through
+the caller-supplied `*redact.Redactor` before logging — no second redaction
+copy, per the queue's ordering rationale.
+**Surprise:** the DoD's "emission failure never fails the tool call" needed a
+second, nested `recover()` — the first `recover`'s own log line can itself
+panic against a broken handler, and only wrapping that call too closes the
+gap; `TestEmit_EmissionFailureNeverFailsTheCall` uses a handler whose `Handle`
+always panics to prove it.
+**Left open:** no MCP server exists yet to call `Emit` at (`P3-01` wires it
+into the invocation path); the `Record.Body`/`WithBody` opt-in has no caller
+until a tool response shape exists to decide whether to pass one.
