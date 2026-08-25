@@ -105,7 +105,7 @@ internal/model/    # normalized domain types
   and sent; a response exceeding the byte cap is truncated with an explicit
   error, not buffered whole.
 
-- [ ] **`P1-04` — Typed HA errors and graceful degradation** — one error taxonomy
+- [x] **`P1-04` — Typed HA errors and graceful degradation** — one error taxonomy
   the layers above can branch on: `ErrPolicyDenied`, `ErrBudgetExceeded`,
   `ErrUnsupported`, `ErrUpstreamUnavailable`, `ErrDeadline`, `ErrNotFound`.
   **DoD:** each maps to a distinct MCP-visible status; a test asserts an

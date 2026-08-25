@@ -54,8 +54,8 @@ func (c BareCommand) MarshalJSON() ([]byte, error) { return []byte("{}"), nil }
 // CommandError is an error result Home Assistant returned for a command that
 // reached it intact. It means the request was understood and refused or could
 // not be served — distinct from ErrUpstreamUnavailable, which means it never
-// got an answer. Mapping HA error codes onto this project's sentinels is
-// P1-04's taxonomy; this type only preserves what HA said.
+// got an answer. It preserves what HA said verbatim; Unwrap maps its Code
+// onto this project's taxonomy for callers that branch with errors.Is.
 type CommandError struct {
 	Code    string
 	Message string
@@ -63,6 +63,25 @@ type CommandError struct {
 
 func (e *CommandError) Error() string {
 	return fmt.Sprintf("ha: command failed: %s: %s", e.Code, e.Message)
+}
+
+// Unwrap maps the HA error code CommandError carries onto this project's
+// taxonomy, so a caller can branch with errors.Is(err, ErrUnsupported) etc.
+// without knowing HA's wire vocabulary, while errors.As(err, &cmdErr) still
+// recovers the original code and message. "unauthorized" is what HA answers
+// an admin-gated command with under a non-admin principal (P0-05); a caller
+// degrades on it rather than treating it as an empty result. An unrecognized
+// code maps to nothing — the *CommandError itself is still a valid, reported
+// failure, never silently swallowed.
+func (e *CommandError) Unwrap() error {
+	switch e.Code {
+	case "unauthorized":
+		return ErrUnsupported
+	case "not_found":
+		return ErrNotFound
+	default:
+		return nil
+	}
 }
 
 // resultEnvelope is the reply shape shared by command results and pongs. HA
@@ -232,7 +251,7 @@ func (m *Manager) callOn(ctx context.Context, s *session, cmd Command) (result j
 			return nil, true, err
 		}
 		if ctxErr := ctx.Err(); ctxErr != nil {
-			return nil, true, ctxErr
+			return nil, true, wrapDeadline(ctxErr)
 		}
 		return nil, false, fmt.Errorf("%w: sending %s", ErrUpstreamUnavailable, cmd.CommandType())
 	}
@@ -243,7 +262,7 @@ func (m *Manager) callOn(ctx context.Context, s *session, cmd Command) (result j
 	case <-s.done:
 		return nil, true, fmt.Errorf("%w: connection closed with %s in flight", ErrUpstreamUnavailable, cmd.CommandType())
 	case <-ctx.Done():
-		return nil, true, ctx.Err()
+		return nil, true, wrapDeadline(ctx.Err())
 	}
 }
 
@@ -289,7 +308,7 @@ func (m *Manager) session(ctx context.Context, avoid *session) (*session, error)
 		select {
 		case <-changed:
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return nil, wrapDeadline(ctx.Err())
 		}
 	}
 }

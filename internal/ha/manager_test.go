@@ -98,6 +98,9 @@ func TestManager_ErrorResult_ReturnsCommandError(t *testing.T) {
 	if cmdErr.Code != "not_found" {
 		t.Fatalf("CommandError.Code = %q, want %q", cmdErr.Code, "not_found")
 	}
+	if !errors.Is(err, ErrNotFound) {
+		t.Fatalf("Call: got %v, want it to also match ErrNotFound", err)
+	}
 	if n := m.pendingCount(); n != 0 {
 		t.Fatalf("%d pending slots left after an error result, want 0", n)
 	}
@@ -329,6 +332,84 @@ func TestManager_NoDeadlineOnCallerContext_StillBounded(t *testing.T) {
 	_, err := m.Call(context.Background(), BareCommand("get_states"))
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("Call: got %v, want context.DeadlineExceeded from the default deadline", err)
+	}
+	if !errors.Is(err, ErrDeadline) {
+		t.Fatalf("Call: got %v, want ErrDeadline", err)
+	}
+	if errors.Is(err, ErrUpstreamUnavailable) {
+		t.Fatalf("Call: %v also matches ErrUpstreamUnavailable, want it distinguishable from ErrDeadline", err)
+	}
+}
+
+// HA answers an admin-gated command with `unauthorized` under a non-admin
+// principal (P0-05). The taxonomy must let a caller degrade on that rather
+// than treat it as an aborted diagnostic or an unlisted-command policy denial.
+func TestManager_UnauthorizedResult_ReturnsErrUnsupported(t *testing.T) {
+	srv := newFakeHAServer(t, func(ctx context.Context, conn *websocket.Conn) {
+		if !serveAuthHandshake(ctx, conn, testToken) {
+			return
+		}
+		serveCommands(ctx, conn, func(cmd commandFrame) {
+			_ = writeErrorResult(ctx, conn, cmd.ID, "unauthorized", "Unauthorized")
+		})
+	})
+
+	m := startManager(t, wsURL(srv), nil)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	_, err := m.Call(ctx, BareCommand(CommandAutomationConfig))
+	if !errors.Is(err, ErrUnsupported) {
+		t.Fatalf("Call: got %v, want ErrUnsupported", err)
+	}
+	if errors.Is(err, ErrPolicyDenied) {
+		t.Fatalf("Call: %v also matches ErrPolicyDenied, want it distinguishable from an HA-reported permission gap", err)
+	}
+	var cmdErr *CommandError
+	if !errors.As(err, &cmdErr) {
+		t.Fatalf("Call: got %v, want the original *CommandError still recoverable via errors.As", err)
+	}
+	if cmdErr.Code != "unauthorized" {
+		t.Fatalf("CommandError.Code = %q, want %q", cmdErr.Code, "unauthorized")
+	}
+}
+
+// No error Call returns may carry the token (CLAUDE.md rule 4), across the
+// whole taxonomy this task adds.
+func TestManager_Errors_NeverCarryTheToken(t *testing.T) {
+	unauthorizedSrv := newFakeHAServer(t, func(ctx context.Context, conn *websocket.Conn) {
+		if !serveAuthHandshake(ctx, conn, testToken) {
+			return
+		}
+		serveCommands(ctx, conn, func(cmd commandFrame) {
+			_ = writeErrorResult(ctx, conn, cmd.ID, "unauthorized", "Unauthorized")
+		})
+	})
+	m := startManager(t, wsURL(unauthorizedSrv), nil)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_, unsupportedErr := m.Call(ctx, BareCommand(CommandAutomationConfig))
+
+	restore := defaultCallTimeout
+	defaultCallTimeout = 50 * time.Millisecond
+	t.Cleanup(func() { defaultCallTimeout = restore })
+	neverAnswers := newFakeHAServer(t, func(ctx context.Context, conn *websocket.Conn) {
+		if !serveAuthHandshake(ctx, conn, testToken) {
+			return
+		}
+		serveCommands(ctx, conn, func(cmd commandFrame) {})
+	})
+	deadlineManager := startManager(t, wsURL(neverAnswers), nil)
+	_, deadlineErr := deadlineManager.Call(context.Background(), BareCommand("get_states"))
+
+	for _, err := range []error{unsupportedErr, deadlineErr} {
+		if err == nil {
+			t.Fatal("expected an error to inspect")
+		}
+		if strings.Contains(err.Error(), testToken) {
+			t.Fatalf("error string carries the token: %q", err)
+		}
 	}
 }
 
