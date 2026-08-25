@@ -74,7 +74,7 @@ internal/audit/    # logger.go
 
 ## Tasks
 
-- [ ] **`P2-01` — Query budget** 🧠 — `QueryBudget{MaxHARequests,
+- [x] **`P2-01` — Query budget** 🧠 — `QueryBudget{MaxHARequests,
   MaxHistoryPoints, MaxEntities, MaxBytes, Deadline}` attached to each
   invocation's context, with the two classes from doc §10 (normal read /
   composite diagnostic) as defaults **taken from `P0-09`'s measurement**, not
