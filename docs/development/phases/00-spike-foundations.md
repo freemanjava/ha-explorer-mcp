@@ -180,7 +180,7 @@ docs/research/       # dated evidence produced by the verify tasks
   below and sends it back to the owner. No credential, token or hostname from
   the owner's installation appears in the report.
 
-- [ ] **`P0-11` — Ship the App as a published multi-arch image, not a local build**
+- [x] **`P0-11` — Ship the App as a published multi-arch image, not a local build**
   `live-verify` — resolves **F-16**. Unblocked 2026-08-24: `P0-10` confirmed
   Supervisor can pull from a private registry (see its DoD/research doc).
   Implements the

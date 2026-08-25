@@ -132,3 +132,14 @@ carrying raw registry text, indistinguishable from image-not-found.
 **Left open:** did not independently confirm `docker.json` survives an OS
 update (only that it lives beside other files this project already treats as
 durable).
+
+### 2026-08-25 · `P0-11`
+App ships as a published multi-arch image; live-verified pulling and starting
+on real Home Assistant OS on a Raspberry Pi.
+**Surprise:** three failures only appeared on real Supervisor, none caught by
+`make check` or a local `docker build`/`docker run`: a repository needs a root
+`repository.yaml` to be recognized at all; `COPY` doesn't make a binary
+executable; and AppArmor denies `exec` as a check separate from and stricter
+than Unix file permissions (`mr` vs `mrix`) — a local `docker run` without the
+real profile attached would never have caught the third one.
+**Left open:** none — F-16 resolved, DoD's `Live:` clause satisfied.
