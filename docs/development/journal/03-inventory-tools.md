@@ -12,3 +12,15 @@ unrecoverable anywhere else — so if there was none, the entry is one line and
 that is correct.
 
 ---
+
+### 2026-09-05 · P3-01
+`internal/mcp`: static twenty-row catalog with a budget class per row, stdio
+server, and one receiving middleware carrying rate limit, budget, panic
+recovery and audit for every invocation; `cmd/server` now actually runs it.
+**Surprise:** the SDK never recovers a panicking handler — nothing in the module
+calls `recover()` — so the middleware's recovery is what keeps a nil-map bug
+from taking the whole App down. Its `ErrServerClosing` sentinel is also in an
+`internal/` package, so a mid-request disconnect cannot be matched with
+`errors.Is` (F-21).
+**Left open:** every row is bound to a not-implemented handler; `P3-02` onward
+replace them one at a time.

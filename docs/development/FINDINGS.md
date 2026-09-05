@@ -622,3 +622,29 @@ after `P3-01` closes. The probe: the probe is `cmd/spike`
 issuing a fixed-rate stream of max-page history calls while Core CPU and
 recorder latency are watched — the measurement the 2026-08-24 run explicitly did
 not make ("whether the widest calls degraded the installation while they ran").
+
+### F-21 · A client that dies mid-request makes the App exit non-zero · 2026-09-05
+
+**Kind:** `defect`
+
+**What:** Observed while running `P3-01`'s server over real stdio. When stdin
+closes *while a request is in flight*, `Server.Run` returns the SDK's
+`jsonrpc2.ErrServerClosing` ("server is closing: EOF"), `cmd/server`'s
+`run()` does not recognize it, and the process exits 1. A clean disconnect
+between requests exits 0. The sentinel cannot be matched: it lives in
+`github.com/modelcontextprotocol/go-sdk/internal/jsonrpc2`, so `errors.Is`
+against it is not available to code outside the SDK — `main.go`'s `io.EOF`
+check does not catch it, and only its message or its JSON-RPC code (-32004)
+identifies it.
+
+**Impact:** Cosmetic today, operational under the Supervisor: an App that exits
+non-zero is logged as a crash and, with a restart policy, restarted — so a
+client that quits at the wrong moment looks like a failing App. It never
+corrupts anything and never affects a live session.
+
+**Triage:** `queue-next`
+
+**Outcome:** Open. Belongs with the App lifecycle work rather than with a tool
+task. The likely fix is to treat any session-end error after a session was
+established as a normal shutdown at INFO, rather than to match an unreachable
+sentinel by string.
