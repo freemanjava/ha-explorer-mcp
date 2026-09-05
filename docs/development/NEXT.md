@@ -3,8 +3,8 @@
 <!-- BOUNDED FILE — rewritten in place, never appended to. Keep under ~100 lines.
      Anything that grows goes to journal/. This file is read by every session. -->
 
-**▶ Active:** `P4-04` — `get_entity_statistics`
-· [`phases/04-history-statistics.md`](phases/04-history-statistics.md) · model: **claude-sonnet-5** · flags: —
+**▶ Active:** `P3-09` — fallback logbook events go through the privacy profile (F-23)
+· [`phases/03-inventory-tools.md`](phases/03-inventory-tools.md) · model: **claude-opus-5** · flags: 🧠
 
 > Advancing this pointer is part of finishing a task, together with ticking the
 > box, recomputing status and appending a journal entry. All four, or none.
@@ -16,23 +16,20 @@ cycle. Remove a row when its task closes.
 
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
-| 1 | `P4-04` | `get_entity_statistics` | 04 | claude-sonnet-5 | |
-| 2 | `P3-09` | fallback logbook events go through the privacy profile (F-23) | 03 | claude-opus-5 | 🧠 |
-| 3 | `P4-05` | `find_unavailable_entities` / `find_stale_entities` | 04 | claude-sonnet-5 | |
+| 1 | `P3-09` | fallback logbook events go through the privacy profile (F-23) | 03 | claude-opus-5 | 🧠 |
+| 2 | `P4-05` | `find_unavailable_entities` / `find_stale_entities` | 04 | claude-sonnet-5 | |
 
 **Order rationale (2026-09-05 `plan` #2 — the inbox-draining one).** Nothing new
 was scoped; this `plan` queued the two open findings and re-triaged the two
-`unknown`s. `P4-06` goes **first** and costs minutes: doc §12.1 is the shape
-`P4-04` implements against, and both halves of its example are impossible on
-their own terms (F-24) — removing the trap before that session reads the section
-is cheaper than the confusion it otherwise causes, and the fix direction is
-already settled in the phase file. `P4-04` then keeps its place: `P4-01` fetches,
-`P4-02`/`P4-03` compute, `P4-04` exposes both as one tool. `P3-09` (F-23) sits
-between `P4-04` and `P4-05` because it is a privacy-guarantee gap and so outranks
-a new feature, but it reaches an agent only on a non-admin deployment — not
-today's default (F-2/F-4) — so it does not displace an in-flight phase. `P4-05`
-last, as written: it applies the per-entity metrics installation-wide, and
-closing it closes Phase 04, which is what unblocks Phase 05's breakdown and F-6.
+`unknown`s. `P4-06` went first and cost minutes (doc §12.1 self-consistency,
+F-24); `P4-04` followed and closed 2026-09-05, joining `P4-01`'s fetch and
+`P4-02`/`P4-03`'s metrics into `get_entity_statistics`. `P3-09` (F-23) is now
+**active**: it sits ahead of `P4-05` because it is a privacy-guarantee gap and
+so outranks a new feature, but it reaches an agent only on a non-admin
+deployment — not today's default (F-2/F-4) — so it did not displace `P4-04`
+while that was in-flight. `P4-05` last, as written: it applies the per-entity
+metrics installation-wide, and closing it closes Phase 04, which is what
+unblocks Phase 05's breakdown and F-6.
 
 **Four decisions settled 2026-08-25.** *Transport:* **stdio only** — no
 listening port, no client-auth subsystem, and every log line goes to stderr
@@ -71,7 +68,7 @@ done
 | 01 | HA Access & Read-Only Gateway | 10 / 10 |
 | 02 | Policy, Privacy, Budget & Audit | 7 / 8 |
 | 03 | MCP Server & Inventory Tools | 10 / 11 |
-| 04 | History, Statistics & Detection | 4 / 6 |
+| 04 | History, Statistics & Detection | 5 / 6 |
 | 05 | Diagnostics & Evidence Engine | 0 / 1 |
 | 06 | Proposal Mode — gated | 0 / 1 |
 | 07 | Controlled Change (Admin) — gated | 0 / 1 |
@@ -80,15 +77,16 @@ Counts include each phase's decision entries, which are boxes too. Phases 00 and
 01 are fully ticked. Phase 02's one open box is the Q10 persistence decision.
 **Phase 03 is open again at 10/11** — not reopened, it simply has a box again:
 `P3-09`, the F-23 privacy fix, plus its already-settled decision record. Phase 04
-is 4/6: `P4-06` (F-24's doc fix) closed 2026-09-05.
+is 5/6: `P4-06` (F-24's doc fix) and `P4-04` (`get_entity_statistics`) both
+closed 2026-09-05; F-17's trigger ("revisit when P4-04 closes") has now fired
+and is unresolved — a `plan`/`finding` pass should re-triage it.
 
 Phases 00–04 are milestone M1 (v1 observer). Phase 05 is M2. Phases 06–07 are
 gated: they open only on an explicit owner decision plus a fresh security review.
 Phases 05–07 carry no task boxes yet — theirs are written by `devflow plan` when
 the phase before them closes.
 
-Last refreshed: 2026-09-05 (`next` — `P4-06` closed, F-24 resolved; pointer
-moved to `P4-04`)
+Last refreshed: 2026-09-05 (`next` — `P4-04` closed; pointer moved to `P3-09`)
 
 ## Open findings
 
@@ -107,17 +105,21 @@ moved to `P4-04`)
 
 `F-24` closed with `P4-06`. The remaining `queue-next` (F-23) has its task in
 the queue above (`P3-09`) and closes when that does. The two `defer`s are the
-two open `unknown`s, re-triaged 2026-09-05's `plan` and left deferred on
-trigger conditions that have not fired: **F-17** (batched statistics ~30%
-larger) is revisited when `P4-04` closes — the first consumer of statistics,
-and the first place `P2-01`'s estimate can bind · **F-6** (Zigbee metric
-normalization) waits on Phase 04 closing and on Phase 05 having boxes to
-consume the answer.
+two open `unknown`s, re-triaged 2026-09-05's `plan`: **F-17** (batched
+statistics ~30% larger) was deferred to `P4-04` closing — the first consumer
+of statistics, and the first place `P2-01`'s estimate can bind — and that
+trigger has now fired (`P4-04` closed 2026-09-05); a `plan`/`finding` pass
+should re-triage it rather than leaving it deferred on a condition already
+met · **F-6** (Zigbee metric normalization) waits on Phase 04 closing and on
+Phase 05 having boxes to consume the answer.
 
 ## Recent
 
 Last 5 closed tasks, one line each. Older entries live in `journal/`.
 
+- 2026-09-05 · `P4-04` — `get_entity_statistics` joins `P4-02`/`P4-03` into one
+  tool over `model.Health` (Phase 00's unused stub, extended); one range cap
+  reused from `P4-01`; `Source` names the recorder endpoint, not the subsystem.
 - 2026-09-05 · `P4-06` — doc §12.1 made self-consistent (F-24 resolved):
   `availability_ratio` → `0.98095`, `median_update_interval_s` → `1376.5`,
   `p95_update_interval_s` → `2578.8`, matching the fixture through the real
@@ -131,5 +133,3 @@ Last 5 closed tasks, one line each. Older entries live in `journal/`.
 - 2026-09-05 · `P4-01` — `get_entity_history` over
   `history/history_during_period`, first user of `CheckHistoryScope` and the
   query budget; `resolution` deferred to `P4-04` by decision record.
-- 2026-09-05 · `P2-06` — measured the invocation rate limit (F-20): no
-  degradation to 4 calls/s, double the sustained limit; both constants unchanged.

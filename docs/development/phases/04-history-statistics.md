@@ -66,7 +66,7 @@ internal/mcp/        # entity_tools.go (history/statistics tools)
   updates every 30s and has been silent for an hour is; percentile computation is
   tested at small sample sizes where naive implementations misbehave.
 
-- [ ] **`P4-04` — `get_entity_statistics`** — expose P4-02 and P4-03 as one tool
+- [x] **`P4-04` — `get_entity_statistics`** — expose P4-02 and P4-03 as one tool
   with a bounded `period` parameter, provenance and cache age.
   **DoD:** response matches the doc §12.1 shape; period is validated against the
   maximum; the source (recorder history vs statistics API) is named in the
@@ -241,6 +241,40 @@ inconsistency rather than removing it; and deleting the cadence fields — §12.
 is the response shape `P4-04` implements against, so dropping fields from it
 removes the specification `P4-04` needs. **Consequences:** `P4-04` implements
 against an example whose arithmetic holds, and F-24 closes when this box does.
+
+**`P4-04`, 2026-09-05 — the response reuses `model.Health`, Phase 00's unused
+stub, rather than a new `EntityStatistics` type.** `Health`'s existing fields
+(`Period`, `AvailabilityRatio`, `StateChanges`, `UnavailablePeriods`,
+`TotalUnavailable`, `LongestUnavailable`, `MedianUpdateInterval`,
+`P95UpdateInterval`) already matched doc §12.1 field-for-field, and P4-02's
+decision record named this exact task as the one to decide whether a shared
+type belongs in `model`. Extended with `Source`, `ObservedAt`, `SubjectID`,
+`From`/`To`, and the `AvailabilityComputable`/`CadenceComputable`/
+`StaleJudgeable` flags P4-02 and P4-03 each required this task to surface
+(CLAUDE.md rule 7: an uncomputable ratio must never read as 0%, an
+unjudgeable silence must never read as "not stale"). `SubjectID` stays a bare
+string, not a typed `EntityID`, because `Health`'s own doc comment scopes it
+to future non-entity subjects (device, integration, automation, system) that
+`analyze_*_health` (Phase 05) will also produce.
+
+**`P4-04`, 2026-09-05 — `Source` names the recorder endpoint, not the HA
+subsystem.** Every other tool's `Source` field answers "core or supervisor?"
+and is always `"home_assistant_core"` for anything recorder-backed — useless
+here, since the DoD asks the response to say *which recorder API* answered
+(history vs. the statistics API), because they differ in resolution and a
+diagnostic reader has to know which one it's trusting. `Health.Source` is
+`"recorder_history"` today, the only source P4-01 wired up; doc §12.2's own
+evidence-model example uses the same field for the same meaning. Revisit if a
+statistics-API source is ever added — `policy.Source.String()` already has
+the vocabulary (`"history"` / `"statistics"`) this field would then draw on.
+
+**`P4-04`, 2026-09-05 — one range cap, reused rather than duplicated.**
+`period` is refused above `maxHistoryWindow`, the same 7-day constant
+`get_entity_history` enforces (P4-01's cap), rather than a second constant
+that could drift from it. Appendix A.3's "Nd" shorthand (`"7d"`) is parsed
+before falling back to `time.ParseDuration`, so `"24h"` also works without
+`get_entity_history`'s own `resolution` ambiguity (P4-01's decision record)
+resurfacing here.
 
 ## Phase Definition of Done
 
