@@ -349,6 +349,170 @@ func MapSupervisorInfo(raw json.RawMessage) (model.SupervisorInfo, error) {
 	return info, nil
 }
 
+// MapCoreConfig maps a get_config result into model.CoreConfig, following the
+// same permissive-field convention as the registry mappers: a missing or
+// wrong-typed field degrades the value to Partial rather than aborting
+// get_system_overview.
+func MapCoreConfig(raw json.RawMessage) (model.CoreConfig, error) {
+	var fields map[string]any
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		return model.CoreConfig{}, fmt.Errorf("ha: decoding get_config: %w", err)
+	}
+
+	var reasons []string
+	version, ok := stringField(fields, "version")
+	if !ok || version == "" {
+		reasons = append(reasons, "version missing or not a string")
+	}
+
+	c := model.CoreConfig{
+		Version:      version,
+		LocationName: optString(fields, "location_name"),
+		TimeZone:     optString(fields, "time_zone"),
+		State:        optString(fields, "state"),
+	}
+	if len(reasons) > 0 {
+		c.Partial = true
+		c.PartialReason = strings.Join(reasons, "; ")
+	}
+	return c, nil
+}
+
+// MapStateCounts aggregates a get_states result into model.StateCounts
+// in-process, so get_system_overview never returns the underlying per-entity
+// list (P3-02 DoD; CLAUDE.md, Performance: aggregate before serializing). An
+// element that is not a JSON object is skipped rather than aborting the
+// count.
+func MapStateCounts(raw json.RawMessage) (model.StateCounts, error) {
+	var elements []json.RawMessage
+	if err := json.Unmarshal(raw, &elements); err != nil {
+		return model.StateCounts{}, fmt.Errorf("ha: decoding get_states: %w", err)
+	}
+
+	var counts model.StateCounts
+	for _, raw := range elements {
+		var e map[string]any
+		if err := json.Unmarshal(raw, &e); err != nil {
+			continue
+		}
+		counts.Total++
+		switch optString(e, "state") {
+		case "unavailable":
+			counts.Unavailable++
+		case "unknown":
+			counts.Unknown++
+		}
+	}
+	return counts, nil
+}
+
+// coreInfoWire is the strictly-typed shape of Supervisor's /info response —
+// Supervisor's own status endpoint, not a Core registry HA upgrades
+// independently, so (like supervisorInfoWire below) a renamed or retyped
+// field fails the call loudly rather than degrading to Partial (P1-08 DoD
+// rationale, docs/research/2026-08-23-supervisor-permissions.md).
+type coreInfoWire struct {
+	Supervisor    string `json:"supervisor"`
+	HomeAssistant string `json:"homeassistant"`
+	Hassos        string `json:"hassos"`
+	Hostname      string `json:"hostname"`
+	Machine       string `json:"machine"`
+	Arch          string `json:"arch"`
+	State         string `json:"state"`
+	Supported     bool   `json:"supported"`
+}
+
+// MapCoreInfo maps Supervisor's /info response into model.CoreInfo.
+func MapCoreInfo(raw json.RawMessage) (model.CoreInfo, error) {
+	var wire coreInfoWire
+	if err := json.Unmarshal(raw, &wire); err != nil {
+		return model.CoreInfo{}, fmt.Errorf("%w: decoding Supervisor /info: %v", ErrUnexpectedMessage, err)
+	}
+	return model.CoreInfo{
+		CoreVersion:       wire.HomeAssistant,
+		SupervisorVersion: wire.Supervisor,
+		OSVersion:         wire.Hassos,
+		Hostname:          wire.Hostname,
+		Machine:           wire.Machine,
+		Arch:              wire.Arch,
+		State:             wire.State,
+		Supported:         wire.Supported,
+	}, nil
+}
+
+// osInfoWire is the strictly-typed shape of Supervisor's /os/info response.
+type osInfoWire struct {
+	Version         string `json:"version"`
+	UpdateAvailable bool   `json:"update_available"`
+}
+
+// MapOSInfo maps Supervisor's /os/info response into model.OSInfo.
+func MapOSInfo(raw json.RawMessage) (model.OSInfo, error) {
+	var wire osInfoWire
+	if err := json.Unmarshal(raw, &wire); err != nil {
+		return model.OSInfo{}, fmt.Errorf("%w: decoding Supervisor /os/info: %v", ErrUnexpectedMessage, err)
+	}
+	return model.OSInfo{Version: wire.Version, UpdateAvailable: wire.UpdateAvailable}, nil
+}
+
+// hostInfoWire is the strictly-typed shape of the disk fields in Supervisor's
+// /host/info response — the rest of that payload is out of scope for
+// get_system_health (P3-02).
+type hostInfoWire struct {
+	DiskFree  float64 `json:"disk_free"`
+	DiskTotal float64 `json:"disk_total"`
+	DiskUsed  float64 `json:"disk_used"`
+}
+
+// MapHostDisk maps Supervisor's /host/info response into model.HostDisk.
+func MapHostDisk(raw json.RawMessage) (model.HostDisk, error) {
+	var wire hostInfoWire
+	if err := json.Unmarshal(raw, &wire); err != nil {
+		return model.HostDisk{}, fmt.Errorf("%w: decoding Supervisor /host/info: %v", ErrUnexpectedMessage, err)
+	}
+	return model.HostDisk{FreeGB: wire.DiskFree, TotalGB: wire.DiskTotal, UsedGB: wire.DiskUsed}, nil
+}
+
+// resolutionInfoWire is the strictly-typed shape of Supervisor's
+// /resolution/info response that get_system_health reports: issue count and
+// reason strings, never the full issue objects.
+type resolutionInfoWire struct {
+	Unhealthy   []string         `json:"unhealthy"`
+	Unsupported []string         `json:"unsupported"`
+	Issues      []map[string]any `json:"issues"`
+}
+
+// MapResolutionInfo maps Supervisor's /resolution/info response into
+// model.ResolutionSummary.
+func MapResolutionInfo(raw json.RawMessage) (model.ResolutionSummary, error) {
+	var wire resolutionInfoWire
+	if err := json.Unmarshal(raw, &wire); err != nil {
+		return model.ResolutionSummary{}, fmt.Errorf("%w: decoding Supervisor /resolution/info: %v", ErrUnexpectedMessage, err)
+	}
+	return model.ResolutionSummary{
+		IssueCount:  len(wire.Issues),
+		Unhealthy:   wire.Unhealthy,
+		Unsupported: wire.Unsupported,
+	}, nil
+}
+
+// addonStatsWire is the strictly-typed shape of Supervisor's
+// /addons/self/stats response fields get_system_health reports.
+type addonStatsWire struct {
+	CPUPercent    float64 `json:"cpu_percent"`
+	MemoryPercent float64 `json:"memory_percent"`
+}
+
+// MapAddonStats maps Supervisor's /addons/self/stats response — this App's
+// own container resource use — into model.AddonStats.
+func MapAddonStats(raw json.RawMessage) (model.AddonStats, error) {
+	var wire addonStatsWire
+	if err := json.Unmarshal(raw, &wire); err != nil {
+		return model.AddonStats{}, fmt.Errorf("%w: decoding Supervisor /addons/self/stats: %v", ErrUnexpectedMessage, err)
+	}
+	return model.AddonStats{CPUPercent: wire.CPUPercent, MemoryPercent: wire.MemoryPercent}, nil
+}
+
 // --- permissive field extraction -------------------------------------------
 //
 // Every accessor here reports absence or a type mismatch as "not present"

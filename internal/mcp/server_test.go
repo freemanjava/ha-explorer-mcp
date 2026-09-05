@@ -196,10 +196,12 @@ func TestServer_RateLimited_DeniedAndAudited(t *testing.T) {
 // catalog row whose task has not landed answers with "not implemented in this
 // build" — never with an empty result, and never borrowing the word
 // "unsupported", which is a claim about the installation (rule 7).
+// list_integrations (P3-03) is the pick: get_system_overview and
+// get_system_health landed in P3-02 and are covered by their own tests below.
 func TestServer_UnimplementedTool_ErrorsWithoutClaimingUnsupported(t *testing.T) {
 	client := connect(t, NewServer(testOptions()))
 
-	_, err := client.CallTool(t.Context(), &sdkmcp.CallToolParams{Name: "get_system_overview"})
+	_, err := client.CallTool(t.Context(), &sdkmcp.CallToolParams{Name: "list_integrations"})
 	if err == nil {
 		t.Fatal("an unimplemented tool returned a result")
 	}

@@ -3,7 +3,7 @@
 <!-- BOUNDED FILE — rewritten in place, never appended to. Keep under ~100 lines.
      Anything that grows goes to journal/. This file is read by every session. -->
 
-**▶ Active:** `P3-02` — `get_system_overview` / `get_system_health`
+**▶ Active:** `P3-03` — `list_integrations` / `get_integration`
 · [`phases/03-inventory-tools.md`](phases/03-inventory-tools.md) · model: **claude-sonnet-5** · flags: —
 
 > Advancing this pointer is part of finishing a task, together with ticking the
@@ -16,12 +16,11 @@ cycle. Remove a row when its task closes.
 
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
-| 1 | `P3-02` | `get_system_overview` / `get_system_health` | 03 | claude-sonnet-5 | |
-| 2 | `P3-03` | `list_integrations` / `get_integration` | 03 | claude-sonnet-5 | |
-| 3 | `P3-04` | `list_devices` / `get_device` | 03 | claude-sonnet-5 | |
-| 4 | `P3-05` | `list_entities` / `get_entity` | 03 | claude-sonnet-5 | |
-| 5 | `P3-06` | `list_areas` / `list_automations` / `list_repairs` / `list_apps` | 03 | claude-sonnet-5 | |
-| 6 | `P3-07` | `get_automation` / `get_automation_traces` | 03 | claude-sonnet-5 | |
+| 1 | `P3-03` | `list_integrations` / `get_integration` | 03 | claude-sonnet-5 | |
+| 2 | `P3-04` | `list_devices` / `get_device` | 03 | claude-sonnet-5 | |
+| 3 | `P3-05` | `list_entities` / `get_entity` | 03 | claude-sonnet-5 | |
+| 4 | `P3-06` | `list_areas` / `list_automations` / `list_repairs` / `list_apps` | 03 | claude-sonnet-5 | |
+| 5 | `P3-07` | `get_automation` / `get_automation_traces` | 03 | claude-sonnet-5 | |
 
 **Order rationale.** `P3-01` closed 2026-09-05: the static catalog, the stdio
 server and the per-invocation envelope (rate limit, budget, panic recovery,
@@ -66,7 +65,7 @@ done
 | 00 | Spike & Foundations | 15 / 15 |
 | 01 | HA Access & Read-Only Gateway | 10 / 10 |
 | 02 | Policy, Privacy, Budget & Audit | 6 / 7 |
-| 03 | MCP Server & Inventory Tools | 2 / 8 |
+| 03 | MCP Server & Inventory Tools | 3 / 8 |
 | 04 | History, Statistics & Detection | 0 / 5 |
 | 05 | Diagnostics & Evidence Engine | 0 / 1 |
 | 06 | Proposal Mode — gated | 0 / 1 |
@@ -78,15 +77,15 @@ decisions, both settled 2026-08-25. **Phase 01 is now fully ticked** — `P1-08`
 closed 2026-08-25: `SupervisorClient` and its own route allow-list in
 `internal/ha`, `addon/config.yaml` flipped to `hassio_api: true`. Phase 02's one
 remaining open box is the Q10 persistence decision — `P2-05` closed 2026-08-25.
-Phase 03's two ticks are its catalog-scope decision and `P3-01`, closed
-2026-09-05.
+Phase 03's three ticks are its catalog-scope decision, `P3-01` and `P3-02`,
+closed 2026-09-05.
 
 Phases 00–04 are milestone M1 (v1 observer). Phase 05 is M2. Phases 06–07 are
 gated: they open only on an explicit owner decision plus a fresh security review.
 Phases 05–07 carry no task boxes yet — theirs are written by `devflow plan` when
 the phase before them closes.
 
-Last refreshed: 2026-09-05 (`devflow next` — `P3-01` closed, pointer advanced to `P3-02`)
+Last refreshed: 2026-09-05 (`devflow next` — `P3-02` closed, pointer advanced to `P3-03`)
 
 ## Open findings
 
@@ -121,6 +120,20 @@ measure them is the `plan` after `P3-01` closes — which is now the next one.
 
 Last 5 closed tasks, one line each. Older entries live in `journal/`.
 
+- 2026-09-05 · `P3-02` — `get_system_overview` and `get_system_health` land:
+  `internal/ha` gains `CoreReader` (get_config/get_states, aggregated
+  in-process into `model.StateCounts` so no per-entity list ever leaves the
+  boundary) and five typed `SupervisorClient` methods
+  (`CoreInfo`/`OSHealth`/`HostDisk`/`ResolutionSummary`/`SelfStats`), each with
+  its own strictly-typed mapper; `internal/mcp/system_tools.go` assembles both
+  responses behind narrow reader interfaces the two tools depend on, so
+  `cmd/server` is the only place that wires concrete `ha` types in;
+  `get_system_health` never carries a Core CPU/RAM field (none exists on
+  `model.SystemHealth`) and degrades the whole response to
+  `Unsupported`+reason the moment any one Supervisor endpoint fails, rather
+  than serving a partially-filled report; `cmd/server/main.go` now actually
+  connects to Core (`ws://supervisor/core/websocket`) and Supervisor for the
+  first time in this project's life.
 - 2026-09-05 · `P3-01` — `internal/mcp`: the static twenty-row catalog (doc §9,
   in doc order) with a budget class on every row, so "registered without a
   budget" is not a state the type can express; the stdio server registers each
@@ -151,12 +164,6 @@ Last 5 closed tasks, one line each. Older entries live in `journal/`.
   the cursor encodes the last-returned key (not an index), so a list changed
   between calls cannot duplicate or skip records by construction; `clamped`
   and `truncated` are reported as distinct fields.
-- 2026-08-25 · `P2-03` — `internal/redact`: one `Redactor` per response applies
-  policy's decisions at the boundary — SECRET keys and secret literals become
-  `[redacted]`, PRIVATE states become `[masked:state_<nonce>X]` tokens scoped
-  to one entity's timeline, get_config coordinates coarsen to one decimal, and
-  every withheld field is marked rather than dropped; a slog handler closes the
-  log-line route.
 
 ## Project facts
 

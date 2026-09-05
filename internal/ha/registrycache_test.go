@@ -18,6 +18,7 @@ type fakeCaller struct {
 	responses map[string]json.RawMessage
 	calls     map[string]int
 	block     chan struct{} // if non-nil, Call waits on it before answering
+	err       error         // if non-nil, every Call fails with this instead of answering
 }
 
 func newFakeCaller() *fakeCaller {
@@ -44,6 +45,7 @@ func (f *fakeCaller) Call(ctx context.Context, cmd Command) (json.RawMessage, er
 	f.calls[cmd.CommandType()]++
 	result := f.responses[cmd.CommandType()]
 	block := f.block
+	err := f.err
 	f.mu.Unlock()
 
 	if block != nil {
@@ -52,6 +54,9 @@ func (f *fakeCaller) Call(ctx context.Context, cmd Command) (json.RawMessage, er
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		}
+	}
+	if err != nil {
+		return nil, err
 	}
 	return result, nil
 }
