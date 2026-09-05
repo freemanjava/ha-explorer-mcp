@@ -49,7 +49,7 @@ internal/mcp/        # entity_tools.go (history/statistics tools)
   recorder query returns `ErrDeadline` and cancels upstream (Appendix B);
   `minimal` demonstrably reduces the response size.
 
-- [ ] **`P4-02` — Availability and outage analysis** 🧠 — deterministic
+- [x] **`P4-02` — Availability and outage analysis** 🧠 — deterministic
   computation of availability ratio, unavailable-period count, total and longest
   outage, over a bounded window.
   **DoD:** fixture-driven tests producing the exact numbers in doc §12.1's
@@ -119,6 +119,52 @@ probe did not observe a permission or version-shaped refusal. A real failure
 to "unsupported" — CLAUDE.md rule 7 forbids inventing that answer without
 evidence it can happen. Revisit if a future HA release, or a non-admin
 principal, is observed refusing this command.
+
+**`P4-02`, 2026-09-05 — `unknown` is not available, but stays countable.**
+The phase's own design note warns that conflating states manufactures
+evidence, and `unavailable` (the integration cannot reach it) is genuinely
+not `unknown` (reachable, no value). The rest of the catalog nevertheless
+already lumps both into "not available" — `internal/ha`'s entity-state
+aggregate and `internal/mcp`'s `availability` filter (P3-05) — and a window
+metric that disagreed with the point-in-time one would let two tools
+contradict each other about the same entity. So both count against
+`AvailabilityRatio`, a contiguous run mixing them is **one** outage rather
+than two (splitting on flavour would inflate `unavailable_periods`, doc
+§12.1's own field), and the distinction is preserved instead as
+`AvailabilityReport.UnknownDuration` — how much of the outage total was
+merely value-less. Nothing is lost and nothing is invented.
+
+**`P4-02`, 2026-09-05 — a recorder gap reduces coverage; it is never an
+outage, and never a zero.** From one entity's state changes alone, the only
+observable gap is a *leading* one: no recorded state at or before the
+window's start. A gap in the middle is indistinguishable from a state that
+simply held, so it is not guessed at. The leading gap is reported
+(`CoverageGap`, `CoveredFrom`, `CoverageComplete`) and the ratio is computed
+over `Covered`, not over the requested window — charging unobserved time as
+downtime would be exactly the fabrication CLAUDE.md rule 7 forbids. When
+nothing at all was recorded, `Computable` is false and the ratio stays 0.0
+as a zero value that no caller may read: "could not check" is not "0%
+available". `P4-04` must surface `Computable` rather than the bare ratio.
+
+**`P4-02`, 2026-09-05 — the fixture reproduces doc §12.1's outage numbers,
+not its ratio.** `test/fixtures/entity_history_7d.json` is a captured-shape
+7-day `history/history_during_period` payload (minimal `s`/`lu` encoding,
+413 points) built to hit the doc's example exactly: 412 state changes, 7
+unavailable periods, 3h12m total, 54m longest. Its availability ratio comes
+out 0.98095, not the doc's 0.982 — 11520s of 604800s is 1.905% down, so
+§12.1's own two numbers are not consistent with each other. The example is
+illustrative prose; the computation is the contract, and the test asserts
+the computed value with that noted.
+
+**`P4-02`, 2026-09-05 — result types live in `internal/analysis`.**
+`AvailabilityReport` and `Outage` are computed products, not normalized HA
+domain types, so they stay with the code that computes them rather than
+swelling `internal/model`. `internal/analysis` still imports only
+`internal/model` in non-test code, asserted by `deps_test.go`; the tests
+import `internal/ha` deliberately, to read the fixture through the real
+mapper so the metrics are reproducible from a real payload. Revisit at
+`P4-04`, which has to join this report with `P4-03`'s into one tool
+response and may want a shared type in `model`.
 
 ## Phase Definition of Done
 

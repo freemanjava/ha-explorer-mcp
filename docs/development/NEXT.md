@@ -3,7 +3,7 @@
 <!-- BOUNDED FILE — rewritten in place, never appended to. Keep under ~100 lines.
      Anything that grows goes to journal/. This file is read by every session. -->
 
-**▶ Active:** `P4-02` — availability and outage analysis
+**▶ Active:** `P4-03` — update-cadence and staleness analysis
 · [`phases/04-history-statistics.md`](phases/04-history-statistics.md) · model: **claude-opus-5** · flags: 🧠
 
 > Advancing this pointer is part of finishing a task, together with ticking the
@@ -16,10 +16,9 @@ cycle. Remove a row when its task closes.
 
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
-| 1 | `P4-02` | availability and outage analysis | 04 | claude-opus-5 | 🧠 |
-| 2 | `P4-03` | update-cadence and staleness analysis | 04 | claude-opus-5 | 🧠 |
-| 3 | `P4-04` | `get_entity_statistics` | 04 | claude-sonnet-5 | |
-| 4 | `P4-05` | `find_unavailable_entities` / `find_stale_entities` | 04 | claude-sonnet-5 | |
+| 1 | `P4-03` | update-cadence and staleness analysis | 04 | claude-opus-5 | 🧠 |
+| 2 | `P4-04` | `get_entity_statistics` | 04 | claude-sonnet-5 | |
+| 3 | `P4-05` | `find_unavailable_entities` / `find_stale_entities` | 04 | claude-sonnet-5 | |
 
 **Order rationale (2026-09-05 `plan`, `P3-07` since closed and dropped).**
 Phase 03 finished first: `P3-08` — the F-21 fix — closed it so the phase does
@@ -71,7 +70,7 @@ done
 | 01 | HA Access & Read-Only Gateway | 10 / 10 |
 | 02 | Policy, Privacy, Budget & Audit | 7 / 8 |
 | 03 | MCP Server & Inventory Tools | 9 / 9 |
-| 04 | History, Statistics & Detection | 1 / 5 |
+| 04 | History, Statistics & Detection | 2 / 5 |
 | 05 | Diagnostics & Evidence Engine | 0 / 1 |
 | 06 | Proposal Mode — gated | 0 / 1 |
 | 07 | Controlled Change (Admin) — gated | 0 / 1 |
@@ -92,8 +91,8 @@ gated: they open only on an explicit owner decision plus a fresh security review
 Phases 05–07 carry no task boxes yet — theirs are written by `devflow plan` when
 the phase before them closes.
 
-Last refreshed: 2026-09-05 (`P4-01` closed — Phase 04 now 1/5 — pointer
-advanced to `P4-02`)
+Last refreshed: 2026-09-05 (`P4-02` closed — Phase 04 now 2/5 — pointer
+advanced to `P4-03`)
 
 ## Open findings
 
@@ -101,7 +100,7 @@ advanced to `P4-02`)
      grep -c '^\*\*Triage:\*\* `queue-next`' docs/development/FINDINGS.md  (etc.)
      This block exists so captured work cannot quietly rot: every session sees it. -->
 
-`blocks-active` 0 · `queue-next` 1 · `defer` 2 · `unknown` 2 (open)
+`blocks-active` 0 · `queue-next` 1 · `defer` 3 · `unknown` 2 (open)
 
 > Any `blocks-active` is stop-work. If `queue-next` is non-zero and the queue
 > above has fewer than 3 rows, drain it with `devflow plan` before continuing —
@@ -116,8 +115,11 @@ closing `P3-07` (the logbook fallback it added bypasses `internal/redact`'s
 privacy classification), not yet queued as a task — the next `plan` should
 give it one.
 
-Two `defer`s remain, re-triaged and deferred again on grounds that have not
-changed: **F-6** — Phase 04 has not closed, so the statistics layer its
+Three `defer`s now. **F-24** is new, filed while closing `P4-02`: doc §12.1's
+example statistics are not self-consistent (its `0.982` ratio contradicts its
+own `3h12m`/`7d`), harmless to the server but a trap for whoever implements
+`P4-04` against that shape — a one-line doc fix. Two older ones stand,
+re-triaged and deferred again on grounds that have not changed: **F-6** — Phase 04 has not closed, so the statistics layer its
 verification needs still does not exist · **F-17** — nothing has read statistics
 yet, so `P2-01`'s conservative estimate has never bound; `P4-04` is the first
 place it can, and that is where to revisit it.
@@ -128,6 +130,22 @@ The two open `unknown`s are F-6 and F-17; neither has a task yet.
 
 Last 5 closed tasks, one line each. Older entries live in `journal/`.
 
+- 2026-09-05 · `P4-02` — availability and outage analysis lands, opening
+  `internal/analysis`: `ComputeAvailability` reduces one entity's mapped
+  history over a bounded window to availability ratio, unavailable-period
+  count, total and longest outage, normalizing untrusted points (sorting,
+  collapsing repeats, clamping to the window) itself. `unavailable` and
+  `unknown` both count as not-available, matching the two-way split the rest
+  of the catalog already uses, with a contiguous mixed run counted as **one**
+  outage and the `unknown` share preserved as `UnknownDuration`. A leading
+  recorder gap reduces `Covered` rather than being charged as downtime, and
+  nothing recorded leaves `Computable` false instead of a 0.0 ratio that
+  reads as total failure. Outages carry `TruncatedStart`/`OpenEnded` for the
+  window's two edges. New fixture `entity_history_7d.json` (413 points,
+  minimal `s`/`lu` shape) reproduces doc §12.1's outage numbers through the
+  real mapper; `deps_test.go` asserts the package's non-test code imports
+  only `internal/model`. **Found:** doc §12.1's example is not
+  self-consistent — 3h12m over 7d is 0.98095, not the 0.982 it prints.
 - 2026-09-05 · `P4-01` — `get_entity_history` lands, Phase 04's first task:
   `internal/ha` gains `CoreReader.History` over the already-allow-listed
   `history/history_during_period`, mapping both the minimal_response short
@@ -190,23 +208,6 @@ Last 5 closed tasks, one line each. Older entries live in `journal/`.
   not merely documented. One gap surfaced closing this box: the logbook
   fallback bypasses `internal/redact`'s privacy classification — filed as
   F-23, left for the next `plan` rather than folded in.
-- 2026-09-05 · `P3-06` — `list_areas`, `list_automations`, `list_repairs` and
-  `list_apps` land, closing the phase's last inventory-breadth task:
-  `list_repairs` was the piece left after F-22's `devflow verify` confirmed
-  `repairs/list_issues` reachable at any principal
-  ([`2026-09-05-ha-repairs-api.md`](../research/2026-09-05-ha-repairs-api.md));
-  `gateway.go` allow-lists it, `internal/model.Repair`/`RepairList` and
-  `internal/ha.MapRepairs`/`MapRepair` unwrap its `{"issues": [...]}` object
-  shape (not a bare array) and mark an element `Partial` on a missing
-  `issue_id`/`domain`/`severity`/`created`; `translation_placeholders` is
-  carried as opaque `map[string]any`, defaulted to `{}` rather than `nil`
-  because the MCP SDK's schema validation requires the declared `object` type
-  even when HA sent nothing; `internal/mcp/repair_tools.go` sorts by
-  `issue_id` and pages like every other `list_*` tool, with no filter beyond
-  pagination; a failed upstream call is a real tool error, not degraded to
-  `Unsupported` — unlike `list_apps`, this surface has no permission-refused
-  branch.
-
 ## Project facts
 
 | | |

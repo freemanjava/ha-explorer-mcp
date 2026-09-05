@@ -759,3 +759,25 @@ whose recent logbook entries actually reference a PRIVATE entity.
 **Triage:** `queue-next`
 
 **Outcome:**
+
+### F-24 · Doc §12.1's example statistics are not self-consistent · 2026-09-05
+
+**Kind:** `inconsistency`
+
+**What:** `docs/HA_Inspector_MCP_Research_and_Architecture.md` §12.1 prints
+`"availability_ratio": 0.982` alongside `"total_unavailable": "3h12m"` over
+`"period": "7d"`. 11520s of 604800s is 1.905% down, so the ratio those two
+numbers imply is 0.98095, not 0.982. Found while building `P4-02`'s fixture
+(`test/fixtures/entity_history_7d.json`) to reproduce the example exactly:
+every other field matches, the ratio cannot.
+
+**Impact:** None on the running server — `internal/analysis` computes the
+ratio and `P4-02`'s test asserts the computed value, with the discrepancy
+recorded in the phase file's decision record. The cost is future confusion:
+§12.1 is the shape `P4-04` (`get_entity_statistics`) implements against, and
+a reader treating the example as a specification would chase a phantom
+rounding bug. A one-line doc fix.
+
+**Triage:** `defer`
+
+**Outcome:**
