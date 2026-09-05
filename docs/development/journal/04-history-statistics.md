@@ -63,3 +63,14 @@ Doc-only: §12.1's `availability_ratio`, `median_update_interval_s` and
 real mapper (0.98095 / 1376.5 / 2578.8), leaving `state_changes` and the other
 observed fields untouched.
 **Left open:** none — F-24 closes with this task.
+
+### 2026-09-05 · P4-04
+`get_entity_statistics` lands: one recorder read, reduced through both
+`ComputeAvailability` and `ComputeCadence`, joined into `model.Health` —
+Phase 00's stub type, unused until now, matched doc §12.1 field-for-field
+already. `period` accepts Appendix A.3's "Nd" shorthand or a plain Go
+duration, capped at `maxHistoryWindow` (reused from `P4-01`, not duplicated).
+**Surprise:** `model.Health` already existed with almost the exact shape this
+tool needed — a Phase 00 scaffold nobody had wired up yet.
+**Left open:** F-17's "revisit when P4-04 closes" trigger has now fired;
+needs a `plan`/`finding` pass to re-triage rather than sitting deferred.

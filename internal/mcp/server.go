@@ -117,6 +117,7 @@ func newServer(opts Options, tools []Tool) *sdkmcp.Server {
 	tools = withRepairTools(tools, opts)
 	tools = withAppTools(tools, opts)
 	tools = withHistoryTools(tools, opts)
+	tools = withStatisticsTools(tools, opts)
 	for _, t := range tools {
 		register(srv, t)
 	}
