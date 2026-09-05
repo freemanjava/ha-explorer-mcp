@@ -44,3 +44,15 @@ shape) reproduces doc §12.1's outage numbers through the real mapper.
 and the test asserts the computed ratio instead.
 **Left open:** cadence/staleness (`P4-03`) and the tool surface (`P4-04`); the
 report type stays in `internal/analysis` until `P4-04` needs a joined shape.
+
+### 2026-09-05 · P4-03
+`internal/analysis/staleness.go`: `ComputeCadence` reduces one entity's window
+to nearest-rank median/p95 update intervals, min/max, state-change rate (on
+`segmentsIn`'s collapsed basis, so it agrees with `ComputeAvailability`), and a
+staleness verdict at `staleIntervalFactor(3) × p95` — entity-relative, no
+global constant, no absolute floor.
+**Surprise:** doc §12.1's cadence half is impossible on its own terms too —
+412 changes at a 31s median is ~3.5h of samples, not the 7d it claims; appended
+to F-24, which had only caught the ratio.
+**Left open:** the factor 3 is a starting default; `P4-05` is the first place
+its false-positive rate can be measured.

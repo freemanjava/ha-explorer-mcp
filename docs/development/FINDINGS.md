@@ -771,6 +771,13 @@ numbers imply is 0.98095, not 0.982. Found while building `P4-02`'s fixture
 (`test/fixtures/entity_history_7d.json`) to reproduce the example exactly:
 every other field matches, the ratio cannot.
 
+Its cadence half does not hold either (found while building `P4-03`,
+2026-09-05): `"median_update_interval_s": 31` cannot coexist with
+`"state_changes": 412` over `"period": "7d"` — 412 changes a median 31s apart
+span about 3.5 hours, not a week; a week at that cadence is ~19500 changes.
+The two halves of the example describe different entities. A single doc fix
+covers both.
+
 **Impact:** None on the running server — `internal/analysis` computes the
 ratio and `P4-02`'s test asserts the computed value, with the discrepancy
 recorded in the phase file's decision record. The cost is future confusion:

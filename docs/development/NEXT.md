@@ -3,8 +3,8 @@
 <!-- BOUNDED FILE — rewritten in place, never appended to. Keep under ~100 lines.
      Anything that grows goes to journal/. This file is read by every session. -->
 
-**▶ Active:** `P4-03` — update-cadence and staleness analysis
-· [`phases/04-history-statistics.md`](phases/04-history-statistics.md) · model: **claude-opus-5** · flags: 🧠
+**▶ Active:** `P4-04` — `get_entity_statistics`
+· [`phases/04-history-statistics.md`](phases/04-history-statistics.md) · model: **claude-sonnet-5** · flags: —
 
 > Advancing this pointer is part of finishing a task, together with ticking the
 > box, recomputing status and appending a journal entry. All four, or none.
@@ -16,9 +16,8 @@ cycle. Remove a row when its task closes.
 
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
-| 1 | `P4-03` | update-cadence and staleness analysis | 04 | claude-opus-5 | 🧠 |
-| 2 | `P4-04` | `get_entity_statistics` | 04 | claude-sonnet-5 | |
-| 3 | `P4-05` | `find_unavailable_entities` / `find_stale_entities` | 04 | claude-sonnet-5 | |
+| 1 | `P4-04` | `get_entity_statistics` | 04 | claude-sonnet-5 | |
+| 2 | `P4-05` | `find_unavailable_entities` / `find_stale_entities` | 04 | claude-sonnet-5 | |
 
 **Order rationale (2026-09-05 `plan`, `P3-07` since closed and dropped).**
 Phase 03 finished first: `P3-08` — the F-21 fix — closed it so the phase does
@@ -70,7 +69,7 @@ done
 | 01 | HA Access & Read-Only Gateway | 10 / 10 |
 | 02 | Policy, Privacy, Budget & Audit | 7 / 8 |
 | 03 | MCP Server & Inventory Tools | 9 / 9 |
-| 04 | History, Statistics & Detection | 2 / 5 |
+| 04 | History, Statistics & Detection | 3 / 5 |
 | 05 | Diagnostics & Evidence Engine | 0 / 1 |
 | 06 | Proposal Mode — gated | 0 / 1 |
 | 07 | Controlled Change (Admin) — gated | 0 / 1 |
@@ -91,8 +90,8 @@ gated: they open only on an explicit owner decision plus a fresh security review
 Phases 05–07 carry no task boxes yet — theirs are written by `devflow plan` when
 the phase before them closes.
 
-Last refreshed: 2026-09-05 (`P4-02` closed — Phase 04 now 2/5 — pointer
-advanced to `P4-03`)
+Last refreshed: 2026-09-05 (`P4-03` closed — Phase 04 now 3/5 — pointer
+advanced to `P4-04`)
 
 ## Open findings
 
@@ -115,10 +114,14 @@ closing `P3-07` (the logbook fallback it added bypasses `internal/redact`'s
 privacy classification), not yet queued as a task — the next `plan` should
 give it one.
 
-Three `defer`s now. **F-24** is new, filed while closing `P4-02`: doc §12.1's
-example statistics are not self-consistent (its `0.982` ratio contradicts its
-own `3h12m`/`7d`), harmless to the server but a trap for whoever implements
-`P4-04` against that shape — a one-line doc fix. Two older ones stand,
+**The queue is down to two rows while F-23 is still unqueued** — the next
+`plan` should drain it, per the rule above.
+
+Three `defer`s. **F-24**, filed closing `P4-02` and widened closing `P4-03`:
+neither half of doc §12.1's example is self-consistent (its `0.982` ratio
+contradicts its own `3h12m`/`7d`, and its `31s` median contradicts its own 412
+changes over `7d`), harmless to the server but a trap for whoever implements
+`P4-04` against that shape — one doc fix covers both. Two older ones stand,
 re-triaged and deferred again on grounds that have not changed: **F-6** — Phase 04 has not closed, so the statistics layer its
 verification needs still does not exist · **F-17** — nothing has read statistics
 yet, so `P2-01`'s conservative estimate has never bound; `P4-04` is the first
@@ -130,6 +133,24 @@ The two open `unknown`s are F-6 and F-17; neither has a task yet.
 
 Last 5 closed tasks, one line each. Older entries live in `journal/`.
 
+- 2026-09-05 · `P4-03` — update-cadence and staleness analysis lands:
+  `internal/analysis/staleness.go`'s `ComputeCadence` reports median and p95
+  update intervals (plus min/max and the sample size they rest on), the
+  state-change rate, and a staleness verdict made against the entity's own
+  cadence — `staleIntervalFactor (3) × p95`, with no absolute floor, since a
+  global constant is exactly what the task excludes. p95 rather than the
+  median so a bursty entity is not called stale between bursts; nearest-rank
+  percentiles so every reported interval is one the entity actually
+  exhibited, defined at n = 1 and asserted at n = 1..4. An update and a state
+  change are separate: intervals are measured between recorded instants (a
+  duplicate instant is dropped, never a zero-length sample), while
+  `StateChanges` reuses `segmentsIn` so it cannot disagree with
+  `ComputeAvailability`'s count. Silence is measured from the last known
+  update including one carried in from before the window, and that leading
+  point supplies the first interval; with no interval observable,
+  `Computable`/`StaleJudgeable` stay false rather than reporting "not stale".
+  **Found:** doc §12.1's cadence half is impossible on its own terms as well
+  — 412 changes at a 31s median is ~3.5h, not 7d (appended to F-24).
 - 2026-09-05 · `P4-02` — availability and outage analysis lands, opening
   `internal/analysis`: `ComputeAvailability` reduces one entity's mapped
   history over a bounded window to availability ratio, unavailable-period
@@ -190,24 +211,6 @@ Last 5 closed tasks, one line each. Older entries live in `journal/`.
   distinction entirely. Live-verified: a hand-driven real stdio client that
   closed stdin mid-`tools/call` left the process at exit 0, logging
   `"stopped" "reason":"session ended" "detail":"server is closing: EOF"`.
-- 2026-09-05 · `P3-07` — `get_automation`/`get_automation_traces` land,
-  closing F-11: `internal/ha/automation_commands.go` adds the typed
-  `automation/config`/`trace/list`/`logbook/get_events` commands (already
-  allow-listed since P0-05) and three `CoreReader` methods;
-  `get_automation` maps `automation/config` through the already-existing
-  `MapAutomation`; `get_automation_traces` reads `trace/list` scoped to one
-  automation into `AutomationTraceSummary`, newest first, through a
-  strictly-typed `traceSummaryWire` so a retyped field fails loudly
-  (`ErrUnexpectedMessage`) rather than degrading to `Partial`, unlike a
-  registry entry; `classifyAutomationError` turns a permission refusal
-  (`unauthorized`) into `Unsupported` naming the fallback, and a version
-  gap (`unknown_command`) into `Unsupported` naming the detected version —
-  kept distinct from each other and from a real Go error (`ErrNotFound`
-  included); the permission branch additionally fetches `last_triggered`
-  plus `logbook/get_events` live into the response's `fallback_*` fields,
-  not merely documented. One gap surfaced closing this box: the logbook
-  fallback bypasses `internal/redact`'s privacy classification — filed as
-  F-23, left for the next `plan` rather than folded in.
 ## Project facts
 
 | | |
