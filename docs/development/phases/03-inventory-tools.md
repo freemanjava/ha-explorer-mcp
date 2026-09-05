@@ -231,7 +231,7 @@ internal/mcp/      # server.go, system_tools.go, entity_tools.go, automation_too
   call is still outstanding): the process logged `"stopped" "reason":
   "session ended" "detail":"server is closing: EOF"` at INFO and exited 0.
 
-- [ ] **`P3-09` — `get_automation_traces`' fallback evidence goes through the
+- [x] **`P3-09` — `get_automation_traces`' fallback evidence goes through the
   privacy profile** 🧠 — F-23. `attachAutomationFallback`
   (`internal/mcp/automation_tools.go`) returns `model.LogbookEvent`s whose
   `Message`, `Name` and `EntityID` cross the response boundary untouched, while

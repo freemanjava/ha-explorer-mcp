@@ -784,14 +784,17 @@ whose recent logbook entries actually reference a PRIVATE entity.
 
 **Triage:** `queue-next`
 
-**Outcome:** Queued 2026-09-05 as `P3-09` (phase 03 — Phase 03 simply has open
+**Outcome:** Closed 2026-09-05 by `P3-09`. Queued the same day as `P3-09` (phase 03 — Phase 03 simply has open
 boxes again), with the masking design settled in the same `plan` as that
 phase's `P3-09` decision record: the event is masked whole, keyed by its own
 entity's classification, rather than searched for substrings. Ordered after
 `P4-04` and before `P4-05`: it is a privacy-guarantee gap, so it outranks a new
 feature, but it reaches an agent only on a non-admin deployment (not today's
-default, per F-2/F-4), so it does not displace the pointer mid-phase. Closes
-when `P3-09` closes.
+default, per F-2/F-4), so it does not displace the pointer mid-phase. The fix
+landed as designed: `bindGetAutomationTraces` now takes `Profile`/`Secrets`,
+and `maskFallbackEvents` masks each event's `Name` and `Message` whole through
+`redact.Redactor.MaskedText`, keyed by `policy.ClassifyEntity` of the event's
+own entity, while `When` and `ContextID` survive at every classification.
 
 ### F-24 · Doc §12.1's example statistics are not self-consistent · 2026-09-05
 

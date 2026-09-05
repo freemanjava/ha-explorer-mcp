@@ -11,6 +11,8 @@ import (
 
 	"github.com/freemanjava/ha-explorer-mcp/internal/ha"
 	"github.com/freemanjava/ha-explorer-mcp/internal/model"
+	"github.com/freemanjava/ha-explorer-mcp/internal/policy"
+	"github.com/freemanjava/ha-explorer-mcp/internal/redact"
 )
 
 // fakeAutomationReader is an automationReader test double.
@@ -350,5 +352,109 @@ func TestGetAutomationTraces_VersionAbsent_NoFallbackFetched(t *testing.T) {
 	}
 	if list.FallbackEvents != nil || list.FallbackLastTriggered != nil {
 		t.Errorf("version-absent response fetched a fallback it should not have: %+v", list)
+	}
+}
+
+// callAutomationTracesFallback drives get_automation_traces down its
+// permission-refused branch — the only one that attaches fallback evidence —
+// under the given profile and secrets, and returns the decoded response.
+func callAutomationTracesFallback(t *testing.T, profile policy.Profile, secrets []string, events []model.LogbookEvent) model.AutomationTraceList {
+	t.Helper()
+	detail := &fakeAutomationDetailReader{tracesErr: &ha.CommandError{Code: "unauthorized", Message: "unauthorized"}}
+	opts := automationDetailOptions(detail, nil, &fakeAutomationReader{}, &fakeLogbookReader{events: events})
+	opts.Profile = profile
+	opts.Secrets = secrets
+	client := connect(t, newServer(opts, Catalog()))
+
+	res, err := client.CallTool(t.Context(), &sdkmcp.CallToolParams{Name: "get_automation_traces", Arguments: map[string]any{"entity_id": "automation.evening_lights"}})
+	if err != nil {
+		t.Fatalf("CallTool: %v", err)
+	}
+	var list model.AutomationTraceList
+	raw, _ := json.Marshal(res.StructuredContent)
+	if err := json.Unmarshal(raw, &list); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if !list.Unsupported {
+		t.Fatal("get_automation_traces did not report Unsupported for a permission refusal")
+	}
+	return list
+}
+
+// TestGetAutomationTraces_PrivateFallbackEvent_MaskProfile_TextMasked is
+// F-23's central assertion (P3-09): the degraded path's logbook prose goes
+// through the privacy profile like every other entity-derived text, so a
+// PRIVATE trigger entity's transition does not walk out through the fallback.
+// The event's shape in time — When, ContextID, its presence — survives, which
+// is what keeps the fallback evidence rather than nothing.
+func TestGetAutomationTraces_PrivateFallbackEvent_MaskProfile_TextMasked(t *testing.T) {
+	when := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
+	list := callAutomationTracesFallback(t, policy.Profile{}, nil, []model.LogbookEvent{ // zero value is HandlingMask
+		{When: when, Name: "Dmitry's phone", Message: "changed to home", EntityID: "device_tracker.dmitry_phone", ContextID: "ctx1"},
+		{When: when.Add(time.Minute), Name: "Dmitry's phone", Message: "changed to not_home", EntityID: "device_tracker.dmitry_phone", ContextID: "ctx2"},
+		{When: when.Add(2 * time.Minute), Name: "Dmitry's phone", Message: "changed to home", EntityID: "device_tracker.dmitry_phone", ContextID: "ctx3"},
+	})
+
+	if len(list.FallbackEvents) != 3 {
+		t.Fatalf("FallbackEvents = %+v, want 3 (masking must not drop events)", list.FallbackEvents)
+	}
+	for i, ev := range list.FallbackEvents {
+		if strings.Contains(ev.Message, "home") || strings.Contains(ev.Name, "Dmitry") {
+			t.Fatalf("event %d survived unmasked: name %q, message %q", i, ev.Name, ev.Message)
+		}
+	}
+	got := list.FallbackEvents
+	if !got[0].When.Equal(when) || got[0].ContextID != "ctx1" || got[2].ContextID != "ctx3" {
+		t.Errorf("timing and correlation did not survive masking: %+v", got)
+	}
+	if got[0].Message != got[2].Message {
+		t.Errorf("equal messages got different tokens: %q vs %q — transitions become uncountable", got[0].Message, got[2].Message)
+	}
+	if got[0].Message == got[1].Message {
+		t.Errorf("distinct messages got the same token: %q", got[0].Message)
+	}
+}
+
+// TestGetAutomationTraces_PrivateFallbackEvent_DenyProfile_Placeholder pins
+// the deny profile's own answer: the text is withheld with the placeholder
+// that says so, never dropped — "withheld" and "does not exist" stay
+// different answers (CLAUDE.md rule 7).
+func TestGetAutomationTraces_PrivateFallbackEvent_DenyProfile_Placeholder(t *testing.T) {
+	when := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
+	list := callAutomationTracesFallback(t, policy.Profile{Private: policy.HandlingDeny}, nil, []model.LogbookEvent{
+		{When: when, Name: "Dmitry's phone", Message: "changed to home", EntityID: "device_tracker.dmitry_phone", ContextID: "ctx1"},
+	})
+
+	if len(list.FallbackEvents) != 1 {
+		t.Fatalf("FallbackEvents = %+v, want 1", list.FallbackEvents)
+	}
+	ev := list.FallbackEvents[0]
+	if ev.Message != redact.DeniedPlaceholder || ev.Name != redact.DeniedPlaceholder {
+		t.Errorf("name %q / message %q, want both %q", ev.Name, ev.Message, redact.DeniedPlaceholder)
+	}
+	if !ev.When.Equal(when) || ev.ContextID != "ctx1" {
+		t.Errorf("timing and correlation did not survive the deny profile: %+v", ev)
+	}
+}
+
+// TestGetAutomationTraces_NormalFallbackEvent_TextKeptSecretStripped pins the
+// other side: a NORMAL entity's message is diagnostic prose and passes
+// through unchanged — except for a configured secret literal, which never
+// crosses the boundary whatever it is embedded in (CLAUDE.md rule 4).
+func TestGetAutomationTraces_NormalFallbackEvent_TextKeptSecretStripped(t *testing.T) {
+	const secret = "supervisor-token-value"
+	list := callAutomationTracesFallback(t, policy.Profile{}, []string{secret}, []model.LogbookEvent{
+		{Name: "Kitchen light", Message: "turned on", EntityID: "light.kitchen", ContextID: "ctx1"},
+		{Name: "Webhook", Message: "called with " + secret, EntityID: "sensor.webhook", ContextID: "ctx2"},
+	})
+
+	if len(list.FallbackEvents) != 2 {
+		t.Fatalf("FallbackEvents = %+v, want 2", list.FallbackEvents)
+	}
+	if list.FallbackEvents[0].Message != "turned on" || list.FallbackEvents[0].Name != "Kitchen light" {
+		t.Errorf("a NORMAL entity's event was altered: %+v", list.FallbackEvents[0])
+	}
+	if strings.Contains(list.FallbackEvents[1].Message, secret) {
+		t.Errorf("a configured secret crossed the response boundary: %q", list.FallbackEvents[1].Message)
 	}
 }
