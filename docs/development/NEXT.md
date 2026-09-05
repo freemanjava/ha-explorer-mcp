@@ -19,17 +19,21 @@ cycle. Remove a row when its task closes.
 | 1 | `P3-09` | fallback logbook events go through the privacy profile (F-23) | 03 | claude-opus-5 | 🧠 |
 | 2 | `P4-05` | `find_unavailable_entities` / `find_stale_entities` | 04 | claude-sonnet-5 | |
 
-**Order rationale (2026-09-05 `plan` #2 — the inbox-draining one).** Nothing new
-was scoped; this `plan` queued the two open findings and re-triaged the two
-`unknown`s. `P4-06` went first and cost minutes (doc §12.1 self-consistency,
-F-24); `P4-04` followed and closed 2026-09-05, joining `P4-01`'s fetch and
-`P4-02`/`P4-03`'s metrics into `get_entity_statistics`. `P3-09` (F-23) is now
-**active**: it sits ahead of `P4-05` because it is a privacy-guarantee gap and
-so outranks a new feature, but it reaches an agent only on a non-admin
-deployment — not today's default (F-2/F-4) — so it did not displace `P4-04`
-while that was in-flight. `P4-05` last, as written: it applies the per-entity
-metrics installation-wide, and closing it closes Phase 04, which is what
-unblocks Phase 05's breakdown and F-6.
+**Order rationale (2026-09-05 `plan` #3 — inbox only, no new scope).** Nothing
+was scoped and no row moved: the one open `queue-next` (F-23) already has its
+task in the queue as the active `P3-09`, so this pass added no boxes. It exists
+to answer the question the last status block left standing — F-17's trigger had
+fired — and the answer is evidence, not a fix: `P4-04` closed history-backed
+(`policy.SourceHistory`), so `P2-01`'s *statistics* estimate still never bound,
+and nothing in production pre-flights `SourceStatistics` at all. F-17 is
+deferred again on a code condition rather than a task id (the first production
+`Preflight(SourceStatistics, …)` call site), and reading for it surfaced **F-25**
+— the gateway allow-lists three recorder-statistics commands nothing calls —
+filed `defer` on that same trigger. F-6 stays deferred a fifth time, now one
+box from its own trigger. Order below is unchanged and unchanged for the
+original reason: `P3-09` is a privacy-guarantee gap and outranks a new feature;
+`P4-05` last, because closing it closes Phase 04 and unblocks Phase 05's
+breakdown and F-6.
 
 **Four decisions settled 2026-08-25.** *Transport:* **stdio only** — no
 listening port, no client-auth subsystem, and every log line goes to stderr
@@ -78,15 +82,16 @@ Counts include each phase's decision entries, which are boxes too. Phases 00 and
 **Phase 03 is open again at 10/11** — not reopened, it simply has a box again:
 `P3-09`, the F-23 privacy fix, plus its already-settled decision record. Phase 04
 is 5/6: `P4-06` (F-24's doc fix) and `P4-04` (`get_entity_statistics`) both
-closed 2026-09-05; F-17's trigger ("revisit when P4-04 closes") has now fired
-and is unresolved — a `plan`/`finding` pass should re-triage it.
+closed 2026-09-05, leaving `P4-05` as the phase's last box. F-17's trigger fired
+with `P4-04` and was re-triaged by 2026-09-05's third `plan` — see Open
+findings.
 
 Phases 00–04 are milestone M1 (v1 observer). Phase 05 is M2. Phases 06–07 are
 gated: they open only on an explicit owner decision plus a fresh security review.
 Phases 05–07 carry no task boxes yet — theirs are written by `devflow plan` when
 the phase before them closes.
 
-Last refreshed: 2026-09-05 (`next` — `P4-04` closed; pointer moved to `P3-09`)
+Last refreshed: 2026-09-05 (`plan` #3 — inbox drained; no boxes added)
 
 ## Open findings
 
@@ -94,7 +99,7 @@ Last refreshed: 2026-09-05 (`next` — `P4-04` closed; pointer moved to `P3-09`)
      grep -c '^\*\*Triage:\*\* `queue-next`' docs/development/FINDINGS.md  (etc.)
      This block exists so captured work cannot quietly rot: every session sees it. -->
 
-`blocks-active` 0 · `queue-next` 1 · `defer` 2 · `unknown` 2 (open)
+`blocks-active` 0 · `queue-next` 1 · `defer` 3 · `unknown` 2 (open)
 
 > Any `blocks-active` is stop-work. If `queue-next` is non-zero and the queue
 > above has fewer than 3 rows, drain it with `devflow plan` before continuing —
@@ -103,15 +108,16 @@ Last refreshed: 2026-09-05 (`next` — `P4-04` closed; pointer moved to `P3-09`)
 > An open `unknown` outranks the queue: it is an assumption the plan already
 > rests on. Run `devflow verify` before building further on it.
 
-`F-24` closed with `P4-06`. The remaining `queue-next` (F-23) has its task in
-the queue above (`P3-09`) and closes when that does. The two `defer`s are the
-two open `unknown`s, re-triaged 2026-09-05's `plan`: **F-17** (batched
-statistics ~30% larger) was deferred to `P4-04` closing — the first consumer
-of statistics, and the first place `P2-01`'s estimate can bind — and that
-trigger has now fired (`P4-04` closed 2026-09-05); a `plan`/`finding` pass
-should re-triage it rather than leaving it deferred on a condition already
-met · **F-6** (Zigbee metric normalization) waits on Phase 04 closing and on
-Phase 05 having boxes to consume the answer.
+The one `queue-next` (F-23) has its task in the queue above (`P3-09`) and
+closes when that does. Three `defer`s, all re-triaged by 2026-09-05's third
+`plan`: **F-17** (batched statistics ~30% larger) had its trigger fire and was
+deferred again *with evidence* — `P4-04` closed history-backed, so `P2-01`'s
+statistics estimate still never bound; its trigger is now the first production
+`Preflight(SourceStatistics, …)` call site rather than a task id · **F-25** (the
+gateway allow-lists three recorder-statistics commands nothing calls) shares
+that trigger, filed by the same pass · **F-6** (Zigbee metric normalization)
+waits on `P4-05` closing, which both closes Phase 04 and gives Phase 05 boxes to
+consume the answer. The two open `unknown`s are F-6 and F-17.
 
 ## Recent
 

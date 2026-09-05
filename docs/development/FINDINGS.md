@@ -206,8 +206,13 @@ difference, but one that costs nothing to defer until Phase 04 closes.
 
 **Triage:** `defer`
 
-**Outcome:** Re-triaged at the second 2026-09-05 `plan` and **left deferred** a
-fourth time on unchanged grounds: Phase 04 still has three open boxes
+**Outcome:** Re-triaged at the third 2026-09-05 `plan` and **left deferred** a
+fifth time on narrower but unchanged grounds: Phase 04 is down to one open box
+(`P4-05`), so the statistics layer now largely exists — but Phase 05 still has
+no boxes to consume the answer, and `P4-05` closing is the single event that
+both triggers Phase 05's breakdown and makes this worth verifying. Revisit
+there, not before. Re-triaged at the second 2026-09-05 `plan` and **left
+deferred** a fourth time on unchanged grounds: Phase 04 still has three open boxes
 (`P4-04`, `P4-05`, `P4-06`), so the statistics layer this verification needs
 still does not exist and Phase 05 still has no boxes to consume the answer.
 Re-triaged at the first 2026-09-05 `plan` and **left deferred** a third
@@ -534,7 +539,19 @@ estimate uses the larger batched figure, so the error is conservative.
 
 **Triage:** `defer`
 
-**Outcome:** Open. Re-triaged at the second 2026-09-05 `plan` and **left
+**Outcome:** Open. Re-triaged at the third 2026-09-05 `plan` — the trigger the
+last deferral named has now fired, and the answer it asked for is *no*. `P4-04`
+closed 2026-09-05, and `get_entity_statistics` reads
+`history/history_during_period` and pre-flights against `policy.SourceHistory`
+(`internal/mcp/statistics_tools.go`), so `P2-01`'s *statistics* byte estimate
+still did not bind. No production call site passes `policy.SourceStatistics` to
+`Preflight` at all — the only references are `internal/policy/preflight.go`
+itself, `cmd/spike` and tests — which `P4-04`'s own decision record anticipated
+("revisit if a statistics-API source is ever added"). **Left deferred**, with
+the trigger restated as a condition on the code rather than on a task id: the
+first production `Preflight(policy.SourceStatistics, …)` call site. Until one
+exists the ~30% error costs nothing, and it errs conservative when it starts to.
+F-25 shares that trigger. Re-triaged at the second 2026-09-05 `plan` and **left
 deferred** again, with the trigger unchanged and now one task away: `P4-04` is
 the first consumer of statistics and is next in the queue, so this is revisited
 when `P4-04` closes — if `P2-01`'s statistics byte estimate binds there, resolve
@@ -809,3 +826,34 @@ changed to `0.98095`, `median_update_interval_s` to `1376.5` and
 yields through the real mapper for its 412 state changes over `7d`. All other
 fields (`state_changes`, `unavailable_periods`, `total_unavailable`,
 `longest_unavailable`) were already correct and untouched.
+### F-25 · The command allow-list is wider than the wired tool surface · 2026-09-05
+
+**Kind:** `inconsistency`
+
+**What:** `internal/ha/gateway.go:56-62` allow-lists three recorder-statistics
+commands — `recorder/list_statistic_ids`, `recorder/get_statistics_metadata`
+and `recorder/statistics_during_period` — and no production code sends any of
+them. The only references outside the gateway and its tests are `cmd/spike`,
+which is a separate binary that does not go through this gateway. The comment
+above them records why they were listed (P0-07: statistics are 1–3 orders of
+magnitude cheaper than history), not that anything calls them.
+
+**Impact:** No rule is broken — all three are read-only commands, and permitting
+a command nothing invokes sends no bytes. The cost is that the allow-list is
+read as the definition of the server's reachable surface, and it currently
+overstates it by three entries, with nothing that would notice if an entry
+outlived its caller. The same gap would let a future removal leave its entry
+behind silently. A test asserting the allow-list matches what the tool layer
+can actually reach is the durable fix; deleting the three entries is the
+alternative, and would have to be undone the moment a statistics-API source is
+wired.
+
+**Triage:** `defer`
+
+**Outcome:** Open, filed at the third 2026-09-05 `plan`. Deferred on the same
+trigger as F-17 — the first production `Preflight(policy.SourceStatistics, …)`
+call site — because that event resolves the discrepancy for the statistics
+three by giving them a caller, and is also the moment the "allow-list matches
+the reachable surface" assertion would be cheapest to write against a surface
+that has stopped moving. If Phase 05 closes without such a call site, the
+question becomes deletion rather than a test, and should be re-triaged then.
