@@ -81,6 +81,7 @@ func newServer(opts Options, tools []Tool) *sdkmcp.Server {
 
 	tools = withSystemTools(tools, opts)
 	tools = withIntegrationTools(tools, opts)
+	tools = withDeviceTools(tools, opts)
 	for _, t := range tools {
 		register(srv, t)
 	}

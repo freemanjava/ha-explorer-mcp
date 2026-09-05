@@ -78,7 +78,7 @@ internal/mcp/      # server.go, system_tools.go, entity_tools.go, automation_too
   are computed server-side, not by returning the underlying lists; an integration
   in a failed setup state is represented with its state, not omitted.
 
-- [ ] **`P3-04` — `list_devices` and `get_device`** — filtered/paginated device
+- [x] **`P3-04` — `list_devices` and `get_device`** — filtered/paginated device
   inventory and device metadata with related entities and via/parent topology.
   **DoD:** `DeviceRef` is what leaves the boundary, and a test asserts the
   response does not present `device_id` as a stable physical identity (doc §8);

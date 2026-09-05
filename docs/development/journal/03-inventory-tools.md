@@ -54,3 +54,17 @@ project), the SDK's own `jsonschema` inference closes the schema with
 unlike the empty-input tools' belt-and-suspenders `emptyObjectSchema`.
 **Left open:** list_integrations filters on domain/disabled only; a richer
 filter set (state, search) waits until a task actually needs it.
+
+### 2026-09-05 · P3-04
+`list_devices` and `get_device` land: reused the same
+`entityAvailabilityReader` from P3-03 to mark each related entity
+available/unavailable by set membership rather than adding a second
+state-reading path; via/parent topology resolves both directions
+(`ViaDevice` up, `ChildDevices` down) from one pass over the already-fetched
+device slice.
+**Surprise:** none — the P3-03 pattern (typed input, SDK schema inference,
+server-side aggregation from registries already in `Options.Inventory`)
+transferred directly; `deviceRegistryReader` is a strict subset of
+`systemInventoryReader`'s methods, so no `Options` field changed.
+**Left open:** list_devices filters on area_id/config_entry_id/disabled only,
+same rationale as P3-03's domain/disabled.
