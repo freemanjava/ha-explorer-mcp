@@ -648,3 +648,43 @@ corrupts anything and never affects a live session.
 task. The likely fix is to treat any session-end error after a session was
 established as a normal shutdown at INFO, rather than to match an unreachable
 sentinel by string.
+
+### F-22 · `repairs/list_issues` has no P0 probe evidence at all · 2026-09-05
+
+**Kind:** `unknown`
+
+**What:** `P3-06`'s `list_repairs` DoD assumes a native HA Repairs/issues
+command exists, is reachable at whatever principal the App runs as, and
+returns severity/issue id fields — but unlike every other command this
+project allow-lists, no Phase 00 probe ever exercised it. `gateway.go`'s own
+rule (its doc comment, and the P1-02 "Depends On" it cites) is that a command
+is allow-listed only once "observed answering successfully against live HA" —
+`docs/research/2026-08-23-ha-registry-apis.md` and
+`2026-08-23-ha-automation-traces.md` cover every other command this phase
+needed, including the two (`config/floor_registry/list`,
+`config/label_registry/list`) whose *element schema*, not their reachability,
+was left unverified. `repairs/list_issues` (the name the architecture doc §9
+and §23 use) has neither: not in the allow-list, not in `cmd/spike`, not in
+any research doc. Whether it exists under that name on `2026.8.3`, whether it
+is admin-gated the way the automation surface turned out to be (P0-05), and
+what its element schema looks like are all unestablished.
+
+**Impact:** Unknown pending verification. `list_repairs` cannot honestly be
+implemented without either (a) evidence the command is reachable at the
+App's principal, sanctioning an allow-list addition the way every other entry
+in `gateway.go` is sanctioned, or (b) a decision to ship it permanently
+`unsupported` — and that decision is itself premature while the command's
+existence is unconfirmed one way or the other.
+
+**Triage:** `resolved`
+
+**Outcome:** **Closed 2026-09-05.** `cmd/spike`'s `probeRepairs`, run by the
+owner once with an admin token and once with a non-admin Users-group token,
+confirms `repairs/list_issues` exists on `2026.9.0`, answers identically for
+both principals (`OK`, 588 bytes, 4-5 ms — unlike the automation surface,
+this command is **not** admin-gated), and returns `{issues: [...]}` with
+`severity`/`issue_id` among its fields, exactly what the DoD needs. Evidence:
+[`docs/research/2026-09-05-ha-repairs-api.md`](../research/2026-09-05-ha-repairs-api.md).
+`P3-06` is unblocked: `gateway.go` may now allow-list `repairs/list_issues` on
+the same evidentiary footing as every other entry, and `list_repairs` can be
+implemented on the next `devflow next` cycle.

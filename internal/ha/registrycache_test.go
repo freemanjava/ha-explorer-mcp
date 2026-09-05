@@ -168,6 +168,38 @@ func TestRegistryCache_RenameAfterExpiry_Reflected(t *testing.T) {
 	}
 }
 
+// TestRegistryCache_Floors_MapsAndCaches pins the P3-06 wiring: Floors calls
+// through CommandFloorRegistryList and maps the result, exercising the same
+// cached-value plumbing Entities/Areas already prove generically above.
+func TestRegistryCache_Floors_MapsAndCaches(t *testing.T) {
+	fc := newFakeCaller()
+	fc.set(CommandFloorRegistryList, json.RawMessage(`[{"floor_id":"floor-1","name":"Ground Floor"}]`))
+	cache := NewRegistryCache(fc)
+
+	floors, _, err := cache.Floors(context.Background())
+	if err != nil {
+		t.Fatalf("Floors: %v", err)
+	}
+	if len(floors) != 1 || floors[0].ID != "floor-1" || floors[0].Name != "Ground Floor" {
+		t.Fatalf("Floors = %+v", floors)
+	}
+}
+
+// TestRegistryCache_Labels_MapsAndCaches is Floors' counterpart for labels.
+func TestRegistryCache_Labels_MapsAndCaches(t *testing.T) {
+	fc := newFakeCaller()
+	fc.set(CommandLabelRegistryList, json.RawMessage(`[{"label_id":"label-a","name":"Important"}]`))
+	cache := NewRegistryCache(fc)
+
+	labels, _, err := cache.Labels(context.Background())
+	if err != nil {
+		t.Fatalf("Labels: %v", err)
+	}
+	if len(labels) != 1 || labels[0].ID != "label-a" || labels[0].Name != "Important" {
+		t.Fatalf("Labels = %+v", labels)
+	}
+}
+
 func TestRegistryCache_ConcurrentReadersPastExpiry_SingleUpstreamFetch(t *testing.T) {
 	fc := newFakeCaller()
 	fc.set(CommandEntityRegistryList, entityRegistryJSON("Kitchen"))

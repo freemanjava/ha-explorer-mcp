@@ -439,3 +439,195 @@ func TestMapAddonStats_WellFormed(t *testing.T) {
 		t.Fatalf("MapAddonStats mapped %+v unexpectedly", stats)
 	}
 }
+
+// TestMapFloorRegistryList_WellFormed exercises MapFloor's assumed field
+// names. The floor_registry element schema was unobserved by the 2026-08-23
+// probe (docs/research/2026-08-23-ha-registry-apis.md finding 8); this test
+// pins the assumption, not an observation, so a defensive mapper's contract
+// stays visible.
+func TestMapFloorRegistryList_WellFormed(t *testing.T) {
+	floors, err := MapFloorRegistryList(json.RawMessage(`[
+		{"floor_id": "floor-1", "name": "Ground Floor", "icon": "mdi:home-floor-0"}
+	]`))
+	if err != nil {
+		t.Fatalf("MapFloorRegistryList: %v", err)
+	}
+	if len(floors) != 1 {
+		t.Fatalf("got %d floors, want 1", len(floors))
+	}
+	if floors[0].ID != "floor-1" || floors[0].Name != "Ground Floor" {
+		t.Errorf("floors[0] = %+v", floors[0])
+	}
+	if floors[0].Partial {
+		t.Errorf("well-formed floor marked Partial: %s", floors[0].PartialReason)
+	}
+}
+
+func TestMapFloor_MissingFields_MarksPartial(t *testing.T) {
+	f := MapFloor(map[string]any{"icon": "mdi:home"})
+	if !f.Partial {
+		t.Error("floor missing floor_id and name not marked Partial")
+	}
+}
+
+// TestMapLabelRegistryList_WellFormed is TestMapFloorRegistryList_WellFormed's
+// counterpart for labels; same unverified-schema caveat.
+func TestMapLabelRegistryList_WellFormed(t *testing.T) {
+	labels, err := MapLabelRegistryList(json.RawMessage(`[
+		{"label_id": "label-a", "name": "Important", "color": "red"}
+	]`))
+	if err != nil {
+		t.Fatalf("MapLabelRegistryList: %v", err)
+	}
+	if len(labels) != 1 {
+		t.Fatalf("got %d labels, want 1", len(labels))
+	}
+	if labels[0].ID != "label-a" || labels[0].Name != "Important" || labels[0].Color != "red" {
+		t.Errorf("labels[0] = %+v", labels[0])
+	}
+	if labels[0].Partial {
+		t.Errorf("well-formed label marked Partial: %s", labels[0].PartialReason)
+	}
+}
+
+func TestMapLabel_MissingFields_MarksPartial(t *testing.T) {
+	l := MapLabel(map[string]any{"icon": "mdi:tag"})
+	if !l.Partial {
+		t.Error("label missing label_id and name not marked Partial")
+	}
+}
+
+// TestMapAutomationStates_FiltersToAutomationDomainAndMapsAttributes is
+// list_automations' confirmed non-admin fallback source
+// (docs/research/2026-08-23-ha-automation-traces.md): enabled state and
+// last_triggered from get_states, never automation/config.
+func TestMapAutomationStates_FiltersToAutomationDomainAndMapsAttributes(t *testing.T) {
+	automations, err := MapAutomationStates(json.RawMessage(`[
+		{
+			"entity_id": "automation.morning",
+			"state": "on",
+			"attributes": {
+				"friendly_name": "Morning",
+				"last_triggered": "2026-09-01T12:00:00+00:00",
+				"mode": "single",
+				"current": 0
+			}
+		},
+		{
+			"entity_id": "automation.never_run",
+			"state": "off",
+			"attributes": {"friendly_name": "Never Run"}
+		},
+		{"entity_id": "light.kitchen", "state": "on", "attributes": {}}
+	]`))
+	if err != nil {
+		t.Fatalf("MapAutomationStates: %v", err)
+	}
+	if len(automations) != 2 {
+		t.Fatalf("got %d automations, want 2 (light.kitchen excluded)", len(automations))
+	}
+
+	byID := map[model.EntityID]model.AutomationSummary{}
+	for _, a := range automations {
+		byID[a.EntityID] = a
+	}
+	morning := byID["automation.morning"]
+	if !morning.Enabled {
+		t.Errorf("automation.morning Enabled = false, want true")
+	}
+	if morning.Alias != "Morning" || morning.Mode != "single" {
+		t.Errorf("morning = %+v", morning)
+	}
+	if morning.LastTriggered == nil || morning.LastTriggered.Year() != 2026 {
+		t.Errorf("morning.LastTriggered = %v", morning.LastTriggered)
+	}
+
+	neverRun := byID["automation.never_run"]
+	if neverRun.Enabled {
+		t.Errorf("automation.never_run Enabled = true, want false")
+	}
+	if neverRun.LastTriggered != nil {
+		t.Errorf("automation.never_run LastTriggered = %v, want nil", neverRun.LastTriggered)
+	}
+}
+
+func TestMapAutomationStates_MissingAttributes_MarksPartial(t *testing.T) {
+	automations, err := MapAutomationStates(json.RawMessage(`[
+		{"entity_id": "automation.broken", "state": "on"}
+	]`))
+	if err != nil {
+		t.Fatalf("MapAutomationStates: %v", err)
+	}
+	if len(automations) != 1 || !automations[0].Partial {
+		t.Fatalf("automations = %+v, want one entry marked Partial", automations)
+	}
+}
+
+// TestMapRepairs_UnwrapsIssuesObjectAndMapsFields exercises the shape the
+// 2026-09-05 research doc observed: {"issues": [...]}, an object wrapping the
+// array, not the bare array get_states/registry commands return.
+func TestMapRepairs_UnwrapsIssuesObjectAndMapsFields(t *testing.T) {
+	repairs, err := MapRepairs(json.RawMessage(`{
+		"issues": [
+			{
+				"breaks_in_ha_version": null,
+				"created": "2026-09-01T12:00:00+00:00",
+				"dismissed_version": "2026.8.3",
+				"domain": "sun",
+				"ignored": false,
+				"is_fixable": true,
+				"issue_domain": null,
+				"issue_id": "deprecated_setting",
+				"learn_more_url": null,
+				"severity": "warning",
+				"translation_key": "deprecated_setting",
+				"translation_placeholders": {"entity_id": "sun.sun", "name": "Sun"}
+			}
+		]
+	}`))
+	if err != nil {
+		t.Fatalf("MapRepairs: %v", err)
+	}
+	if len(repairs) != 1 {
+		t.Fatalf("got %d repairs, want 1", len(repairs))
+	}
+	r := repairs[0]
+	if r.IssueID != "deprecated_setting" || r.Domain != "sun" || r.Severity != "warning" {
+		t.Fatalf("repair = %+v", r)
+	}
+	if !r.IsFixable || r.Ignored {
+		t.Errorf("repair fixable/ignored flags = %+v", r)
+	}
+	if r.DismissedVersion != "2026.8.3" {
+		t.Errorf("DismissedVersion = %q", r.DismissedVersion)
+	}
+	if r.Created.Year() != 2026 {
+		t.Errorf("Created = %v", r.Created)
+	}
+	if r.TranslationPlaceholders["entity_id"] != "sun.sun" {
+		t.Errorf("TranslationPlaceholders = %v", r.TranslationPlaceholders)
+	}
+	if r.Partial {
+		t.Errorf("well-formed repair marked Partial: %s", r.PartialReason)
+	}
+}
+
+func TestMapRepairs_MissingFields_MarksPartial(t *testing.T) {
+	repairs, err := MapRepairs(json.RawMessage(`{"issues": [{"domain": "sun"}]}`))
+	if err != nil {
+		t.Fatalf("MapRepairs: %v", err)
+	}
+	if len(repairs) != 1 || !repairs[0].Partial {
+		t.Fatalf("repairs = %+v, want one entry marked Partial", repairs)
+	}
+}
+
+func TestMapRepairs_EmptyIssuesList(t *testing.T) {
+	repairs, err := MapRepairs(json.RawMessage(`{"issues": []}`))
+	if err != nil {
+		t.Fatalf("MapRepairs: %v", err)
+	}
+	if len(repairs) != 0 {
+		t.Fatalf("repairs = %+v, want empty", repairs)
+	}
+}

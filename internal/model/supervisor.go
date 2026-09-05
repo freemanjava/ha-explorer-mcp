@@ -1,5 +1,7 @@
 package model
 
+import "time"
+
 // SupervisorInfo is the normalized view of Supervisor's own /supervisor/info
 // response — Supervisor's status and the installed-App inventory it embeds,
 // not Core's. Distinct from Health: this is mapped directly from one payload,
@@ -28,4 +30,24 @@ type App struct {
 	UpdateAvailable bool
 	State           string
 	Repository      string
+}
+
+// AppList is list_apps' page: the installed-App inventory Supervisor's own
+// /supervisor/info embeds, paginated like every list_* tool. Unsupported is
+// distinct from an empty Items: Supervisor unreachable at the granted role
+// reports Unsupported with a reason, never an empty list that would look
+// like "no Apps installed" (P3-06 DoD, CLAUDE.md rule 7).
+type AppList struct {
+	Source     string
+	ObservedAt time.Time
+
+	Unsupported       bool
+	UnsupportedReason string
+
+	Items        []App
+	NextCursor   string
+	Truncated    bool
+	LimitClamped bool
+
+	Provenance
 }

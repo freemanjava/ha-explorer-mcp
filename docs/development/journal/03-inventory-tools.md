@@ -82,3 +82,16 @@ so this is the first place PRIVATE masking actually runs on a tool response.
 **Left open:** `area_id` matches only the entity's own registry field, not
 HA's own area-inherited-from-device behavior — the DoD names the filter, not
 that inheritance rule, and adding it unasked would be scope beyond the box.
+
+### 2026-09-05 · P3-06
+`list_repairs` lands, closing the task: `repairs/list_issues` returns
+`{"issues": [...]}`, an object wrapping the array unlike every other
+allow-listed command, so `MapRepairs` unwraps it before mapping elements
+permissively the same way `MapArea`/`MapAutomationStates` do.
+**Surprise:** the MCP SDK's schema validation rejects a `nil` map field
+(marshals to JSON `null`) against a declared `object` type — the first model
+field of map type to reach a tool response — so `optObject` now defaults to
+`{}` rather than `nil` on a missing/malformed source field.
+**Left open:** `ignored`/`dismissed_version` are mapped but not exposed as a
+filter dimension — the DoD's "not established" note flagged their semantics
+as unexercised; add one only when a task actually needs it.

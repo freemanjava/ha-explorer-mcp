@@ -197,6 +197,82 @@ func MapArea(raw map[string]any) model.Area {
 	return a
 }
 
+// MapFloorRegistryList maps a config/floor_registry/list result into Floors.
+// The element schema was unobserved by the 2026-08-23 probe — every
+// installation sampled had an empty floor registry — so MapFloor assumes the
+// field names HA's floor_registry component documents and marks a Floor
+// Partial the moment one of them is missing, rather than trusting the
+// assumption silently (docs/research/2026-08-23-ha-registry-apis.md finding 8).
+func MapFloorRegistryList(raw json.RawMessage) ([]model.Floor, error) {
+	var elements []map[string]any
+	if err := json.Unmarshal(raw, &elements); err != nil {
+		return nil, fmt.Errorf("ha: decoding floor registry list: %w", err)
+	}
+	floors := make([]model.Floor, 0, len(elements))
+	for _, e := range elements {
+		floors = append(floors, MapFloor(e))
+	}
+	return floors, nil
+}
+
+// MapFloor maps one floor registry entry. See MapFloorRegistryList for the
+// unverified-schema caveat.
+func MapFloor(raw map[string]any) model.Floor {
+	var reasons []string
+
+	id, ok := stringField(raw, "floor_id")
+	if !ok || id == "" {
+		reasons = append(reasons, "floor_id missing or not a string")
+	}
+	name, ok := stringField(raw, "name")
+	if !ok {
+		reasons = append(reasons, "name missing or not a string")
+	}
+
+	f := model.Floor{ID: id, Name: name, Icon: optString(raw, "icon")}
+	if len(reasons) > 0 {
+		f.Partial = true
+		f.PartialReason = strings.Join(reasons, "; ")
+	}
+	return f
+}
+
+// MapLabelRegistryList maps a config/label_registry/list result into Labels.
+// Same unverified-schema caveat as MapFloorRegistryList.
+func MapLabelRegistryList(raw json.RawMessage) ([]model.Label, error) {
+	var elements []map[string]any
+	if err := json.Unmarshal(raw, &elements); err != nil {
+		return nil, fmt.Errorf("ha: decoding label registry list: %w", err)
+	}
+	labels := make([]model.Label, 0, len(elements))
+	for _, e := range elements {
+		labels = append(labels, MapLabel(e))
+	}
+	return labels, nil
+}
+
+// MapLabel maps one label registry entry. See MapLabelRegistryList for the
+// unverified-schema caveat.
+func MapLabel(raw map[string]any) model.Label {
+	var reasons []string
+
+	id, ok := stringField(raw, "label_id")
+	if !ok || id == "" {
+		reasons = append(reasons, "label_id missing or not a string")
+	}
+	name, ok := stringField(raw, "name")
+	if !ok {
+		reasons = append(reasons, "name missing or not a string")
+	}
+
+	l := model.Label{ID: id, Name: name, Icon: optString(raw, "icon"), Color: optString(raw, "color")}
+	if len(reasons) > 0 {
+		l.Partial = true
+		l.PartialReason = strings.Join(reasons, "; ")
+	}
+	return l
+}
+
 // MapConfigEntriesGet maps a config_entries/get result — a bare JSON array,
 // distinct from get_single's {"config_entry": {...}} envelope (research doc
 // finding 2; get_single is not allow-listed, see gateway.go) — into
@@ -465,6 +541,122 @@ func MapEntityStateValues(raw json.RawMessage) (map[model.EntityID]string, error
 	return out, nil
 }
 
+// MapAutomationStates aggregates a get_states result into one summary per
+// automation-domain entity — the confirmed non-admin fallback source
+// (docs/research/2026-08-23-ha-automation-traces.md): "did it fire, and
+// when", not automation/config's full detail, which get_automation (P3-07)
+// reaches through the admin-gated API instead. A non-automation entity is
+// skipped; an element missing entity_id, or not a JSON object, is skipped
+// rather than aborting the scan.
+func MapAutomationStates(raw json.RawMessage) ([]model.AutomationSummary, error) {
+	var elements []json.RawMessage
+	if err := json.Unmarshal(raw, &elements); err != nil {
+		return nil, fmt.Errorf("ha: decoding get_states: %w", err)
+	}
+
+	out := make([]model.AutomationSummary, 0)
+	for _, raw := range elements {
+		var e map[string]any
+		if err := json.Unmarshal(raw, &e); err != nil {
+			continue
+		}
+		id, ok := stringField(e, "entity_id")
+		if !ok || id == "" || entityDomain(id) != "automation" {
+			continue
+		}
+		out = append(out, mapAutomationState(model.EntityID(id), e))
+	}
+	return out, nil
+}
+
+// mapAutomationState maps one get_states element already known to be an
+// automation entity.
+func mapAutomationState(id model.EntityID, e map[string]any) model.AutomationSummary {
+	a := model.AutomationSummary{
+		EntityID: id,
+		Enabled:  optString(e, "state") == "on",
+	}
+
+	attrs, ok := e["attributes"].(map[string]any)
+	if !ok {
+		a.Partial = true
+		a.PartialReason = "attributes missing or not an object"
+		return a
+	}
+
+	a.Alias = optString(attrs, "friendly_name")
+	a.Mode = optString(attrs, "mode")
+	if t, ok := optTime(attrs, "last_triggered"); ok {
+		a.LastTriggered = &t
+	}
+	if current, ok := attrs["current"].(float64); ok {
+		a.CurrentRuns = int(current)
+	}
+	return a
+}
+
+// MapRepairs maps a repairs/list_issues result — {"issues": [...]}, an object
+// wrapping the array, not the bare array get_states/registry commands return
+// (docs/research/2026-09-05-ha-repairs-api.md) — into one Repair per element.
+// A malformed element degrades to Partial rather than aborting the scan.
+func MapRepairs(raw json.RawMessage) ([]model.Repair, error) {
+	var wire struct {
+		Issues []map[string]any `json:"issues"`
+	}
+	if err := json.Unmarshal(raw, &wire); err != nil {
+		return nil, fmt.Errorf("ha: decoding repairs/list_issues: %w", err)
+	}
+
+	out := make([]model.Repair, 0, len(wire.Issues))
+	for _, e := range wire.Issues {
+		out = append(out, MapRepair(e))
+	}
+	return out, nil
+}
+
+// MapRepair maps one repairs/list_issues element. See MapRepairs for the
+// wrapper it is read through.
+func MapRepair(raw map[string]any) model.Repair {
+	var reasons []string
+
+	id, ok := stringField(raw, "issue_id")
+	if !ok || id == "" {
+		reasons = append(reasons, "issue_id missing or not a string")
+	}
+	domain, ok := stringField(raw, "domain")
+	if !ok {
+		reasons = append(reasons, "domain missing or not a string")
+	}
+	severity, ok := stringField(raw, "severity")
+	if !ok {
+		reasons = append(reasons, "severity missing or not a string")
+	}
+
+	r := model.Repair{
+		IssueID:                 id,
+		Domain:                  domain,
+		Severity:                severity,
+		IsFixable:               optBool(raw, "is_fixable"),
+		Ignored:                 optBool(raw, "ignored"),
+		DismissedVersion:        optString(raw, "dismissed_version"),
+		BreaksInHAVersion:       optString(raw, "breaks_in_ha_version"),
+		IssueDomain:             optString(raw, "issue_domain"),
+		LearnMoreURL:            optString(raw, "learn_more_url"),
+		TranslationKey:          optString(raw, "translation_key"),
+		TranslationPlaceholders: optObject(raw, "translation_placeholders"),
+	}
+	if created, ok := optTime(raw, "created"); ok {
+		r.Created = created
+	} else {
+		reasons = append(reasons, "created missing or not a timestamp")
+	}
+	if len(reasons) > 0 {
+		r.Partial = true
+		r.PartialReason = strings.Join(reasons, "; ")
+	}
+	return r
+}
+
 // coreInfoWire is the strictly-typed shape of Supervisor's /info response —
 // Supervisor's own status endpoint, not a Core registry HA upgrades
 // independently, so (like supervisorInfoWire below) a renamed or retyped
@@ -595,6 +787,20 @@ func optString(raw map[string]any, key string) string {
 func optBool(raw map[string]any, key string) bool {
 	b, _ := raw[key].(bool)
 	return b
+}
+
+// optObject reads a free-form JSON object field verbatim — for HA data that
+// is opaque metadata rather than schema (CLAUDE.md rule 6), such as a
+// repair's translation_placeholders. A missing or malformed field returns an
+// empty, non-nil map: the MCP SDK's schema validation requires the declared
+// "object" type even when HA sent nothing, and a nil map marshals to JSON
+// null instead.
+func optObject(raw map[string]any, key string) map[string]any {
+	obj, ok := raw[key].(map[string]any)
+	if !ok {
+		return map[string]any{}
+	}
+	return obj
 }
 
 func optStringSlice(raw map[string]any, key string) []string {
