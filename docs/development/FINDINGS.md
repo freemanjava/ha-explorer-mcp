@@ -204,9 +204,19 @@ can be read in a comparable way regardless of which Zigbee integration is in use
 per-integration diagnostic plugin architecture or a flat analyzer — a structural
 difference, but one that costs nothing to defer until Phase 04 closes.
 
-**Triage:** `defer`
+**Triage:** `queue-next`
 
-**Outcome:** Re-triaged at the third 2026-09-05 `plan` and **left deferred** a
+**Outcome:** **Queued 2026-09-05 as `P5-01`**, at the head of Phase 05's queue. The
+trigger the five previous deferrals named — `P4-05` closing Phase 04 — has
+fired, and this `plan` wrote the boxes that consume the answer. It goes
+*first*, not alongside them: the answer decides whether `P5-04` (clustering)
+and `P5-06` (`analyze_integration_health`) need a per-integration seam or stay
+flat, and designing those before observing it would be a structural decision
+made on an unverified premise. Phase 05's Decisions entry is now
+`needs-verify`, ticked in `P5-01`'s own cycle with the flat-vs-plugin record
+written. Closes when `P5-01` closes.
+
+Previously: Re-triaged at the third 2026-09-05 `plan` and **left deferred** a
 fifth time on narrower but unchanged grounds: Phase 04 is down to one open box
 (`P4-05`), so the statistics layer now largely exists — but Phase 05 still has
 no boxes to consume the answer, and `P4-05` closing is the single event that
@@ -539,7 +549,13 @@ estimate uses the larger batched figure, so the error is conservative.
 
 **Triage:** `defer`
 
-**Outcome:** Open. Re-triaged at the third 2026-09-05 `plan` — the trigger the
+**Outcome:** Re-triaged at the 2026-09-05 Phase 05 `plan` and **left deferred**, trigger
+unchanged: no `P5-*` box adds a `Preflight(policy.SourceStatistics, …)` call
+site — the composite analyzers compose P4-02/P4-03 over
+`history/history_during_period`, the same source `get_entity_statistics` reads.
+Standing decision for the next `plan`: if Phase 05 closes with still no such
+call site, this becomes `wont-fix` (the ~30% error never bound, and errs
+conservative), not another deferral. Open. Re-triaged at the third 2026-09-05 `plan` — the trigger the
 last deferral named has now fired, and the answer it asked for is *no*. `P4-04`
 closed 2026-09-05, and `get_entity_statistics` reads
 `history/history_during_period` and pre-flights against `policy.SourceHistory`
@@ -782,7 +798,7 @@ installation where the App's principal is *not* admin (today's default
 deployment is admin, per F-2/F-4's resolution) and (b) for an automation
 whose recent logbook entries actually reference a PRIVATE entity.
 
-**Triage:** `queue-next`
+**Triage:** `resolved`
 
 **Outcome:** Closed 2026-09-05 by `P3-09`. Queued the same day as `P3-09` (phase 03 — Phase 03 simply has open
 boxes again), with the masking design settled in the same `plan` as that
@@ -853,7 +869,12 @@ wired.
 
 **Triage:** `defer`
 
-**Outcome:** Open, filed at the third 2026-09-05 `plan`. Deferred on the same
+**Outcome:** Re-triaged at the 2026-09-05 Phase 05 `plan` and **left deferred** on the
+shared F-17 trigger, which Phase 05's boxes do not fire. Standing decision for
+the next `plan`, as this finding's own text anticipated: if Phase 05 closes
+without a statistics-API call site, the question becomes deletion of the three
+entries plus the "allow-list matches the reachable surface" test — queued
+then, not deferred a third time. Open, filed at the third 2026-09-05 `plan`. Deferred on the same
 trigger as F-17 — the first production `Preflight(policy.SourceStatistics, …)`
 call site — because that event resolves the discrepancy for the statistics
 three by giving them a caller, and is also the moment the "allow-list matches
@@ -888,4 +909,13 @@ guesswork, and no real installation has exercised this tool yet.
 
 **Triage:** `queue-next`
 
-**Outcome:** Open.
+**Outcome:** **Queued 2026-09-05 as `P5-10`**, last in Phase 05's queue. Widened by one
+step in the queueing: the same measurement session also covers the two
+`analyze_*` tools' `ClassComposite` budget, which is unmeasured for exactly the
+same reason. It is last because measuring composite cost requires the composite
+tools to exist (`P5-06`), and one session on a real installation answers both
+halves. `P5-10` may keep the current classes — the DoD requires the report
+either way, and forbids a class changing without one. Closes when `P5-10`
+closes.
+
+Previously: Open.
