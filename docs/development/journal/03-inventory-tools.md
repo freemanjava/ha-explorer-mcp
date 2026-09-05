@@ -110,3 +110,17 @@ unused — `trace/list`'s index already carries every field the DoD's
 "execution outcome" needs, so a per-run drill-down waits for a task that
 actually needs it (likely Phase 05); the logbook fallback bypasses
 `internal/redact`'s classification (F-23), left for the next `plan`.
+
+### 2026-09-05 · P3-08
+Session end is a shutdown, not a crash (F-21), closing Phase 03: `mcp.Run`
+stops delegating to `(*sdkmcp.Server).Run` and calls `srv.Connect` itself, so
+any error after a session was established — not just a clean EOF — logs
+"stopped" at INFO and returns nil.
+**Surprise:** the obvious pipe-based test (`NewInMemoryTransports` +
+`ClientSession.Close()`) deadlocks: `Close()` waits for the client's own
+in-flight outgoing call to retire before it closes the connection, which
+never happens while the corresponding server handler is deliberately parked
+to simulate "still in flight" — a raw `net.Pipe` severed directly, bypassing
+the SDK's client object, was needed to model a process actually dying.
+**Left open:** nothing — DoD's four assertions plus `live-verify` all landed
+in this task.

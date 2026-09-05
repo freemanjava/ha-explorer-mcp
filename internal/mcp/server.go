@@ -125,7 +125,48 @@ func newServer(opts Options, tools []Tool) *sdkmcp.Server {
 // transport decision of 2026-08-25 is stdio only, and the Supervisor starts
 // this binary as a child process.
 func Run(ctx context.Context, opts Options) error {
-	return NewServer(opts).Run(ctx, &sdkmcp.StdioTransport{})
+	opts = opts.withDefaults()
+	return run(ctx, NewServer(opts), opts.Logger, &sdkmcp.StdioTransport{})
+}
+
+// run is Run over an explicit server and transport, so a test can drive a
+// server built from a probe tool table over a pipe instead of the real
+// catalog over real stdio (P3-08).
+//
+// It does not delegate to (*sdkmcp.Server).Run because that call cannot tell
+// a session-end error from a startup failure — both come back as the same
+// non-nil error, and the SDK's session-end sentinel
+// (jsonrpc2.ErrServerClosing, returned when a client's stdin closes with a
+// request in flight) lives in the SDK's internal package, unreachable with
+// errors.Is (F-21). Once a session is established, any way it ends —
+// cancelled context, clean disconnect, or a client dying mid-request — is a
+// normal shutdown, not a crash: matching a message string or JSON-RPC code
+// would break the moment the SDK changes either, so this distinguishes by
+// session lifecycle instead.
+func run(ctx context.Context, srv *sdkmcp.Server, logger *slog.Logger, t sdkmcp.Transport) error {
+	ss, err := srv.Connect(ctx, t, nil)
+	if err != nil {
+		// No session was ever established: a real startup or transport
+		// failure, not a shutdown.
+		return err
+	}
+
+	sessionClosed := make(chan error, 1)
+	go func() { sessionClosed <- ss.Wait() }()
+
+	select {
+	case <-ctx.Done():
+		err := ss.Close()
+		if err != nil {
+			return err
+		}
+		<-sessionClosed
+		logger.InfoContext(ctx, "stopped", "reason", "context cancelled")
+		return nil
+	case err := <-sessionClosed:
+		logger.InfoContext(ctx, "stopped", "reason", "session ended", "detail", err)
+		return nil
+	}
 }
 
 // instructions tell the client what this server is for. It is the one place

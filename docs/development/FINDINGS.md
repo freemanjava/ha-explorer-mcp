@@ -675,7 +675,7 @@ non-zero is logged as a crash and, with a restart policy, restarted — so a
 client that quits at the wrong moment looks like a failing App. It never
 corrupts anything and never affects a live session.
 
-**Triage:** `queue-next`
+**Triage:** `resolved`
 
 **Outcome:** Planned 2026-09-05 into **`P3-08`**
 (`phases/03-inventory-tools.md`), which carries the fix this finding proposed —
@@ -684,7 +684,11 @@ at INFO, rather than match an unreachable sentinel by message or JSON-RPC code,
 both of which an SDK release can change. It sits in Phase 03 because the code is
 `P3-01`'s, and is flagged `live-verify`: the defect was found by running the
 server, so the fix is not done until a client killed mid-request is observed
-leaving exit 0. It closes when `P3-08` closes.
+leaving exit 0. **Closed 2026-09-05 by `P3-08`.** `internal/mcp.Run` now calls
+`srv.Connect` directly instead of delegating to `(*sdkmcp.Server).Run`, and
+treats any error after a session was established as a normal shutdown; a real
+client killed mid-request was observed leaving the process at exit 0, logging
+`"stopped" "reason":"session ended"` at INFO.
 
 ### F-22 · `repairs/list_issues` has no P0 probe evidence at all · 2026-09-05
 

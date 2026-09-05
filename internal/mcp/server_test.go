@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"net"
 	"strings"
 	"sync"
 	"testing"
@@ -213,6 +214,120 @@ func TestServer_UnimplementedTool_ErrorsWithoutClaimingUnsupported(t *testing.T)
 	}
 }
 
+// TestRun_ClientDisconnectsMidRequest_ReturnsNilAndLogsShutdown is P3-08's
+// DoD: a client that closes its end of the pipe while a request is in flight
+// must look like a normal shutdown, not a crash (F-21) — run() returns nil
+// and logs the shutdown at INFO, never surfacing the SDK's unreachable
+// session-end sentinel.
+func TestRun_ClientDisconnectsMidRequest_ReturnsNilAndLogsShutdown(t *testing.T) {
+	sink := &recordSink{}
+	logger := slog.New(sink)
+
+	inFlight := make(chan struct{})
+	release := make(chan struct{})
+	tools := probeTable(func(context.Context, string) error {
+		close(inFlight)
+		<-release
+		return nil
+	})
+
+	// A raw net.Pipe, not the SDK's client Close(): a real dying process
+	// severs the connection immediately, it does not wait for its own
+	// in-flight request to finish the way a graceful Close does.
+	serverConn, clientConn := net.Pipe()
+	serverTransport := &sdkmcp.IOTransport{Reader: serverConn, Writer: serverConn}
+	clientTransport := &sdkmcp.IOTransport{Reader: clientConn, Writer: clientConn}
+
+	opts := testOptions()
+	opts.Logger = logger
+	srv := newServer(opts, tools)
+
+	runErr := make(chan error, 1)
+	go func() { runErr <- run(context.Background(), srv, logger, serverTransport) }()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.0.0"}, nil)
+	clientSession, err := client.Connect(t.Context(), clientTransport, nil)
+	if err != nil {
+		t.Fatalf("client.Connect: %v", err)
+	}
+
+	go func() {
+		_, _ = clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{Name: tools[0].Name})
+	}()
+
+	<-inFlight
+	// The client dies while the request is still being handled: sever the
+	// pipe outright, the way a killed process would.
+	_ = clientConn.Close()
+	close(release)
+
+	select {
+	case err := <-runErr:
+		if err != nil {
+			t.Fatalf("run() = %v, want nil (a mid-request disconnect is a shutdown, not a crash)", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("run() did not return after the client disconnected mid-request")
+	}
+
+	rec, ok := sink.lastWithMessage("stopped")
+	if !ok {
+		t.Fatal("run() did not log a \"stopped\" message at INFO")
+	}
+	if rec.level != slog.LevelInfo {
+		t.Errorf("shutdown logged at %v, want INFO", rec.level)
+	}
+}
+
+// TestRun_CleanDisconnectBetweenRequests_ReturnsNil covers the DoD's other
+// success path: no request in flight at all.
+func TestRun_CleanDisconnectBetweenRequests_ReturnsNil(t *testing.T) {
+	serverTransport, clientTransport := sdkmcp.NewInMemoryTransports()
+	opts := testOptions()
+
+	runErr := make(chan error, 1)
+	go func() { runErr <- run(context.Background(), NewServer(opts), opts.Logger, serverTransport) }()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.0.0"}, nil)
+	clientSession, err := client.Connect(t.Context(), clientTransport, nil)
+	if err != nil {
+		t.Fatalf("client.Connect: %v", err)
+	}
+	if _, err := clientSession.ListTools(t.Context(), nil); err != nil {
+		t.Fatalf("ListTools: %v", err)
+	}
+	_ = clientSession.Close()
+
+	select {
+	case err := <-runErr:
+		if err != nil {
+			t.Fatalf("run() = %v, want nil", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("run() did not return after a clean disconnect")
+	}
+}
+
+// TestRun_ConnectFails_ReturnsError asserts the fix does not swallow a real
+// failure: an error before any session was established must still propagate.
+func TestRun_ConnectFails_ReturnsError(t *testing.T) {
+	wantErr := errors.New("boom: transport unavailable")
+	opts := testOptions()
+	err := run(context.Background(), NewServer(opts), opts.Logger, failingTransport{err: wantErr})
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("run() = %v, want %v", err, wantErr)
+	}
+}
+
+// failingTransport is an sdkmcp.Transport whose Connect always fails, so a
+// test can exercise the "no session was ever established" path without a
+// real transport failure.
+type failingTransport struct{ err error }
+
+func (f failingTransport) Connect(context.Context) (sdkmcp.Connection, error) {
+	return nil, f.err
+}
+
 // testOptions are the server options every test starts from: SDK chatter
 // discarded, and an arrival limiter wide enough that a test walking the whole
 // catalog is not refused by the storm guard it is not testing.
@@ -273,10 +388,19 @@ func connect(t *testing.T, srv *sdkmcp.Server) *sdkmcp.ClientSession {
 	return clientSession
 }
 
-// recordSink captures audit records as attribute maps.
+// loggedRecord is one captured log line: its message, level and attributes.
+type loggedRecord struct {
+	msg   string
+	level slog.Level
+	attrs map[string]any
+}
+
+// recordSink captures log records — audit records as attribute maps, and
+// plain log lines by message and level.
 type recordSink struct {
 	mu      sync.Mutex
 	records []map[string]any
+	logs    []loggedRecord
 }
 
 func (s *recordSink) Enabled(context.Context, slog.Level) bool { return true }
@@ -290,6 +414,7 @@ func (s *recordSink) Handle(_ context.Context, rec slog.Record) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.records = append(s.records, attrs)
+	s.logs = append(s.logs, loggedRecord{msg: rec.Message, level: rec.Level, attrs: attrs})
 	return nil
 }
 
@@ -303,4 +428,17 @@ func (s *recordSink) last() (map[string]any, bool) {
 		return nil, false
 	}
 	return s.records[len(s.records)-1], true
+}
+
+// lastWithMessage returns the most recent log line whose message matches, so
+// a test can find a specific lifecycle log among unrelated SDK chatter.
+func (s *recordSink) lastWithMessage(msg string) (loggedRecord, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := len(s.logs) - 1; i >= 0; i-- {
+		if s.logs[i].msg == msg {
+			return s.logs[i], true
+		}
+	}
+	return loggedRecord{}, false
 }

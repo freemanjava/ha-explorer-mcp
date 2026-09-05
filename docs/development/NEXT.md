@@ -3,8 +3,8 @@
 <!-- BOUNDED FILE — rewritten in place, never appended to. Keep under ~100 lines.
      Anything that grows goes to journal/. This file is read by every session. -->
 
-**▶ Active:** `P3-08` — session end is a shutdown, not a crash
-· [`phases/03-inventory-tools.md`](phases/03-inventory-tools.md) · model: **claude-sonnet-5** · flags: `live-verify`
+**▶ Active:** `P2-06` — measure the invocation rate limit
+· [`phases/02-policy-privacy-audit.md`](phases/02-policy-privacy-audit.md) · model: **claude-sonnet-5** · flags: `needs-verify`
 
 > Advancing this pointer is part of finishing a task, together with ticking the
 > box, recomputing status and appending a journal entry. All four, or none.
@@ -16,13 +16,12 @@ cycle. Remove a row when its task closes.
 
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
-| 1 | `P3-08` | session end is a shutdown, not a crash | 03 | claude-sonnet-5 | `live-verify` |
-| 2 | `P2-06` | measure the invocation rate limit | 02 | claude-sonnet-5 | `needs-verify` |
-| 3 | `P4-01` | `get_entity_history` | 04 | claude-sonnet-5 | |
-| 4 | `P4-02` | availability and outage analysis | 04 | claude-opus-5 | 🧠 |
-| 5 | `P4-03` | update-cadence and staleness analysis | 04 | claude-opus-5 | 🧠 |
-| 6 | `P4-04` | `get_entity_statistics` | 04 | claude-sonnet-5 | |
-| 7 | `P4-05` | `find_unavailable_entities` / `find_stale_entities` | 04 | claude-sonnet-5 | |
+| 1 | `P2-06` | measure the invocation rate limit | 02 | claude-sonnet-5 | `needs-verify` |
+| 2 | `P4-01` | `get_entity_history` | 04 | claude-sonnet-5 | |
+| 3 | `P4-02` | availability and outage analysis | 04 | claude-opus-5 | 🧠 |
+| 4 | `P4-03` | update-cadence and staleness analysis | 04 | claude-opus-5 | 🧠 |
+| 5 | `P4-04` | `get_entity_statistics` | 04 | claude-sonnet-5 | |
+| 6 | `P4-05` | `find_unavailable_entities` / `find_stale_entities` | 04 | claude-sonnet-5 | |
 
 **Order rationale (2026-09-05 `plan`, `P3-07` since closed and dropped).**
 Phase 03 finishes first: `P3-08` — the F-21 fix, the only box this `plan`
@@ -73,7 +72,7 @@ done
 | 00 | Spike & Foundations | 15 / 15 |
 | 01 | HA Access & Read-Only Gateway | 10 / 10 |
 | 02 | Policy, Privacy, Budget & Audit | 6 / 8 |
-| 03 | MCP Server & Inventory Tools | 8 / 9 |
+| 03 | MCP Server & Inventory Tools | 9 / 9 |
 | 04 | History, Statistics & Detection | 0 / 5 |
 | 05 | Diagnostics & Evidence Engine | 0 / 1 |
 | 06 | Proposal Mode — gated | 0 / 1 |
@@ -85,19 +84,20 @@ decisions, both settled 2026-08-25. **Phase 01 is now fully ticked** — `P1-08`
 closed 2026-08-25: `SupervisorClient` and its own route allow-list in
 `internal/ha`, `addon/config.yaml` flipped to `hassio_api: true`. Phase 02's one
 remaining open box is the Q10 persistence decision — `P2-05` closed 2026-08-25.
-Phase 03's seven ticks are its catalog-scope decision, `P3-01`, `P3-02`,
-`P3-03`, `P3-04`, `P3-05` and `P3-06`, closed 2026-09-05. Both totals grew by
-one at the 2026-09-05 `plan`, which wrote `P2-06` (the F-20 rate-limit
-measurement) and `P3-08` (the F-21 non-zero exit): new work does not reopen a
-phase, it simply leaves it with open boxes again.
+**Phase 03 is now fully ticked** — its catalog-scope decision, `P3-01` through
+`P3-08`, the last (`P3-08`, the F-21 exit-code fix) closed 2026-09-05. Both
+totals grew by one at the 2026-09-05 `plan`, which wrote `P2-06` (the F-20
+rate-limit measurement) and `P3-08`: new work does not reopen a phase, it
+simply leaves it with open boxes again — Phase 02 is that phase now, at its
+one remaining box.
 
 Phases 00–04 are milestone M1 (v1 observer). Phase 05 is M2. Phases 06–07 are
 gated: they open only on an explicit owner decision plus a fresh security review.
 Phases 05–07 carry no task boxes yet — theirs are written by `devflow plan` when
 the phase before them closes.
 
-Last refreshed: 2026-09-05 (`P3-07` closed — Phase 03 now 8/9 — pointer
-advanced to `P3-08`; F-11 resolved, F-23 filed)
+Last refreshed: 2026-09-05 (`P3-08` closed — Phase 03 now 9/9, complete —
+pointer advanced to `P2-06`; F-21 resolved)
 
 ## Open findings
 
@@ -105,7 +105,7 @@ advanced to `P3-08`; F-11 resolved, F-23 filed)
      grep -c '^\*\*Triage:\*\* `queue-next`' docs/development/FINDINGS.md  (etc.)
      This block exists so captured work cannot quietly rot: every session sees it. -->
 
-`blocks-active` 0 · `queue-next` 3 · `defer` 2 · `unknown` 3 (open)
+`blocks-active` 0 · `queue-next` 2 · `defer` 2 · `unknown` 3 (open)
 
 > Any `blocks-active` is stop-work. If `queue-next` is non-zero and the queue
 > above has fewer than 3 rows, drain it with `devflow plan` before continuing —
@@ -114,12 +114,11 @@ advanced to `P3-08`; F-11 resolved, F-23 filed)
 > An open `unknown` outranks the queue: it is an assumption the plan already
 > rests on. Run `devflow verify` before building further on it.
 
-**F-11 resolved 2026-09-05** by `P3-07`'s close (row 1 dropped from the
-queue). Two `queue-next` remain already planned, each closing with its task,
-not before: **F-21** with `P3-08` (row 1) and **F-20** with `P2-06` (row 2).
+**F-21 resolved 2026-09-05** by `P3-08`'s close (row 1 dropped from the
+queue). Two `queue-next` remain: **F-20** with `P2-06` (row 1, now active) and
 **F-23**, filed while closing `P3-07` (the logbook fallback it added bypasses
-`internal/redact`'s privacy classification), is `queue-next` but not yet
-queued as a task — the next `plan` should give it one.
+`internal/redact`'s privacy classification), not yet queued as a task — the
+next `plan` should give it one.
 
 Two `defer`s remain, re-triaged and deferred again on grounds that have not
 changed: **F-6** — Phase 04 has not closed, so the statistics layer its
@@ -133,6 +132,23 @@ The three open `unknown`s are F-6, F-17 and F-20; only F-20 has a task.
 
 Last 5 closed tasks, one line each. Older entries live in `journal/`.
 
+- 2026-09-05 · `P3-08` — session end is a shutdown, not a crash, closing
+  F-21 and Phase 03: `internal/mcp.Run` stops delegating to
+  `(*sdkmcp.Server).Run`, which cannot tell a session-end error from a
+  startup failure, and instead calls `srv.Connect` itself — a non-nil error
+  from that call is the only case treated as real, every other way an
+  established session ends (cancelled context, clean disconnect, a client
+  dying mid-request) logs "stopped" at INFO and returns nil; the new
+  unexported `run(ctx, srv, logger, transport)` takes an already-built
+  `*sdkmcp.Server` so a test can drive a probe tool table over a raw
+  `net.Pipe` — `NewInMemoryTransports`'s `ClientSession.Close()` was tried
+  first and rejected, since it waits for the client's own in-flight call to
+  retire before closing, which deadlocks exactly the "still in flight"
+  scenario under test; `cmd/server`'s `run()` lost its
+  `io.EOF`/`context.Canceled` special-casing, since `mcp.Run` now owns that
+  distinction entirely. Live-verified: a hand-driven real stdio client that
+  closed stdin mid-`tools/call` left the process at exit 0, logging
+  `"stopped" "reason":"session ended" "detail":"server is closing: EOF"`.
 - 2026-09-05 · `P3-07` — `get_automation`/`get_automation_traces` land,
   closing F-11: `internal/ha/automation_commands.go` adds the typed
   `automation/config`/`trace/list`/`logbook/get_events` commands (already
@@ -194,21 +210,6 @@ Last 5 closed tasks, one line each. Older entries live in `journal/`.
   `ChildDevices` down) from the device registry already in hand; a dangling
   `ViaDeviceID` degrades the topology field to nil rather than failing the
   response; both tools' schemas are left to the SDK's struct-based inference.
-- 2026-09-05 · `P3-03` — `list_integrations` and `get_integration` land:
-  `internal/ha` gains `MapUnavailableEntityIDs` and `CoreReader.UnavailableEntityIDs`,
-  aggregating `get_states` into the set of unavailable-or-unknown entity ids
-  in-process, so the two tools never see the underlying per-entity state
-  list; `internal/mcp/integration_tools.go` joins that set with
-  `RegistryCache`'s config entries, entities and devices — keyed by
-  `ConfigEntryID` — to compute each integration's entity/device/unavailable
-  counts server-side; `list_integrations` filters by domain/disabled and
-  pages through `internal/page.Paginate` (default 50, max 200, cursor,
-  truncated/clamped reported explicitly); `get_integration` returns
-  `ha.ErrNotFound` for an unknown id rather than a partial object; a config
-  entry in a failed setup state (`State`/`Reason` set) is filtered, sorted
-  and returned like any other, never dropped; both tools' schemas are left
-  to the SDK's struct-based inference, which closes them with
-  `additionalProperties:false` on its own.
 
 ## Project facts
 
