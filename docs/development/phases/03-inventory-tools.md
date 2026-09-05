@@ -86,7 +86,7 @@ internal/mcp/      # server.go, system_tools.go, entity_tools.go, automation_too
   device-disappeared-between-list-and-get case returns `ErrNotFound`, not a
   partially-populated object (Appendix B).
 
-- [ ] **`P3-05` — `list_entities` and `get_entity`** — the Appendix A.1 filter
+- [x] **`P3-05` — `list_entities` and `get_entity`** — the Appendix A.1 filter
   set (domain, integration, device_id, area_id, state, availability, category,
   disabled, search) with cursor pagination, plus current state enriched with
   registry, device and area metadata.

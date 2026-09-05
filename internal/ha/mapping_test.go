@@ -348,6 +348,33 @@ func TestMapUnavailableEntityIDs_MalformedElement_Skipped(t *testing.T) {
 	}
 }
 
+func TestMapEntityStateValues_ReturnsPerEntityState(t *testing.T) {
+	states, err := MapEntityStateValues(json.RawMessage(`[
+		{"entity_id":"light.kitchen","state":"on"},
+		{"entity_id":"light.hallway","state":"unavailable"}
+	]`))
+	if err != nil {
+		t.Fatalf("MapEntityStateValues: %v", err)
+	}
+	if len(states) != 2 || states["light.kitchen"] != "on" || states["light.hallway"] != "unavailable" {
+		t.Fatalf("states = %v, want light.kitchen=on and light.hallway=unavailable", states)
+	}
+}
+
+func TestMapEntityStateValues_MalformedElement_Skipped(t *testing.T) {
+	states, err := MapEntityStateValues(json.RawMessage(`[
+		{"entity_id":"light.kitchen","state":"on"},
+		"not an object",
+		{"state":"unknown"}
+	]`))
+	if err != nil {
+		t.Fatalf("MapEntityStateValues: %v", err)
+	}
+	if len(states) != 1 {
+		t.Fatalf("states = %v, want the malformed and entity_id-less elements skipped", states)
+	}
+}
+
 func TestMapCoreInfo_WellFormed(t *testing.T) {
 	info, err := MapCoreInfo(json.RawMessage(`{
 		"supervisor": "2026.08.0",
