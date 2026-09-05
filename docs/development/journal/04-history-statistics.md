@@ -56,3 +56,10 @@ global constant, no absolute floor.
 to F-24, which had only caught the ratio.
 **Left open:** the factor 3 is a starting default; `P4-05` is the first place
 its false-positive rate can be measured.
+
+### 2026-09-05 · P4-06
+Doc-only: §12.1's `availability_ratio`, `median_update_interval_s` and
+`p95_update_interval_s` corrected to the values the fixture yields through the
+real mapper (0.98095 / 1376.5 / 2578.8), leaving `state_changes` and the other
+observed fields untouched.
+**Left open:** none — F-24 closes with this task.

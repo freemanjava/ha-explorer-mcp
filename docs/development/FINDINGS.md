@@ -801,12 +801,11 @@ recorded in the phase file's decision record. The cost is future confusion:
 a reader treating the example as a specification would chase a phantom
 rounding bug. A one-line doc fix.
 
-**Triage:** `queue-next`
+**Triage:** `resolved`
 
-**Outcome:** Re-triaged 2026-09-05 from `defer` to `queue-next` and queued as
-`P4-06`: the deferral's own trigger — "revisit when it traps whoever implements
-`P4-04`" — is now, since `P4-04` is the next task and §12.1 is the shape it
-implements against. Ordered *first*, ahead of `P4-04`, so the trap is gone
-before that session reads the section. The fix direction is settled in phase
-04's `P4-06` decision record (correct §12.1 to the fixture, not the fixture to
-§12.1). Closes when `P4-06` closes.
+**Outcome:** Closed by `P4-06`, 2026-09-05: §12.1's `availability_ratio`
+changed to `0.98095`, `median_update_interval_s` to `1376.5` and
+`p95_update_interval_s` to `2578.8` — the values `test/fixtures/entity_history_7d.json`
+yields through the real mapper for its 412 state changes over `7d`. All other
+fields (`state_changes`, `unavailable_periods`, `total_unavailable`,
+`longest_unavailable`) were already correct and untouched.
