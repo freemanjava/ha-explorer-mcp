@@ -631,3 +631,115 @@ func TestMapRepairs_EmptyIssuesList(t *testing.T) {
 		t.Fatalf("repairs = %+v, want empty", repairs)
 	}
 }
+
+func TestMapAutomationConfigResult_WellFormed(t *testing.T) {
+	raw := readFixture(t, "automation_config.json")
+	wrapped, err := json.Marshal(map[string]json.RawMessage{"config": raw})
+	if err != nil {
+		t.Fatalf("wrapping fixture: %v", err)
+	}
+
+	a, err := MapAutomationConfigResult(model.EntityID("automation.porch_light_at_sunset"), wrapped)
+	if err != nil {
+		t.Fatalf("MapAutomationConfigResult: %v", err)
+	}
+	if a.EntityID != "automation.porch_light_at_sunset" {
+		t.Errorf("EntityID = %q", a.EntityID)
+	}
+	if a.Alias != "Turn on porch light at sunset" {
+		t.Errorf("Alias = %q", a.Alias)
+	}
+	if a.TriggerCount != 1 || a.ConditionCount != 0 || a.ActionCount != 1 {
+		t.Errorf("counts = trigger:%d condition:%d action:%d, want 1/0/1",
+			a.TriggerCount, a.ConditionCount, a.ActionCount)
+	}
+	if a.Partial {
+		t.Errorf("well-formed automation/config marked Partial: %s", a.PartialReason)
+	}
+}
+
+func TestMapAutomationConfigResult_MutatedShape_Fails(t *testing.T) {
+	// "config" retyped from an object to a string, as a future HA release
+	// might if the command's response shape changed underneath this project.
+	if _, err := MapAutomationConfigResult(model.EntityID("automation.broken"), json.RawMessage(`{"config":"not an object"}`)); err == nil {
+		t.Fatal("MapAutomationConfigResult accepted a config field that is not an object")
+	}
+}
+
+func TestMapAutomationTraces_WellFormed(t *testing.T) {
+	traces, err := MapAutomationTraces(json.RawMessage(`[
+		{
+			"run_id": "01JC4ZQK7X8V2M9N0P1Q2R3S4T",
+			"state": "stopped",
+			"script_execution": "finished",
+			"last_step": "action/0",
+			"trigger": "state of device_tracker.owner_phone",
+			"timestamp": {"start": "2026-08-22T19:04:11.512345+00:00", "finish": "2026-08-22T19:04:11.640210+00:00"}
+		},
+		{
+			"run_id": "01JC4ZP00000000000000000A",
+			"state": "running",
+			"script_execution": "",
+			"last_step": "trigger/1",
+			"trigger": "state of device_tracker.owner_phone",
+			"timestamp": {"start": "2026-08-21T19:04:11.000000+00:00", "finish": null}
+		}
+	]`))
+	if err != nil {
+		t.Fatalf("MapAutomationTraces: %v", err)
+	}
+	if len(traces) != 2 {
+		t.Fatalf("got %d traces, want 2", len(traces))
+	}
+	if traces[0].State != "stopped" || traces[0].ScriptExecution != "finished" {
+		t.Errorf("traces[0] = %+v", traces[0])
+	}
+	if traces[0].TimestampFinish.IsZero() {
+		t.Errorf("traces[0].TimestampFinish not mapped")
+	}
+	if !traces[1].TimestampFinish.IsZero() {
+		t.Errorf("traces[1].TimestampFinish = %v, want zero (finish: null)", traces[1].TimestampFinish)
+	}
+}
+
+// TestMapAutomationTraces_MutatedShape_Fails pins the P3-07 DoD: a response
+// shape an HA upgrade changed underneath this project fails loudly rather
+// than being silently mapped into a domain value the detection layer would
+// then reason about as if it were real (Appendix B).
+func TestMapAutomationTraces_MutatedShape_Fails(t *testing.T) {
+	// "state" retyped from a string to an integer code.
+	if _, err := MapAutomationTraces(json.RawMessage(`[{"run_id":"r1","state":1,"timestamp":{"start":"2026-08-22T19:04:11+00:00"}}]`)); err == nil {
+		t.Fatal("MapAutomationTraces accepted a state field that is not a string")
+	}
+	if _, err := MapAutomationTraces(json.RawMessage(`{"not":"an array"}`)); err == nil {
+		t.Fatal("MapAutomationTraces accepted a result that is not an array")
+	}
+}
+
+func TestMapLogbookEvents_WellFormed(t *testing.T) {
+	events, err := MapLogbookEvents(json.RawMessage(`[
+		{"when": "2026-08-22T19:04:11+00:00", "name": "Evening lights", "message": "triggered by state of Owner phone", "entity_id": "automation.evening_lights", "context_id": "01JC4ZQK7X8V2M9N0P1Q2R3S4T"}
+	]`))
+	if err != nil {
+		t.Fatalf("MapLogbookEvents: %v", err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("got %d events, want 1", len(events))
+	}
+	if events[0].ContextID != "01JC4ZQK7X8V2M9N0P1Q2R3S4T" {
+		t.Errorf("ContextID = %q", events[0].ContextID)
+	}
+	if events[0].Partial {
+		t.Errorf("well-formed logbook event marked Partial: %s", events[0].PartialReason)
+	}
+}
+
+func TestMapLogbookEvents_MissingWhen_MarksPartial(t *testing.T) {
+	events, err := MapLogbookEvents(json.RawMessage(`[{"name": "Evening lights"}]`))
+	if err != nil {
+		t.Fatalf("MapLogbookEvents: %v", err)
+	}
+	if len(events) != 1 || !events[0].Partial {
+		t.Fatalf("events = %+v, want one entry marked Partial", events)
+	}
+}

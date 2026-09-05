@@ -104,6 +104,9 @@ func run() error {
 		Areas:        registry,
 		Automations:  core,
 		Repairs:      core,
+
+		AutomationDetail: core,
+		Logbook:          core,
 	})
 	// A client that closes the pipe ends the session; that is a shutdown, not
 	// a failure to report.

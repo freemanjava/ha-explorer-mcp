@@ -872,3 +872,94 @@ func firstNonEmpty(values ...string) string {
 	}
 	return ""
 }
+
+// MapAutomationConfigResult unwraps automation/config's {"config": {...}}
+// envelope (docs/research/2026-08-23-ha-automation-traces.md) and maps the
+// inner object with MapAutomation. entityID comes from the request, as
+// MapAutomation documents: the command does not echo it back.
+func MapAutomationConfigResult(entityID model.EntityID, raw json.RawMessage) (model.Automation, error) {
+	var wire struct {
+		Config map[string]any `json:"config"`
+	}
+	if err := json.Unmarshal(raw, &wire); err != nil {
+		return model.Automation{}, fmt.Errorf("ha: decoding automation/config: %w", err)
+	}
+	return MapAutomation(entityID, wire.Config), nil
+}
+
+// traceSummaryWire is the strictly-typed shape of one trace/list element. A
+// trace's execution outcome is the evidence get_automation_traces exists to
+// serve — unlike a registry entry, a field HA retypes (state renamed,
+// timestamp reshaped) must fail the whole call rather than let the detection
+// layer reason about a value that was never really there (P3-07 DoD: "a
+// mutated response shape ... fails loudly rather than mapping garbage into
+// the domain model", Appendix B).
+type traceSummaryWire struct {
+	RunID           string `json:"run_id"`
+	State           string `json:"state"`
+	ScriptExecution string `json:"script_execution"`
+	LastStep        string `json:"last_step"`
+	Trigger         string `json:"trigger"`
+	Timestamp       struct {
+		Start  time.Time  `json:"start"`
+		Finish *time.Time `json:"finish"`
+	} `json:"timestamp"`
+}
+
+// MapAutomationTraces maps a trace/list result — a bare array, one element
+// per stored run — into one AutomationTraceSummary per run, newest fields
+// first as HA answers them. See traceSummaryWire for why a shape mismatch
+// fails the whole call instead of degrading one element to Partial.
+func MapAutomationTraces(raw json.RawMessage) ([]model.AutomationTraceSummary, error) {
+	var wire []traceSummaryWire
+	if err := json.Unmarshal(raw, &wire); err != nil {
+		return nil, fmt.Errorf("%w: decoding trace/list: %v", ErrUnexpectedMessage, err)
+	}
+
+	out := make([]model.AutomationTraceSummary, 0, len(wire))
+	for _, w := range wire {
+		t := model.AutomationTraceSummary{
+			RunID:           w.RunID,
+			State:           w.State,
+			ScriptExecution: w.ScriptExecution,
+			LastStep:        w.LastStep,
+			Trigger:         w.Trigger,
+			TimestampStart:  w.Timestamp.Start,
+		}
+		if w.Timestamp.Finish != nil {
+			t.TimestampFinish = *w.Timestamp.Finish
+		}
+		out = append(out, t)
+	}
+	return out, nil
+}
+
+// MapLogbookEvents maps a logbook/get_events result — a bare array — into one
+// LogbookEvent per entry. An element missing a field degrades to Partial
+// rather than aborting the whole fallback read: this is degraded evidence
+// already, and the fallback losing one field must not also lose every other
+// entry around it.
+func MapLogbookEvents(raw json.RawMessage) ([]model.LogbookEvent, error) {
+	var elements []map[string]any
+	if err := json.Unmarshal(raw, &elements); err != nil {
+		return nil, fmt.Errorf("ha: decoding logbook/get_events: %w", err)
+	}
+
+	out := make([]model.LogbookEvent, 0, len(elements))
+	for _, e := range elements {
+		ev := model.LogbookEvent{
+			Name:      optString(e, "name"),
+			Message:   optString(e, "message"),
+			EntityID:  model.EntityID(optString(e, "entity_id")),
+			ContextID: optString(e, "context_id"),
+		}
+		if t, ok := optTime(e, "when"); ok {
+			ev.When = t
+		} else {
+			ev.Partial = true
+			ev.PartialReason = "when missing or not a timestamp"
+		}
+		out = append(out, ev)
+	}
+	return out, nil
+}

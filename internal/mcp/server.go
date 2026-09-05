@@ -68,6 +68,15 @@ type Options struct {
 	// list_automations (P3-06), the confirmed non-admin fallback source. Nil
 	// leaves that row "not implemented in this build".
 	Automations automationReader
+	// AutomationDetail reads the admin-gated automation/config and trace/list
+	// commands for get_automation and get_automation_traces (P3-07). Nil
+	// leaves those two rows "not implemented in this build".
+	AutomationDetail automationDetailReader
+	// Logbook reads logbook/get_events for get_automation_traces' non-admin
+	// fallback evidence (F-11). Nil means that response's fallback fields
+	// stay empty rather than being fetched — a degradation of the fallback
+	// itself, not of the tool's main answer.
+	Logbook logbookReader
 	// Repairs reads repairs/list_issues for list_repairs (P3-06), reachable
 	// at any principal. Nil leaves that row "not implemented in this build".
 	Repairs repairReader

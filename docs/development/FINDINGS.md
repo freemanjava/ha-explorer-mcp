@@ -332,7 +332,7 @@ investigation workflow needs a documented degraded mode over `last_triggered` +
 `logbook/get_events` + `context_id` correlation. Not planning it now means
 discovering it in Phase 05, where it is a rewrite rather than a branch.
 
-**Triage:** `queue-next`
+**Triage:** `resolved`
 
 **Outcome:** Planned 2026-08-23 into **`P3-07`**, whose DoD now requires both
 branches and a *permission*-flavored `unsupported` distinct from the
@@ -340,6 +340,23 @@ version-flavored one, with the degraded path exercised by a test rather than
 only documented; Phase 05's candidate scope gained the matching §13.1 degraded
 workflow bullet. Closes when `P3-07` closes — re-confirmed at the 2026-08-25
 `plan`, which queued `P3-07` as row 9; no further box is needed.
+
+**Closed 2026-09-05 by `P3-07`.** `get_automation`/`get_automation_traces`
+build both branches: a permission refusal (`automation/config`/`trace/list`
+answering `unauthorized`) degrades to `Unsupported` naming the fallback, and
+`get_automation_traces` additionally fetches that fallback live —
+`last_triggered` from `list_automations`' source and `logbook/get_events`,
+correlated by `context_id` — into the response's `fallback_last_triggered`/
+`fallback_events` fields, rather than only documenting that the fallback
+works. A version-absent command (`unknown_command`) degrades separately,
+naming the detected HA version, with no fallback fetch attempted. Exercised
+by `internal/ha`'s `TestCoreReader_LogbookEvents_MapsEvents` and
+`internal/mcp`'s `TestGetAutomationTraces_PermissionRefused_AttachesFallbackEvidence`/
+`TestGetAutomationTraces_VersionAbsent_NoFallbackFetched`. One gap surfaced
+during the close: the fallback's logbook events bypass `internal/redact`'s
+privacy classification, unlike every other entity-derived field this project
+returns — filed as **F-23** rather than folded into this task, since it is
+absent from `P3-07`'s DoD and widens this box's scope.
 
 ### F-12 · Automation traces embed whole entity states and a user id · 2026-08-23
 
@@ -708,3 +725,33 @@ this command is **not** admin-gated), and returns `{issues: [...]}` with
 `P3-06` is unblocked: `gateway.go` may now allow-list `repairs/list_issues` on
 the same evidentiary footing as every other entry, and `list_repairs` can be
 implemented on the next `devflow next` cycle.
+
+### F-23 · `get_automation_traces`' logbook fallback bypasses privacy classification · 2026-09-05
+
+**Kind:** `inconsistency`
+
+**What:** `P3-07`'s `get_automation_traces` degrades, on a permission
+refusal, to fallback evidence fetched live via `logbook/get_events`
+(`internal/mcp/automation_tools.go`'s `attachAutomationFallback`, backed by
+`internal/ha.CoreReader.LogbookEvents`/`MapLogbookEvents`). Unlike every other
+tool that surfaces entity-derived text — `list_entities`/`get_entity`'s
+`maskEntityState` runs the current state through `internal/redact.Redactor`
+keyed by the entity's classification — a `model.LogbookEvent`'s `Message`,
+`Name` and `EntityID` cross the response boundary unredacted. A logbook
+message routinely embeds the human-readable state transition of whichever
+entity triggered it (e.g. "Owner phone changed to home"), so a PRIVATE-
+classified entity (`device_tracker`, `person`, …) referenced by an
+automation's trigger leaks through the fallback exactly where the profile is
+supposed to mask it.
+
+**Impact:** Under the default (mask) or deny privacy profile, a non-admin
+deployment's `get_automation_traces` can return PRIVATE entity data
+`list_entities`/`get_entity` would have withheld — a real gap in the Phase 02
+privacy guarantee, though narrow: it only reaches an agent (a) on an
+installation where the App's principal is *not* admin (today's default
+deployment is admin, per F-2/F-4's resolution) and (b) for an automation
+whose recent logbook entries actually reference a PRIVATE entity.
+
+**Triage:** `queue-next`
+
+**Outcome:**
