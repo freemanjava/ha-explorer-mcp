@@ -69,6 +69,22 @@ func TestCoreReader_UnavailableEntityIDs_AggregatesWithoutExposingStates(t *test
 	}
 }
 
+func TestCoreReader_States_ReturnsPerEntityState(t *testing.T) {
+	fc := newFakeCaller()
+	fc.set(CommandGetStates, json.RawMessage(`[
+		{"entity_id":"light.kitchen","state":"on"},
+		{"entity_id":"light.hallway","state":"unavailable"}
+	]`))
+
+	states, err := NewCoreReader(fc).States(testCtx(t))
+	if err != nil {
+		t.Fatalf("States: %v", err)
+	}
+	if states["light.kitchen"] != "on" || states["light.hallway"] != "unavailable" {
+		t.Fatalf("States = %v, want light.kitchen=on and light.hallway=unavailable", states)
+	}
+}
+
 func TestCoreReader_UpstreamError_Propagates(t *testing.T) {
 	fc := newFakeCaller()
 	fc.err = ErrUpstreamUnavailable
@@ -81,5 +97,8 @@ func TestCoreReader_UpstreamError_Propagates(t *testing.T) {
 	}
 	if _, err := NewCoreReader(fc).UnavailableEntityIDs(testCtx(t)); err == nil {
 		t.Fatal("UnavailableEntityIDs swallowed the upstream error")
+	}
+	if _, err := NewCoreReader(fc).States(testCtx(t)); err == nil {
+		t.Fatal("States swallowed the upstream error")
 	}
 }

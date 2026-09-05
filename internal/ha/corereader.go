@@ -54,3 +54,14 @@ func (r *CoreReader) UnavailableEntityIDs(ctx context.Context) (map[model.Entity
 	}
 	return MapUnavailableEntityIDs(raw)
 }
+
+// States returns get_states mapped to each entity's current state string,
+// keyed by id — for list_entities and get_entity (P3-05), whose job is
+// reporting individual current state rather than an aggregate.
+func (r *CoreReader) States(ctx context.Context) (map[model.EntityID]string, error) {
+	raw, err := r.call.Call(ctx, BareCommand(CommandGetStates))
+	if err != nil {
+		return nil, err
+	}
+	return MapEntityStateValues(raw)
+}

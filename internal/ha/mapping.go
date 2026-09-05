@@ -437,6 +437,34 @@ func MapUnavailableEntityIDs(raw json.RawMessage) (map[model.EntityID]struct{}, 
 	return out, nil
 }
 
+// MapEntityStateValues maps a get_states result into the current state string
+// of every entity, keyed by id. Unlike MapStateCounts and
+// MapUnavailableEntityIDs, this deliberately does hand back a per-entity
+// value — list_entities/get_entity's whole job is reporting one entity's
+// state (P3-05), where get_system_overview and list_integrations exist
+// precisely to avoid it. An element missing entity_id, or not a JSON object,
+// is skipped rather than aborting the scan.
+func MapEntityStateValues(raw json.RawMessage) (map[model.EntityID]string, error) {
+	var elements []json.RawMessage
+	if err := json.Unmarshal(raw, &elements); err != nil {
+		return nil, fmt.Errorf("ha: decoding get_states: %w", err)
+	}
+
+	out := make(map[model.EntityID]string, len(elements))
+	for _, raw := range elements {
+		var e map[string]any
+		if err := json.Unmarshal(raw, &e); err != nil {
+			continue
+		}
+		id, ok := stringField(e, "entity_id")
+		if !ok || id == "" {
+			continue
+		}
+		out[model.EntityID(id)] = optString(e, "state")
+	}
+	return out, nil
+}
+
 // coreInfoWire is the strictly-typed shape of Supervisor's /info response —
 // Supervisor's own status endpoint, not a Core registry HA upgrades
 // independently, so (like supervisorInfoWire below) a renamed or retyped

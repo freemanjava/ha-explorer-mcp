@@ -55,6 +55,10 @@ type Options struct {
 	// unknown, for list_integrations/get_integration's per-integration
 	// counts. Nil leaves those two rows "not implemented in this build".
 	Availability entityAvailabilityReader
+	// States reports every entity's current state string, for
+	// list_entities/get_entity (P3-05). Nil leaves those two rows "not
+	// implemented in this build".
+	States entityStateReader
 }
 
 // NewServer builds the MCP server over the static catalog: every tool doc §9
@@ -82,6 +86,7 @@ func newServer(opts Options, tools []Tool) *sdkmcp.Server {
 	tools = withSystemTools(tools, opts)
 	tools = withIntegrationTools(tools, opts)
 	tools = withDeviceTools(tools, opts)
+	tools = withEntityTools(tools, opts)
 	for _, t := range tools {
 		register(srv, t)
 	}

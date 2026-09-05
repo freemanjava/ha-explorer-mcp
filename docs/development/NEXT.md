@@ -3,7 +3,7 @@
 <!-- BOUNDED FILE — rewritten in place, never appended to. Keep under ~100 lines.
      Anything that grows goes to journal/. This file is read by every session. -->
 
-**▶ Active:** `P3-05` — `list_entities` / `get_entity`
+**▶ Active:** `P3-06` — `list_areas` / `list_automations` / `list_repairs` / `list_apps`
 · [`phases/03-inventory-tools.md`](phases/03-inventory-tools.md) · model: **claude-sonnet-5** · flags: —
 
 > Advancing this pointer is part of finishing a task, together with ticking the
@@ -16,9 +16,8 @@ cycle. Remove a row when its task closes.
 
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
-| 1 | `P3-05` | `list_entities` / `get_entity` | 03 | claude-sonnet-5 | |
-| 2 | `P3-06` | `list_areas` / `list_automations` / `list_repairs` / `list_apps` | 03 | claude-sonnet-5 | |
-| 3 | `P3-07` | `get_automation` / `get_automation_traces` | 03 | claude-sonnet-5 | |
+| 1 | `P3-06` | `list_areas` / `list_automations` / `list_repairs` / `list_apps` | 03 | claude-sonnet-5 | |
+| 2 | `P3-07` | `get_automation` / `get_automation_traces` | 03 | claude-sonnet-5 | |
 
 **Order rationale.** `P3-01` closed 2026-09-05: the static catalog, the stdio
 server and the per-invocation envelope (rate limit, budget, panic recovery,
@@ -63,7 +62,7 @@ done
 | 00 | Spike & Foundations | 15 / 15 |
 | 01 | HA Access & Read-Only Gateway | 10 / 10 |
 | 02 | Policy, Privacy, Budget & Audit | 6 / 7 |
-| 03 | MCP Server & Inventory Tools | 5 / 8 |
+| 03 | MCP Server & Inventory Tools | 6 / 8 |
 | 04 | History, Statistics & Detection | 0 / 5 |
 | 05 | Diagnostics & Evidence Engine | 0 / 1 |
 | 06 | Proposal Mode — gated | 0 / 1 |
@@ -75,15 +74,15 @@ decisions, both settled 2026-08-25. **Phase 01 is now fully ticked** — `P1-08`
 closed 2026-08-25: `SupervisorClient` and its own route allow-list in
 `internal/ha`, `addon/config.yaml` flipped to `hassio_api: true`. Phase 02's one
 remaining open box is the Q10 persistence decision — `P2-05` closed 2026-08-25.
-Phase 03's five ticks are its catalog-scope decision, `P3-01`, `P3-02`,
-`P3-03` and `P3-04`, closed 2026-09-05.
+Phase 03's six ticks are its catalog-scope decision, `P3-01`, `P3-02`,
+`P3-03`, `P3-04` and `P3-05`, closed 2026-09-05.
 
 Phases 00–04 are milestone M1 (v1 observer). Phase 05 is M2. Phases 06–07 are
 gated: they open only on an explicit owner decision plus a fresh security review.
 Phases 05–07 carry no task boxes yet — theirs are written by `devflow plan` when
 the phase before them closes.
 
-Last refreshed: 2026-09-05 (`devflow next` — `P3-04` closed, pointer advanced to `P3-05`)
+Last refreshed: 2026-09-05 (`devflow next` — `P3-05` closed, pointer advanced to `P3-06`)
 
 ## Open findings
 
@@ -118,6 +117,21 @@ measure them is the `plan` after `P3-01` closes — which is now the next one.
 
 Last 5 closed tasks, one line each. Older entries live in `journal/`.
 
+- 2026-09-05 · `P3-05` — `list_entities` and `get_entity` land: `internal/ha`
+  gains `MapEntityStateValues`/`CoreReader.States`, a per-entity current-state
+  read deliberately unlike the aggregate-only readers P3-02/P3-03 added,
+  because reporting one entity's state is this pair's whole job;
+  `internal/mcp/entity_tools.go` implements the full Appendix A.1 filter set
+  (domain, integration — resolved through the entity's config entry —
+  device_id, area_id, state, availability, category, disabled, search) over
+  the entity registry, pages through `internal/page.Paginate`, and masks each
+  returned `State` by handing a synthetic HA-shaped payload to
+  `internal/redact.Redactor.Payload` rather than re-implementing
+  classification; `get_entity` adds device/area/integration name resolution,
+  degrading a dangling reference to an empty name rather than failing; a
+  malformed `availability` value is rejected rather than silently matching
+  nothing; `search` is a plain case-insensitive substring test, so
+  instruction-shaped entity names are never interpreted (threat T2).
 - 2026-09-05 · `P3-04` — `list_devices` and `get_device` land: `internal/mcp/device_tools.go`
   filters (area_id/config_entry_id/disabled) and pages `RegistryCache.Devices`
   through `internal/page.Paginate`, returning `DeviceRef` itself — no derived
@@ -167,15 +181,6 @@ Last 5 closed tasks, one line each. Older entries live in `journal/`.
   record whichever way it ends; an uncatalogued name is denied before dispatch;
   rows without a handler yet answer `not implemented in this build`, never
   `unsupported`; `cmd/server` now runs it, logging to stderr only.
-- 2026-08-25 · `P1-08` — `internal/ha/supervisor.go`: `SupervisorClient` reads
-  Supervisor's own API — its own base (`http://supervisor`), its own
-  exact-match GET-only route table holding only the eleven endpoints the
-  default role and `api_bypass` grant; Supervisor unreachable maps to
-  `ErrUnsupported`, distinct from Core's `ErrUpstreamUnavailable`, so a
-  Core-based answer keeps working with Supervisor absent; `/supervisor/info`
-  is mapped to `model.SupervisorInfo` through a strictly-typed decode that
-  fails loudly on a retyped field rather than degrading to `Partial`;
-  `addon/config.yaml` now sets `hassio_api: true` at the default role.
 
 ## Project facts
 

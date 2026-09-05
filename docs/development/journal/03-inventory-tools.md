@@ -68,3 +68,17 @@ transferred directly; `deviceRegistryReader` is a strict subset of
 `systemInventoryReader`'s methods, so no `Options` field changed.
 **Left open:** list_devices filters on area_id/config_entry_id/disabled only,
 same rationale as P3-03's domain/disabled.
+
+### 2026-09-05 · P3-05
+`list_entities` and `get_entity` land: the first tool pair whose response
+carries a live per-entity value the Phase 02 profile must act on, so each
+returned `State` is built by handing `internal/redact.Redactor.Payload` a
+synthetic `{entity_id, device_class, state}` object shaped like a real HA
+state, rather than re-deriving classification/masking logic in `internal/mcp`.
+**Surprise:** the response-boundary redactor existed since Phase 02 but
+nothing had called it outside the audit trail — every prior tool's DoD
+avoided exposing a raw state value at all (counts, availability booleans),
+so this is the first place PRIVATE masking actually runs on a tool response.
+**Left open:** `area_id` matches only the entity's own registry field, not
+HA's own area-inherited-from-device behavior — the DoD names the filter, not
+that inheritance rule, and adding it unasked would be scope beyond the box.

@@ -34,3 +34,44 @@ type Entity struct {
 
 	Provenance
 }
+
+// EntitySummary is one list_entities/get_entity row: the registry entry plus
+// its current state, already redacted per the Phase 02 profile (P3-05) — a
+// PRIVATE entity's State is a masked token or "[denied]", never the raw
+// value, whatever profile is configured.
+type EntitySummary struct {
+	Entity
+
+	State     string
+	Available bool
+}
+
+// EntityList is list_entities' page: entity summaries plus the
+// cursor-pagination envelope every list_* tool shares (doc §9.1).
+type EntityList struct {
+	Source     string
+	ObservedAt time.Time
+
+	Items        []EntitySummary
+	NextCursor   string
+	Truncated    bool
+	LimitClamped bool
+
+	Provenance
+}
+
+// EntityDetail is get_entity's drill-down: the entity's summary plus the
+// device/area/integration metadata doc §9's catalog names ("current state +
+// entity registry + device/area metadata"). A dangling reference (device,
+// area or config entry gone from its registry) degrades the corresponding
+// name to empty rather than failing the response.
+type EntityDetail struct {
+	Source     string
+	ObservedAt time.Time
+
+	EntitySummary
+
+	AreaName          string
+	DeviceName        string
+	IntegrationDomain string
+}
