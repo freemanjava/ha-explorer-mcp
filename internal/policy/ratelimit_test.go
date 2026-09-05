@@ -111,8 +111,15 @@ func TestNewInvocationLimiter_Defaults_AllowAnInteractiveBurst(t *testing.T) {
 	if served != invocationBurst {
 		t.Fatalf("served %d of %d, want the whole default burst", served, invocationBurst)
 	}
-	if err := r.Allow(); !errors.Is(err, ErrRateLimited) {
-		t.Fatalf("err = %v, want ErrRateLimited past the default burst", err)
+
+	err := r.Allow()
+	var rl *RateLimitError
+	if !errors.As(err, &rl) {
+		t.Fatalf("err = %v, want a *RateLimitError past the default burst", err)
+	}
+	if rl.RetryAfter <= 0 || rl.RetryAfter > invocationInterval {
+		t.Fatalf("RetryAfter = %v, want a positive delay no longer than invocationInterval (%v)",
+			rl.RetryAfter, invocationInterval)
 	}
 }
 
