@@ -137,7 +137,7 @@ internal/mcp/      # server.go, system_tools.go, entity_tools.go, automation_too
   repairs are returned with their severity/issue id so an agent can cite them as
   evidence.
 
-- [ ] **`P3-07` — `get_automation` and `get_automation_traces`** — implemented
+- [x] **`P3-07` — `get_automation` and `get_automation_traces`** — implemented
   strictly to the scope P0-05 proved reachable, behind a compatibility adapter
   with feature detection. **Both branches are built regardless of how `P0-06`
   lands** (F-11): `automation/config`, `trace/list`, `trace/get` and
@@ -154,6 +154,44 @@ internal/mcp/      # server.go, system_tools.go, entity_tools.go, automation_too
   a non-admin principal) is exercised by a test, not merely documented; a test
   with a mutated response shape (simulating an HA upgrade) fails loudly rather
   than mapping garbage into the domain model (Appendix B).
+
+  **2026-09-05: lands, closing F-11.** `gateway.go`'s existing allow-list
+  already covered all four commands (P0-05 anticipated them); this task adds
+  the typed WS commands (`automationConfigCommand`, `traceListCommand`,
+  `logbookGetEventsCommand`, `internal/ha/automation_commands.go`) and three
+  `CoreReader` methods. `get_automation` maps `automation/config`'s
+  `{"config": {...}}` envelope through the already-existing `MapAutomation`
+  (written ahead of this task, at P3-06, and only now wired to a command);
+  `get_automation_traces` reads `trace/list` scoped to one automation
+  (`domain`/`item_id`, `item_id` derived from the entity id, not
+  `trace/get`'s full per-step detail — that command stays allow-listed for a
+  future per-run drill-down, out of this box's scope) into
+  `model.AutomationTraceSummary`, newest run first, through a strictly-typed
+  `traceSummaryWire` so a retyped field fails the call (`ErrUnexpectedMessage`)
+  rather than degrading to `Partial` the way a registry entry would — traces
+  are evidence, not configuration, and Appendix B's mutated-shape test targets
+  this mapper. `classifyAutomationError` (`internal/mcp/automation_tools.go`)
+  is the one place that turns a `*ha.CommandError` into the three-way outcome:
+  `errors.Is(err, ha.ErrUnsupported)` (HA's `unauthorized`, already unwrapped
+  by `manager.go`) is the permission case, naming the fallback tool for
+  `get_automation` or this tool's own `fallback_*` fields for
+  `get_automation_traces`; a raw `*CommandError` with `Code == "unknown_command"`
+  is the version-absent case, naming the version `Options.Core.CoreConfig`
+  reports (or "unknown" if `Core` is nil or itself fails — a detail, not a
+  reason to fail the tool); anything else propagates as a real Go error
+  (`ha.ErrNotFound` for a deleted automation included), never dressed up as a
+  fact about the installation. The permission branch additionally fetches the
+  degraded evidence live — `last_triggered` from `Options.Automations` (the
+  same source `list_automations` reads) and `logbook/get_events` since a 24h
+  window via the new `CoreReader.LogbookEvents`/`MapLogbookEvents` — into
+  `AutomationTraceList.FallbackLastTriggered`/`FallbackEvents`, satisfying the
+  DoD's "exercised by a test, not merely documented" clause; the version-absent
+  branch fetches neither, since a dropped `trace/list` does not also change
+  `last_triggered` or the logbook. One gap surfaced closing this box: the
+  logbook fallback's `Message`/`Name`/`EntityID` cross the boundary without
+  `internal/redact`'s classification, unlike every other entity-derived field
+  — filed as **F-23** rather than folded in here, since it is absent from this
+  DoD and would have widened the box.
 
 - [ ] **`P3-08` — Session end is a shutdown, not a crash** `live-verify` — a
   client that dies *while a request is in flight* closes stdin mid-session;

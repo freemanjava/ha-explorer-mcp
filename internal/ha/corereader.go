@@ -2,6 +2,8 @@ package ha
 
 import (
 	"context"
+	"strings"
+	"time"
 
 	"github.com/freemanjava/ha-explorer-mcp/internal/model"
 )
@@ -77,6 +79,56 @@ func (r *CoreReader) Repairs(ctx context.Context) ([]model.Repair, error) {
 		return nil, err
 	}
 	return MapRepairs(raw)
+}
+
+// AutomationDetail returns automation/config for one entity, mapped —
+// get_automation's admin-gated detail source (P3-07), distinct from
+// Automations' get_states fallback every principal can read. A non-admin
+// principal or an HA version without the command answers with a
+// *CommandError the caller classifies (P3-07 DoD); AutomationDetail itself
+// makes no such judgment.
+func (r *CoreReader) AutomationDetail(ctx context.Context, entityID model.EntityID) (model.Automation, error) {
+	raw, err := r.call.Call(ctx, automationConfigCommand{EntityID: string(entityID)})
+	if err != nil {
+		return model.Automation{}, err
+	}
+	return MapAutomationConfigResult(entityID, raw)
+}
+
+// AutomationTraces returns trace/list for one automation, mapped —
+// get_automation_traces' admin-gated evidence source (P3-07). ItemID is
+// derived from entityID's own object id, not a caller-supplied value, so it
+// can never diverge from the entity the caller asked about.
+func (r *CoreReader) AutomationTraces(ctx context.Context, entityID model.EntityID) ([]model.AutomationTraceSummary, error) {
+	domain, itemID := splitEntityID(string(entityID))
+	raw, err := r.call.Call(ctx, traceListCommand{Domain: domain, ItemID: itemID})
+	if err != nil {
+		return nil, err
+	}
+	return MapAutomationTraces(raw)
+}
+
+// LogbookEvents returns logbook/get_events for one entity since start,
+// mapped — get_automation_traces' non-admin fallback evidence (F-11),
+// reachable at any principal.
+func (r *CoreReader) LogbookEvents(ctx context.Context, entityID model.EntityID, since time.Time) ([]model.LogbookEvent, error) {
+	raw, err := r.call.Call(ctx, logbookGetEventsCommand{StartTime: since, EntityIDs: []string{string(entityID)}})
+	if err != nil {
+		return nil, err
+	}
+	return MapLogbookEvents(raw)
+}
+
+// splitEntityID separates an entity id into its domain and object id, the
+// shape trace/list's domain/item_id arguments need. A malformed id (no dot)
+// returns the whole string as both, which fails the same way an invalid
+// entity id fails anywhere else in this package: HA rejects the request
+// rather than this code fabricating a plausible-looking split.
+func splitEntityID(entityID string) (domain, objectID string) {
+	if i := strings.IndexByte(entityID, '.'); i > 0 {
+		return entityID[:i], entityID[i+1:]
+	}
+	return entityID, entityID
 }
 
 // States returns get_states mapped to each entity's current state string,

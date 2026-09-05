@@ -95,3 +95,18 @@ field of map type to reach a tool response — so `optObject` now defaults to
 **Left open:** `ignored`/`dismissed_version` are mapped but not exposed as a
 filter dimension — the DoD's "not established" note flagged their semantics
 as unexercised; add one only when a task actually needs it.
+
+### 2026-09-05 · P3-07
+`get_automation`/`get_automation_traces` land, closing F-11: both branches
+(permission-refused vs. version-absent `unsupported`) are built regardless of
+which one this deployment ever hits, and the permission branch fetches
+`last_triggered` + `logbook/get_events` live into the response rather than
+only documenting that the fallback works.
+**Surprise:** `MapAutomation` already existed, fully tested, since P3-06 —
+written ahead of the command that would call it and left unwired until now,
+the same way `automation_config.json`'s fixtures predated this task.
+**Left open:** `trace/get`'s full per-step detail stays allow-listed but
+unused — `trace/list`'s index already carries every field the DoD's
+"execution outcome" needs, so a per-run drill-down waits for a task that
+actually needs it (likely Phase 05); the logbook fallback bypasses
+`internal/redact`'s classification (F-23), left for the next `plan`.

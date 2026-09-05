@@ -3,8 +3,8 @@
 <!-- BOUNDED FILE — rewritten in place, never appended to. Keep under ~100 lines.
      Anything that grows goes to journal/. This file is read by every session. -->
 
-**▶ Active:** `P3-07` — `get_automation` / `get_automation_traces`
-· [`phases/03-inventory-tools.md`](phases/03-inventory-tools.md) · model: **claude-sonnet-5** · flags: —
+**▶ Active:** `P3-08` — session end is a shutdown, not a crash
+· [`phases/03-inventory-tools.md`](phases/03-inventory-tools.md) · model: **claude-sonnet-5** · flags: `live-verify`
 
 > Advancing this pointer is part of finishing a task, together with ticking the
 > box, recomputing status and appending a journal entry. All four, or none.
@@ -16,20 +16,19 @@ cycle. Remove a row when its task closes.
 
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
-| 1 | `P3-07` | `get_automation` / `get_automation_traces` | 03 | claude-sonnet-5 | |
-| 2 | `P3-08` | session end is a shutdown, not a crash | 03 | claude-sonnet-5 | `live-verify` |
-| 3 | `P2-06` | measure the invocation rate limit | 02 | claude-sonnet-5 | `needs-verify` |
-| 4 | `P4-01` | `get_entity_history` | 04 | claude-sonnet-5 | |
-| 5 | `P4-02` | availability and outage analysis | 04 | claude-opus-5 | 🧠 |
-| 6 | `P4-03` | update-cadence and staleness analysis | 04 | claude-opus-5 | 🧠 |
-| 7 | `P4-04` | `get_entity_statistics` | 04 | claude-sonnet-5 | |
-| 8 | `P4-05` | `find_unavailable_entities` / `find_stale_entities` | 04 | claude-sonnet-5 | |
+| 1 | `P3-08` | session end is a shutdown, not a crash | 03 | claude-sonnet-5 | `live-verify` |
+| 2 | `P2-06` | measure the invocation rate limit | 02 | claude-sonnet-5 | `needs-verify` |
+| 3 | `P4-01` | `get_entity_history` | 04 | claude-sonnet-5 | |
+| 4 | `P4-02` | availability and outage analysis | 04 | claude-opus-5 | 🧠 |
+| 5 | `P4-03` | update-cadence and staleness analysis | 04 | claude-opus-5 | 🧠 |
+| 6 | `P4-04` | `get_entity_statistics` | 04 | claude-sonnet-5 | |
+| 7 | `P4-05` | `find_unavailable_entities` / `find_stale_entities` | 04 | claude-sonnet-5 | |
 
-**Order rationale (2026-09-05 `plan`).** Phase 03 finishes first: `P3-07` keeps
-its written last-in-phase position as the most compatibility-sensitive surface,
-and `P3-08` — the F-21 fix, the only new box this `plan` wrote for Phase 03 —
-follows it so the phase closes complete rather than with a known non-zero exit
-in it. `P2-06` then sits between the phases on purpose: it is the F-20
+**Order rationale (2026-09-05 `plan`, `P3-07` since closed and dropped).**
+Phase 03 finishes first: `P3-08` — the F-21 fix, the only box this `plan`
+still leaves in Phase 03 — closes it so the phase does not linger with a
+known non-zero exit in it. `P2-06` then sits between the phases on purpose: it
+is the F-20
 measurement, whose revisit point the 2026-08-25 `plan` fixed as "the `plan`
 after `P3-01` closes", and Phase 04's tools are the heaviest recorder callers
 this server will ever make — writing them against an arrival limit nobody
@@ -74,7 +73,7 @@ done
 | 00 | Spike & Foundations | 15 / 15 |
 | 01 | HA Access & Read-Only Gateway | 10 / 10 |
 | 02 | Policy, Privacy, Budget & Audit | 6 / 8 |
-| 03 | MCP Server & Inventory Tools | 7 / 9 |
+| 03 | MCP Server & Inventory Tools | 8 / 9 |
 | 04 | History, Statistics & Detection | 0 / 5 |
 | 05 | Diagnostics & Evidence Engine | 0 / 1 |
 | 06 | Proposal Mode — gated | 0 / 1 |
@@ -97,8 +96,8 @@ gated: they open only on an explicit owner decision plus a fresh security review
 Phases 05–07 carry no task boxes yet — theirs are written by `devflow plan` when
 the phase before them closes.
 
-Last refreshed: 2026-09-05 (`plan` — Phase 04's five queued behind Phase 03,
-two new boxes written from the findings inbox; pointer unchanged at `P3-07`)
+Last refreshed: 2026-09-05 (`P3-07` closed — Phase 03 now 8/9 — pointer
+advanced to `P3-08`; F-11 resolved, F-23 filed)
 
 ## Open findings
 
@@ -115,11 +114,12 @@ two new boxes written from the findings inbox; pointer unchanged at `P3-07`)
 > An open `unknown` outranks the queue: it is an assumption the plan already
 > rests on. Run `devflow verify` before building further on it.
 
-**Inbox drained 2026-09-05.** All three `queue-next` are now planned and each
-closes with its task, not before: **F-11** with `P3-07` (row 1), **F-21** with
-the new `P3-08` (row 2), **F-20** with the new `P2-06` (row 3). F-20 was
-promoted out of `defer` at exactly the revisit point its own outcome named —
-`P3-01` closed, so the rate limiter finally runs somewhere a storm can reach it.
+**F-11 resolved 2026-09-05** by `P3-07`'s close (row 1 dropped from the
+queue). Two `queue-next` remain already planned, each closing with its task,
+not before: **F-21** with `P3-08` (row 1) and **F-20** with `P2-06` (row 2).
+**F-23**, filed while closing `P3-07` (the logbook fallback it added bypasses
+`internal/redact`'s privacy classification), is `queue-next` but not yet
+queued as a task — the next `plan` should give it one.
 
 Two `defer`s remain, re-triaged and deferred again on grounds that have not
 changed: **F-6** — Phase 04 has not closed, so the statistics layer its
@@ -133,6 +133,24 @@ The three open `unknown`s are F-6, F-17 and F-20; only F-20 has a task.
 
 Last 5 closed tasks, one line each. Older entries live in `journal/`.
 
+- 2026-09-05 · `P3-07` — `get_automation`/`get_automation_traces` land,
+  closing F-11: `internal/ha/automation_commands.go` adds the typed
+  `automation/config`/`trace/list`/`logbook/get_events` commands (already
+  allow-listed since P0-05) and three `CoreReader` methods;
+  `get_automation` maps `automation/config` through the already-existing
+  `MapAutomation`; `get_automation_traces` reads `trace/list` scoped to one
+  automation into `AutomationTraceSummary`, newest first, through a
+  strictly-typed `traceSummaryWire` so a retyped field fails loudly
+  (`ErrUnexpectedMessage`) rather than degrading to `Partial`, unlike a
+  registry entry; `classifyAutomationError` turns a permission refusal
+  (`unauthorized`) into `Unsupported` naming the fallback, and a version
+  gap (`unknown_command`) into `Unsupported` naming the detected version —
+  kept distinct from each other and from a real Go error (`ErrNotFound`
+  included); the permission branch additionally fetches `last_triggered`
+  plus `logbook/get_events` live into the response's `fallback_*` fields,
+  not merely documented. One gap surfaced closing this box: the logbook
+  fallback bypasses `internal/redact`'s privacy classification — filed as
+  F-23, left for the next `plan` rather than folded in.
 - 2026-09-05 · `P3-06` — `list_areas`, `list_automations`, `list_repairs` and
   `list_apps` land, closing the phase's last inventory-breadth task:
   `list_repairs` was the piece left after F-22's `devflow verify` confirmed
@@ -191,20 +209,6 @@ Last 5 closed tasks, one line each. Older entries live in `journal/`.
   and returned like any other, never dropped; both tools' schemas are left
   to the SDK's struct-based inference, which closes them with
   `additionalProperties:false` on its own.
-- 2026-09-05 · `P3-02` — `get_system_overview` and `get_system_health` land:
-  `internal/ha` gains `CoreReader` (get_config/get_states, aggregated
-  in-process into `model.StateCounts` so no per-entity list ever leaves the
-  boundary) and five typed `SupervisorClient` methods
-  (`CoreInfo`/`OSHealth`/`HostDisk`/`ResolutionSummary`/`SelfStats`), each with
-  its own strictly-typed mapper; `internal/mcp/system_tools.go` assembles both
-  responses behind narrow reader interfaces the two tools depend on, so
-  `cmd/server` is the only place that wires concrete `ha` types in;
-  `get_system_health` never carries a Core CPU/RAM field (none exists on
-  `model.SystemHealth`) and degrades the whole response to
-  `Unsupported`+reason the moment any one Supervisor endpoint fails, rather
-  than serving a partially-filled report; `cmd/server/main.go` now actually
-  connects to Core (`ws://supervisor/core/websocket`) and Supervisor for the
-  first time in this project's life.
 
 ## Project facts
 

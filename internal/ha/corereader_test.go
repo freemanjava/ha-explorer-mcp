@@ -2,7 +2,9 @@ package ha
 
 import (
 	"encoding/json"
+	"errors"
 	"testing"
+	"time"
 )
 
 func TestCoreReader_CoreConfig_MapsFields(t *testing.T) {
@@ -121,6 +123,54 @@ func TestCoreReader_Repairs_MapsIssues(t *testing.T) {
 	}
 }
 
+func TestCoreReader_AutomationDetail_MapsConfig(t *testing.T) {
+	fc := newFakeCaller()
+	fc.set(CommandAutomationConfig, json.RawMessage(`{"config":{"id":"123","alias":"Evening lights","mode":"single","triggers":[{"trigger":"state"}],"conditions":[],"actions":[{"action":"light.turn_on"}]}}`))
+
+	a, err := NewCoreReader(fc).AutomationDetail(testCtx(t), "automation.evening_lights")
+	if err != nil {
+		t.Fatalf("AutomationDetail: %v", err)
+	}
+	if a.Alias != "Evening lights" || a.TriggerCount != 1 || a.ActionCount != 1 {
+		t.Fatalf("AutomationDetail mapped %+v unexpectedly", a)
+	}
+}
+
+func TestCoreReader_AutomationTraces_MapsRuns(t *testing.T) {
+	fc := newFakeCaller()
+	fc.set(CommandTraceList, json.RawMessage(`[{"run_id":"r1","state":"stopped","script_execution":"finished","timestamp":{"start":"2026-08-22T19:04:11+00:00"}}]`))
+
+	traces, err := NewCoreReader(fc).AutomationTraces(testCtx(t), "automation.evening_lights")
+	if err != nil {
+		t.Fatalf("AutomationTraces: %v", err)
+	}
+	if len(traces) != 1 || traces[0].RunID != "r1" {
+		t.Fatalf("AutomationTraces = %+v, want one run r1", traces)
+	}
+}
+
+func TestCoreReader_LogbookEvents_MapsEvents(t *testing.T) {
+	fc := newFakeCaller()
+	fc.set(CommandLogbookGetEvents, json.RawMessage(`[{"when":"2026-08-22T19:04:11+00:00","name":"Evening lights","context_id":"ctx1"}]`))
+
+	events, err := NewCoreReader(fc).LogbookEvents(testCtx(t), "automation.evening_lights", time.Now().Add(-24*time.Hour))
+	if err != nil {
+		t.Fatalf("LogbookEvents: %v", err)
+	}
+	if len(events) != 1 || events[0].ContextID != "ctx1" {
+		t.Fatalf("LogbookEvents = %+v, want one event with ContextID ctx1", events)
+	}
+}
+
+func TestCoreReader_AutomationDetail_PermissionRefused_ReturnsUnsupported(t *testing.T) {
+	fc := newFakeCaller()
+	fc.err = &CommandError{Code: "unauthorized", Message: "unauthorized"}
+
+	if _, err := NewCoreReader(fc).AutomationDetail(testCtx(t), "automation.evening_lights"); !errors.Is(err, ErrUnsupported) {
+		t.Fatalf("AutomationDetail error = %v, want errors.Is(err, ErrUnsupported)", err)
+	}
+}
+
 func TestCoreReader_UpstreamError_Propagates(t *testing.T) {
 	fc := newFakeCaller()
 	fc.err = ErrUpstreamUnavailable
@@ -142,5 +192,14 @@ func TestCoreReader_UpstreamError_Propagates(t *testing.T) {
 	}
 	if _, err := NewCoreReader(fc).Repairs(testCtx(t)); err == nil {
 		t.Fatal("Repairs swallowed the upstream error")
+	}
+	if _, err := NewCoreReader(fc).AutomationDetail(testCtx(t), "automation.evening_lights"); err == nil {
+		t.Fatal("AutomationDetail swallowed the upstream error")
+	}
+	if _, err := NewCoreReader(fc).AutomationTraces(testCtx(t), "automation.evening_lights"); err == nil {
+		t.Fatal("AutomationTraces swallowed the upstream error")
+	}
+	if _, err := NewCoreReader(fc).LogbookEvents(testCtx(t), "automation.evening_lights", time.Now()); err == nil {
+		t.Fatal("LogbookEvents swallowed the upstream error")
 	}
 }
