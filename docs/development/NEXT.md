@@ -3,7 +3,7 @@
 <!-- BOUNDED FILE — rewritten in place, never appended to. Keep under ~100 lines.
      Anything that grows goes to journal/. This file is read by every session. -->
 
-**▶ Active:** `P3-03` — `list_integrations` / `get_integration`
+**▶ Active:** `P3-04` — `list_devices` / `get_device`
 · [`phases/03-inventory-tools.md`](phases/03-inventory-tools.md) · model: **claude-sonnet-5** · flags: —
 
 > Advancing this pointer is part of finishing a task, together with ticking the
@@ -16,11 +16,10 @@ cycle. Remove a row when its task closes.
 
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
-| 1 | `P3-03` | `list_integrations` / `get_integration` | 03 | claude-sonnet-5 | |
-| 2 | `P3-04` | `list_devices` / `get_device` | 03 | claude-sonnet-5 | |
-| 3 | `P3-05` | `list_entities` / `get_entity` | 03 | claude-sonnet-5 | |
-| 4 | `P3-06` | `list_areas` / `list_automations` / `list_repairs` / `list_apps` | 03 | claude-sonnet-5 | |
-| 5 | `P3-07` | `get_automation` / `get_automation_traces` | 03 | claude-sonnet-5 | |
+| 1 | `P3-04` | `list_devices` / `get_device` | 03 | claude-sonnet-5 | |
+| 2 | `P3-05` | `list_entities` / `get_entity` | 03 | claude-sonnet-5 | |
+| 3 | `P3-06` | `list_areas` / `list_automations` / `list_repairs` / `list_apps` | 03 | claude-sonnet-5 | |
+| 4 | `P3-07` | `get_automation` / `get_automation_traces` | 03 | claude-sonnet-5 | |
 
 **Order rationale.** `P3-01` closed 2026-09-05: the static catalog, the stdio
 server and the per-invocation envelope (rate limit, budget, panic recovery,
@@ -65,7 +64,7 @@ done
 | 00 | Spike & Foundations | 15 / 15 |
 | 01 | HA Access & Read-Only Gateway | 10 / 10 |
 | 02 | Policy, Privacy, Budget & Audit | 6 / 7 |
-| 03 | MCP Server & Inventory Tools | 3 / 8 |
+| 03 | MCP Server & Inventory Tools | 4 / 8 |
 | 04 | History, Statistics & Detection | 0 / 5 |
 | 05 | Diagnostics & Evidence Engine | 0 / 1 |
 | 06 | Proposal Mode — gated | 0 / 1 |
@@ -77,15 +76,15 @@ decisions, both settled 2026-08-25. **Phase 01 is now fully ticked** — `P1-08`
 closed 2026-08-25: `SupervisorClient` and its own route allow-list in
 `internal/ha`, `addon/config.yaml` flipped to `hassio_api: true`. Phase 02's one
 remaining open box is the Q10 persistence decision — `P2-05` closed 2026-08-25.
-Phase 03's three ticks are its catalog-scope decision, `P3-01` and `P3-02`,
-closed 2026-09-05.
+Phase 03's four ticks are its catalog-scope decision, `P3-01`, `P3-02` and
+`P3-03`, closed 2026-09-05.
 
 Phases 00–04 are milestone M1 (v1 observer). Phase 05 is M2. Phases 06–07 are
 gated: they open only on an explicit owner decision plus a fresh security review.
 Phases 05–07 carry no task boxes yet — theirs are written by `devflow plan` when
 the phase before them closes.
 
-Last refreshed: 2026-09-05 (`devflow next` — `P3-02` closed, pointer advanced to `P3-03`)
+Last refreshed: 2026-09-05 (`devflow next` — `P3-03` closed, pointer advanced to `P3-04`)
 
 ## Open findings
 
@@ -120,6 +119,21 @@ measure them is the `plan` after `P3-01` closes — which is now the next one.
 
 Last 5 closed tasks, one line each. Older entries live in `journal/`.
 
+- 2026-09-05 · `P3-03` — `list_integrations` and `get_integration` land:
+  `internal/ha` gains `MapUnavailableEntityIDs` and `CoreReader.UnavailableEntityIDs`,
+  aggregating `get_states` into the set of unavailable-or-unknown entity ids
+  in-process, so the two tools never see the underlying per-entity state
+  list; `internal/mcp/integration_tools.go` joins that set with
+  `RegistryCache`'s config entries, entities and devices — keyed by
+  `ConfigEntryID` — to compute each integration's entity/device/unavailable
+  counts server-side; `list_integrations` filters by domain/disabled and
+  pages through `internal/page.Paginate` (default 50, max 200, cursor,
+  truncated/clamped reported explicitly); `get_integration` returns
+  `ha.ErrNotFound` for an unknown id rather than a partial object; a config
+  entry in a failed setup state (`State`/`Reason` set) is filtered, sorted
+  and returned like any other, never dropped; both tools' schemas are left
+  to the SDK's struct-based inference, which closes them with
+  `additionalProperties:false` on its own.
 - 2026-09-05 · `P3-02` — `get_system_overview` and `get_system_health` land:
   `internal/ha` gains `CoreReader` (get_config/get_states, aggregated
   in-process into `model.StateCounts` so no per-entity list ever leaves the
@@ -158,12 +172,6 @@ Last 5 closed tasks, one line each. Older entries live in `journal/`.
   refusal, a budget cutoff and a success distinguishable; the result body is
   excluded unless `Logger.WithBody()` opts in; `Emit` recovers its own panics
   so a broken sink cannot fail the tool call it is recording.
-- 2026-08-25 · `P2-04` — `internal/page`: `Paginate[T]` cuts a caller-sorted
-  list at the first of resolved limit / cumulative `byteSize` vs `MaxBytes` /
-  list end, always keeping a whole record even when one alone exceeds the cap;
-  the cursor encodes the last-returned key (not an index), so a list changed
-  between calls cannot duplicate or skip records by construction; `clamped`
-  and `truncated` are reported as distinct fields.
 
 ## Project facts
 

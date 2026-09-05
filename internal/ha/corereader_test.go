@@ -52,6 +52,23 @@ func TestCoreReader_StateCounts_AggregatesWithoutExposingEntities(t *testing.T) 
 	}
 }
 
+func TestCoreReader_UnavailableEntityIDs_AggregatesWithoutExposingStates(t *testing.T) {
+	fc := newFakeCaller()
+	fc.set(CommandGetStates, json.RawMessage(`[
+		{"entity_id":"light.kitchen","state":"on"},
+		{"entity_id":"light.hallway","state":"unavailable"},
+		{"entity_id":"sensor.attic","state":"unknown"}
+	]`))
+
+	ids, err := NewCoreReader(fc).UnavailableEntityIDs(testCtx(t))
+	if err != nil {
+		t.Fatalf("UnavailableEntityIDs: %v", err)
+	}
+	if len(ids) != 2 {
+		t.Fatalf("ids = %v, want exactly 2 entries", ids)
+	}
+}
+
 func TestCoreReader_UpstreamError_Propagates(t *testing.T) {
 	fc := newFakeCaller()
 	fc.err = ErrUpstreamUnavailable
@@ -61,5 +78,8 @@ func TestCoreReader_UpstreamError_Propagates(t *testing.T) {
 	}
 	if _, err := NewCoreReader(fc).StateCounts(testCtx(t)); err == nil {
 		t.Fatal("StateCounts swallowed the upstream error")
+	}
+	if _, err := NewCoreReader(fc).UnavailableEntityIDs(testCtx(t)); err == nil {
+		t.Fatal("UnavailableEntityIDs swallowed the upstream error")
 	}
 }

@@ -50,6 +50,11 @@ type Options struct {
 	// per-invocation "unsupported" a reachable-but-refusing Supervisor
 	// produces (rule 7).
 	Supervisor systemHealthReader
+
+	// Availability reports which entities are currently unavailable or
+	// unknown, for list_integrations/get_integration's per-integration
+	// counts. Nil leaves those two rows "not implemented in this build".
+	Availability entityAvailabilityReader
 }
 
 // NewServer builds the MCP server over the static catalog: every tool doc §9
@@ -74,7 +79,9 @@ func newServer(opts Options, tools []Tool) *sdkmcp.Server {
 		Logger:       opts.Logger,
 	})
 
-	for _, t := range withSystemTools(tools, opts) {
+	tools = withSystemTools(tools, opts)
+	tools = withIntegrationTools(tools, opts)
+	for _, t := range tools {
 		register(srv, t)
 	}
 

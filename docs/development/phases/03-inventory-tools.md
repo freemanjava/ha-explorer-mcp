@@ -71,7 +71,7 @@ internal/mcp/      # server.go, system_tools.go, entity_tools.go, automation_too
   response never claims a Core CPU/RAM figure — the field is absent or explicitly
   `unsupported`, never zero.
 
-- [ ] **`P3-03` — `list_integrations` and `get_integration`** — config-entry
+- [x] **`P3-03` — `list_integrations` and `get_integration`** — config-entry
   summary with entity/device/unavailable counts, and the per-integration
   drill-down.
   **DoD:** filtering and cursor pagination honor the Phase 02 contract; counts

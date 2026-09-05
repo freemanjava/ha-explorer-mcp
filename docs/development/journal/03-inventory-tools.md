@@ -42,3 +42,15 @@ partially-filled health record — simpler, and matches every Supervisor
 failure mode this project has evidence for (all-or-nothing at the granted
 role), but a future finding if that assumption turns out wrong on a real
 deployment.
+
+### 2026-09-05 · P3-03
+`list_integrations` and `get_integration` land: per-integration entity/device/
+unavailable counts are joined server-side from `RegistryCache`'s config
+entries, entities and devices plus a new `CoreReader.UnavailableEntityIDs`,
+keyed by `ConfigEntryID` — no per-entity/device list ever leaves the tool.
+**Surprise:** with a real typed input struct (the first non-empty one in this
+project), the SDK's own `jsonschema` inference closes the schema with
+`additionalProperties:false` by default — no explicit schema-pinning needed,
+unlike the empty-input tools' belt-and-suspenders `emptyObjectSchema`.
+**Left open:** list_integrations filters on domain/disabled only; a richer
+filter set (state, search) waits until a task actually needs it.
