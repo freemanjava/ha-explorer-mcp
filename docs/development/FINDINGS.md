@@ -860,3 +860,32 @@ three by giving them a caller, and is also the moment the "allow-list matches
 the reachable surface" assertion would be cheapest to write against a surface
 that has stopped moving. If Phase 05 closes without such a call site, the
 question becomes deletion rather than a test, and should be re-triaged then.
+
+### F-26 · `find_stale_entities`' budget class has no real-installation measurement behind it · 2026-09-05
+
+**Kind:** `idea`
+
+**What:** `P4-05` implements `find_stale_entities` at `ClassNormalRead`
+(`policy.LimitsFor(ClassNormalRead).MaxHARequests` = 20), matching
+`catalog.go`'s existing rows but not its own comment, which names the
+`find_*` pair as the likely candidate for `ClassComposite`'s wider budget "with
+the measurement that justifies it". No such measurement exists: judging
+cadence costs one recorder read per entity (P4-03), so a scan over an
+installation with more than 20 matching entities truncates after 20 —
+reported honestly via `Scanned`/`Truncated`/`NextCursor`, never as a silent
+partial answer, but still a real ceiling on how much of an installation one
+call can cover before the caller must resume with a cursor.
+
+**Impact:** Unknown pending verification. `ClassComposite` would roughly
+double `MaxHARequests` (to 50, doc's own unmeasured default — same caveat
+P4-02's decision record already notes for both classes' request counts) and
+double the byte/point ceilings, letting one call cover more of an
+installation before truncating. Whether that trade is worth composite's other
+consequence — halving how many `find_stale_entities` calls fit in a session
+next to every other tool sharing the same invocation-rate limit — is exactly
+the kind of number CLAUDE.md §26 says should come from measurement, not
+guesswork, and no real installation has exercised this tool yet.
+
+**Triage:** `queue-next`
+
+**Outcome:** Open.
