@@ -231,6 +231,27 @@ internal/mcp/      # server.go, system_tools.go, entity_tools.go, automation_too
   call is still outstanding): the process logged `"stopped" "reason":
   "session ended" "detail":"server is closing: EOF"` at INFO and exited 0.
 
+- [ ] **`P3-09` — `get_automation_traces`' fallback evidence goes through the
+  privacy profile** 🧠 — F-23. `attachAutomationFallback`
+  (`internal/mcp/automation_tools.go`) returns `model.LogbookEvent`s whose
+  `Message`, `Name` and `EntityID` cross the response boundary untouched, while
+  every other entity-derived text in the catalog runs through
+  `internal/redact.Redactor` keyed by the entity's classification
+  (`maskEntityState`, `maskHistoryPoints`). A logbook message embeds the
+  human-readable transition of the entity that triggered the run ("… changed to
+  home"), so a PRIVATE-classified trigger entity leaks through the degraded path
+  exactly where the profile is meant to mask it. `bindGetAutomationTraces` does
+  not currently receive `Profile`/`Secrets` at all — the plumbing is part of the
+  box.
+  **DoD:** a test with a PRIVATE-classified entity (e.g. `device_tracker.*`) in
+  the fallback events asserts, under the default mask profile, that neither its
+  state text nor its friendly name survives in `FallbackEvents` while `When` and
+  `ContextID` do; the same test under the deny profile asserts the placeholder
+  path; a PUBLIC entity's message is unchanged except that a configured secret
+  appearing in it is stripped; masking is stable within one response (equal
+  values share a token) as `maskHistoryPoints` already requires; the existing
+  `P3-07` fallback tests still pass.
+
 ## Decisions
 
 - [x] **Tool catalog scope for the first usable release — the full twenty** — decided 2026-08-25
@@ -263,6 +284,39 @@ internal/mcp/      # server.go, system_tools.go, entity_tools.go, automation_too
   expected tool names is what keeps "twenty" true rather than aspirational.
   `list_apps` and `get_system_health` are in scope at the level the 2026-08-25
   Supervisor decision permits, not above it.
+
+- [x] **`P3-09` — the fallback event is masked whole, not searched for
+  substrings** — decided 2026-09-05
+
+  **Decision:** Classify each fallback `model.LogbookEvent` by its own
+  `EntityID` through `internal/policy`, and where the classification is PRIVATE
+  apply the profile to the event's free text as a unit — `Message` and `Name`
+  are replaced by the profile's mask token or denied placeholder, while `When`,
+  `ContextID` and the event's presence survive. Every event, at any
+  classification, still passes through `Redactor` so a configured secret cannot
+  ride out in prose (CLAUDE.md rule 4). Classification stays in
+  `internal/policy` and masking in `internal/redact`; `internal/mcp` only keys
+  one into the other, as `maskEntityState` already does.
+
+  **Why:** a logbook message is prose HA composed from a friendly name and a
+  state, with no field boundary inside it to redact. The PRIVATE-handling
+  decision's own principle — the shape in time survives, the meaning does not —
+  maps exactly onto this shape: an agent still learns that the automation fired
+  and when, and can still correlate by `ContextID`, without reading who was
+  where.
+
+  **Rejected:** *substring-matching the entity's friendly name or state inside
+  `Message`* — unreliable against HA's phrasings and a direct violation of rule
+  6 (never branch behavior on untrusted content). *Dropping PRIVATE events from
+  `FallbackEvents`* — silently removes evidence that the automation ran, turning
+  "masked" into "did not happen", which is the fabrication rule 7 forbids.
+  *Suppressing the whole fallback under a restrictive profile* — removes F-11's
+  degraded evidence in precisely the non-admin deployment it was built for.
+
+  **Consequences:** `bindGetAutomationTraces` gains `policy.Profile` and
+  `secrets`, matching every other privacy-touching binder, so the tool table
+  stays uniform; `get_automation_traces` under a restrictive profile returns
+  events whose count and timing are usable and whose text is not.
 
 ## Phase Definition of Done
 
