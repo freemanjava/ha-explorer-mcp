@@ -92,13 +92,14 @@ func run() error {
 	supervisor := ha.NewSupervisorClient("", token, nil, log)
 
 	err = mcp.Run(ctx, mcp.Options{
-		Version:    version,
-		Logger:     log,
-		Profile:    profile,
-		Secrets:    secrets,
-		Core:       core,
-		Inventory:  registry,
-		Supervisor: supervisor,
+		Version:      version,
+		Logger:       log,
+		Profile:      profile,
+		Secrets:      secrets,
+		Core:         core,
+		Inventory:    registry,
+		Supervisor:   supervisor,
+		Availability: core,
 	})
 	// A client that closes the pipe ends the session; that is a shutdown, not
 	// a failure to report.

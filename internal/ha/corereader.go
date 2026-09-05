@@ -42,3 +42,15 @@ func (r *CoreReader) StateCounts(ctx context.Context) (model.StateCounts, error)
 	}
 	return MapStateCounts(raw)
 }
+
+// UnavailableEntityIDs returns get_states aggregated in-process into the set
+// of entity ids currently unavailable or unknown — for list_integrations and
+// get_integration's per-integration counts (P3-03), never the underlying
+// per-entity state list.
+func (r *CoreReader) UnavailableEntityIDs(ctx context.Context) (map[model.EntityID]struct{}, error) {
+	raw, err := r.call.Call(ctx, BareCommand(CommandGetStates))
+	if err != nil {
+		return nil, err
+	}
+	return MapUnavailableEntityIDs(raw)
+}

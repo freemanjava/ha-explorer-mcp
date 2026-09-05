@@ -406,6 +406,37 @@ func MapStateCounts(raw json.RawMessage) (model.StateCounts, error) {
 	return counts, nil
 }
 
+// MapUnavailableEntityIDs aggregates a get_states result into the set of
+// entity ids currently unavailable or unknown, in-process — so a caller
+// computing per-integration or per-device counts never sees the full
+// per-entity state list either (P3-03 DoD: "counts are computed
+// server-side, not by returning the underlying lists"). An element missing
+// entity_id, or not a JSON object, is skipped rather than aborting the scan.
+func MapUnavailableEntityIDs(raw json.RawMessage) (map[model.EntityID]struct{}, error) {
+	var elements []json.RawMessage
+	if err := json.Unmarshal(raw, &elements); err != nil {
+		return nil, fmt.Errorf("ha: decoding get_states: %w", err)
+	}
+
+	out := make(map[model.EntityID]struct{})
+	for _, raw := range elements {
+		var e map[string]any
+		if err := json.Unmarshal(raw, &e); err != nil {
+			continue
+		}
+		state := optString(e, "state")
+		if state != "unavailable" && state != "unknown" {
+			continue
+		}
+		id, ok := stringField(e, "entity_id")
+		if !ok || id == "" {
+			continue
+		}
+		out[model.EntityID(id)] = struct{}{}
+	}
+	return out, nil
+}
+
 // coreInfoWire is the strictly-typed shape of Supervisor's /info response —
 // Supervisor's own status endpoint, not a Core registry HA upgrades
 // independently, so (like supervisorInfoWire below) a renamed or retyped

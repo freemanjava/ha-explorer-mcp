@@ -314,6 +314,40 @@ func TestMapStateCounts_MalformedElement_Skipped(t *testing.T) {
 	}
 }
 
+func TestMapUnavailableEntityIDs_ReturnsOnlyUnavailableOrUnknown(t *testing.T) {
+	ids, err := MapUnavailableEntityIDs(json.RawMessage(`[
+		{"entity_id":"light.kitchen","state":"on"},
+		{"entity_id":"light.hallway","state":"unavailable"},
+		{"entity_id":"sensor.attic","state":"unknown"},
+		{"entity_id":"sensor.basement","state":"off"}
+	]`))
+	if err != nil {
+		t.Fatalf("MapUnavailableEntityIDs: %v", err)
+	}
+	if len(ids) != 2 {
+		t.Fatalf("ids = %v, want exactly 2 entries", ids)
+	}
+	for _, want := range []model.EntityID{"light.hallway", "sensor.attic"} {
+		if _, ok := ids[want]; !ok {
+			t.Errorf("ids missing %q", want)
+		}
+	}
+}
+
+func TestMapUnavailableEntityIDs_MalformedElement_Skipped(t *testing.T) {
+	ids, err := MapUnavailableEntityIDs(json.RawMessage(`[
+		{"entity_id":"light.hallway","state":"unavailable"},
+		"not an object",
+		{"state":"unknown"}
+	]`))
+	if err != nil {
+		t.Fatalf("MapUnavailableEntityIDs: %v", err)
+	}
+	if len(ids) != 1 {
+		t.Fatalf("ids = %v, want the malformed and entity_id-less elements skipped", ids)
+	}
+}
+
 func TestMapCoreInfo_WellFormed(t *testing.T) {
 	info, err := MapCoreInfo(json.RawMessage(`{
 		"supervisor": "2026.08.0",
