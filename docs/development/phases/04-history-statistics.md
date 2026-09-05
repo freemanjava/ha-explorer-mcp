@@ -58,7 +58,7 @@ internal/mcp/        # entity_tools.go (history/statistics tools)
   (open-ended outage); a recorder gap distinguished from an outage; an entity
   with zero state changes; a window shorter than one update interval.
 
-- [ ] **`P4-03` — Update-cadence and staleness analysis** 🧠 — median and p95
+- [x] **`P4-03` — Update-cadence and staleness analysis** 🧠 — median and p95
   update intervals, state-change rate, and a staleness judgement relative to the
   entity's own observed cadence rather than a global constant.
   **DoD:** tests over regular, irregular and bursty fixtures; an entity that
@@ -165,6 +165,50 @@ import `internal/ha` deliberately, to read the fixture through the real
 mapper so the metrics are reproducible from a real payload. Revisit at
 `P4-04`, which has to join this report with `P4-03`'s into one tool
 response and may want a shared type in `model`.
+
+**`P4-03`, 2026-09-05 — staleness is judged against p95, times three, with no
+absolute floor.** The task's own wording rules out a global constant, so the
+threshold is `staleIntervalFactor × P95UpdateInterval`, an entity-relative
+number. p95 rather than the median because a bursty entity's median is one
+second while its normal quiet stretch is hours — judging against the median
+would call every motion sensor stale between bursts. A minimum absolute
+threshold ("nothing under five minutes of silence is ever stale") was
+considered and rejected: it is exactly the global constant the DoD excludes,
+no evidence sets its value (doc §26), and 3× a genuinely observed p95 is
+already an anomaly for a fast entity. `staleIntervalFactor = 3` is a starting
+default; `P4-05` is the first task that can measure its false-positive rate on
+a real installation, and the constant's comment says so.
+
+**`P4-03`, 2026-09-05 — nearest-rank percentiles, so every reported interval
+is one the entity actually exhibited.** For an even sample the classical
+median averages the two central values, producing a number that never
+occurred; over durations that is a small fabrication of the kind rule 7
+forbids, and it buys nothing here — these are diagnostic evidence, not a
+statistical estimate. One `nearestRank` function serves both the median and
+p95 (`ceil(p×n)`, clamped to `[1, n]`), which is defined at every n ≥ 1 and
+avoids the two ways the naive `int(p*len)` form breaks at small samples:
+index −1, and index == n at p = 1. Asserted at n = 1..4.
+
+**`P4-03`, 2026-09-05 — an update is not a state change, and both are
+reported.** Doc §11 lists "update cadence" and "state-change rate" as separate
+health signals, so `CadenceReport` measures intervals between *recorded
+instants* (a re-record of the same value is still an update) while
+`StateChanges` reuses `segmentsIn`'s collapsed segments and covered span —
+the same basis as `AvailabilityReport.StateChanges`, so the two halves of doc
+§12.1 cannot report different change counts for one window. Two records at the
+same instant are dropped rather than admitted as a zero-length interval, which
+would drag every percentile toward nothing.
+
+**`P4-03`, 2026-09-05 — silence is measured from the last known update, even
+one from before the window.** An entity whose last record predates the window
+is precisely what staleness exists to catch, so `LastUpdate` considers the
+carried-in state and `SilentFor` can exceed the window. That same leading
+point also contributes the first observed interval, which is often the only
+one a window narrower than the entity's cadence can show. It is still not
+counted in `Updates`: it happened before the window. With no interval
+observable at all, `Computable` and `StaleJudgeable` are false and the
+percentiles stay zero values no caller may read — "could not tell" is not
+"not stale", the same rule `P4-02` applied to its ratio.
 
 ## Phase Definition of Done
 
