@@ -14,6 +14,8 @@ import (
 	"github.com/freemanjava/ha-explorer-mcp/internal/ha"
 	"github.com/freemanjava/ha-explorer-mcp/internal/model"
 	"github.com/freemanjava/ha-explorer-mcp/internal/page"
+	"github.com/freemanjava/ha-explorer-mcp/internal/policy"
+	"github.com/freemanjava/ha-explorer-mcp/internal/redact"
 )
 
 // automationReader is list_automations' read surface: get_states' automation-
@@ -83,7 +85,7 @@ func withAutomationTools(tools []Tool, opts Options) []Tool {
 			}
 		case "get_automation_traces":
 			if opts.AutomationDetail != nil {
-				out[i].bind = bindGetAutomationTraces(opts.AutomationDetail, opts.Core, opts.Automations, opts.Logbook)
+				out[i].bind = bindGetAutomationTraces(opts.AutomationDetail, opts.Core, opts.Automations, opts.Logbook, opts.Profile, opts.Secrets)
 			}
 		}
 	}
@@ -256,10 +258,10 @@ func getAutomation(ctx context.Context, detail automationDetailReader, versions 
 }
 
 // bindGetAutomationTraces registers get_automation_traces' typed handler.
-func bindGetAutomationTraces(detail automationDetailReader, versions automationVersionReader, automations automationReader, logbook logbookReader) binder {
+func bindGetAutomationTraces(detail automationDetailReader, versions automationVersionReader, automations automationReader, logbook logbookReader, profile policy.Profile, secrets []string) binder {
 	return func(srv *sdkmcp.Server, def *sdkmcp.Tool) {
 		sdkmcp.AddTool(srv, def, func(ctx context.Context, _ *sdkmcp.CallToolRequest, in GetAutomationTracesInput) (*sdkmcp.CallToolResult, model.AutomationTraceList, error) {
-			out, err := getAutomationTraces(ctx, detail, versions, automations, logbook, in)
+			out, err := getAutomationTraces(ctx, detail, versions, automations, logbook, profile, secrets, in)
 			return nil, out, err
 		})
 	}
@@ -272,7 +274,7 @@ func bindGetAutomationTraces(detail automationDetailReader, versions automationV
 // than merely named (P3-07 DoD, F-11); where the version does not offer
 // trace/list at all, no fallback fetch is attempted, since an HA release that
 // dropped trace/list did not thereby change last_triggered or the logbook.
-func getAutomationTraces(ctx context.Context, detail automationDetailReader, versions automationVersionReader, automations automationReader, logbook logbookReader, in GetAutomationTracesInput) (model.AutomationTraceList, error) {
+func getAutomationTraces(ctx context.Context, detail automationDetailReader, versions automationVersionReader, automations automationReader, logbook logbookReader, profile policy.Profile, secrets []string, in GetAutomationTracesInput) (model.AutomationTraceList, error) {
 	if err := validateAutomationEntityID(in.EntityID); err != nil {
 		return model.AutomationTraceList{}, fmt.Errorf("get_automation_traces: %w", err)
 	}
@@ -289,7 +291,7 @@ func getAutomationTraces(ctx context.Context, detail automationDetailReader, ver
 		out.Unsupported = true
 		out.UnsupportedReason = reason
 		if errors.Is(err, ha.ErrUnsupported) {
-			attachAutomationFallback(ctx, &out, automations, logbook, entityID)
+			attachAutomationFallback(ctx, &out, automations, logbook, redact.New(profile, secrets...), entityID)
 		}
 		return out, nil
 	}
@@ -314,7 +316,7 @@ func getAutomationTraces(ctx context.Context, detail automationDetailReader, ver
 // silently rather than the whole response: a fallback that cannot itself be
 // fully served is still better than none, and this path is already the
 // degraded case.
-func attachAutomationFallback(ctx context.Context, out *model.AutomationTraceList, automations automationReader, logbook logbookReader, entityID model.EntityID) {
+func attachAutomationFallback(ctx context.Context, out *model.AutomationTraceList, automations automationReader, logbook logbookReader, redactor *redact.Redactor, entityID model.EntityID) {
 	if automations != nil {
 		if all, err := automations.Automations(ctx); err == nil {
 			for _, a := range all {
@@ -327,9 +329,35 @@ func attachAutomationFallback(ctx context.Context, out *model.AutomationTraceLis
 	}
 	if logbook != nil {
 		if events, err := logbook.LogbookEvents(ctx, entityID, time.Now().Add(-logbookFallbackWindow)); err == nil {
-			out.FallbackEvents = events
+			out.FallbackEvents = maskFallbackEvents(redactor, events)
 		}
 	}
+}
+
+// maskFallbackEvents applies the Phase 02 profile to the degraded path's
+// logbook prose (F-23, P3-09 decision). Each event is classified by its own
+// entity and masked whole: a logbook message is text HA composed from a
+// friendly name and a state, with no field boundary inside it, and searching
+// it for the entity's name or state would be branching on untrusted content
+// (CLAUDE.md rule 6). When, ContextID and the event's presence survive at
+// every classification, so the agent still learns that the automation ran and
+// when; one Redactor serves the whole response, so equal values share a token
+// as maskHistoryPoints already requires.
+func maskFallbackEvents(redactor *redact.Redactor, events []model.LogbookEvent) []model.LogbookEvent {
+	if len(events) == 0 {
+		return events
+	}
+	out := make([]model.LogbookEvent, len(events))
+	for i, ev := range events {
+		out[i] = ev
+		// The event's own entity decides, not the automation the tool was
+		// called for: the message describes whatever entity the logbook
+		// entry is about, which on the trigger's entry is the private one.
+		class := policy.ClassifyEntity(ev.EntityID)
+		out[i].Name = redactor.MaskedText(class, string(ev.EntityID), ev.Name)
+		out[i].Message = redactor.MaskedText(class, string(ev.EntityID), ev.Message)
+	}
+	return out
 }
 
 // automationTraceByteSize approximates one trace summary's serialized size

@@ -49,6 +49,10 @@ const maskedPrefix = "[masked:"
 const (
 	kindState = "state"
 	kindValue = "value"
+	// kindText names free-form prose masked as a unit — a logbook message
+	// composed by HA from a friendly name and a state, with no field
+	// boundary inside it to redact (P3-09 decision, 2026-09-05).
+	kindText = "text"
 )
 
 // maxDepth bounds the walk. HA data is untrusted (rule 6): a deeply nested
@@ -173,6 +177,28 @@ func (r *Redactor) Config(v any) Result {
 func coarsen(v float64) float64 {
 	factor := math.Pow(10, policy.CoordinateDecimals)
 	return math.Round(v*factor) / factor
+}
+
+// MaskedText applies the profile to one free-form string whose class
+// internal/policy has already decided, and whose subject entity scopes its
+// mask token. It exists for text that has no field boundary to walk — a
+// logbook message is prose, not an object — so Payload's key-driven
+// classification has nothing to key on (P3-09 decision, 2026-09-05).
+//
+// This package still classifies nothing: the caller passes the class it got
+// from internal/policy, exactly as the walker passes the one classOf
+// returned.
+func (r *Redactor) MaskedText(class policy.Sensitivity, entityID, s string) string {
+	switch r.profile.Decide(class) {
+	case policy.ActionRedact:
+		return RedactedPlaceholder
+	case policy.ActionDeny:
+		return DeniedPlaceholder
+	case policy.ActionMask:
+		return r.token(kindText, entityID, s)
+	default:
+		return r.Text(s)
+	}
 }
 
 // Text returns a string with every known secret literal replaced. Use it on

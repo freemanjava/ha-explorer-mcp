@@ -124,3 +124,14 @@ to simulate "still in flight" — a raw `net.Pipe` severed directly, bypassing
 the SDK's client object, was needed to model a process actually dying.
 **Left open:** nothing — DoD's four assertions plus `live-verify` all landed
 in this task.
+
+### 2026-09-05 · P3-09
+The degraded fallback path's logbook prose now goes through the privacy
+profile (F-23): `bindGetAutomationTraces` takes `Profile`/`Secrets`, and
+`maskFallbackEvents` masks each event's `Name` and `Message` whole via a new
+`redact.Redactor.MaskedText`, keyed by the event's own entity's class.
+**Surprise:** `Redactor.Payload` could not be reused as `maskHistoryPoints`
+does — its array branch raises the subject across *every* element, so one
+private event in a batch would have masked the whole batch under the last
+element's entity id; masking per event against one shared Redactor keeps
+tokens stable without that bleed.
