@@ -9,9 +9,7 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -108,13 +106,11 @@ func run() error {
 		AutomationDetail: core,
 		Logbook:          core,
 	})
-	// A client that closes the pipe ends the session; that is a shutdown, not
-	// a failure to report.
-	if err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, io.EOF) {
-		return err
-	}
-	log.InfoContext(ctx, "stopped")
-	return nil
+	// mcp.Run already treats any way an established session ends — cancelled
+	// context, clean disconnect, or a client dying mid-request — as a normal
+	// shutdown (P3-08, F-21); a non-nil error here means the session never
+	// started, a real failure to propagate.
+	return err
 }
 
 func logLevel(name string) (slog.Level, error) {

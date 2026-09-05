@@ -193,7 +193,7 @@ internal/mcp/      # server.go, system_tools.go, entity_tools.go, automation_too
   — filed as **F-23** rather than folded in here, since it is absent from this
   DoD and would have widened the box.
 
-- [ ] **`P3-08` — Session end is a shutdown, not a crash** `live-verify` — a
+- [x] **`P3-08` — Session end is a shutdown, not a crash** `live-verify` — a
   client that dies *while a request is in flight* closes stdin mid-session;
   `Server.Run` then returns the SDK's `jsonrpc2.ErrServerClosing`, `cmd/server`'s
   `run()` does not recognize it, and the App exits 1 (F-21). Under the Supervisor
@@ -209,6 +209,27 @@ internal/mcp/      # server.go, system_tools.go, entity_tools.go, automation_too
   established) still returns non-nil, so the fix cannot swallow a real failure;
   observed running (`live-verify`) — a real client killed mid-request leaves the
   process at exit 0.
+
+  **Closed 2026-09-05.** `internal/mcp.Run` no longer delegates to
+  `(*sdkmcp.Server).Run`, which conflates the two cases it cannot tell apart;
+  it now calls `srv.Connect` itself and treats a non-nil error from that call
+  (no session ever established) as the only real failure, while any way an
+  established session ends — cancelled context, clean disconnect, or a
+  client dying mid-request — logs "stopped" at INFO and returns nil. The new
+  unexported `run(ctx, srv, logger, transport)` takes an already-built
+  `*sdkmcp.Server` and a `sdkmcp.Transport` rather than `Options`, so a test
+  can drive a server built from `probeTable`'s tool table over a raw
+  `net.Pipe` — `NewInMemoryTransports()`'s `ClientSession.Close()` was tried
+  first and rejected: it waits for the client's own in-flight outgoing call to
+  retire before closing, which never happens once the corresponding server
+  handler is deliberately parked to simulate "mid-request", so the test
+  deadlocked on the wrong half of the scenario. `cmd/server`'s `run()` lost
+  its `io.EOF`/`context.Canceled` special-casing entirely — `mcp.Run` now
+  owns that distinction, so `cmd/server` only ever sees a non-nil error for a
+  real startup failure. Live-verified by hand-driving the built binary over a
+  real stdio pipe (`initialize` → `tools/call` → `stdin.Close()` while the
+  call is still outstanding): the process logged `"stopped" "reason":
+  "session ended" "detail":"server is closing: EOF"` at INFO and exited 0.
 
 ## Decisions
 
