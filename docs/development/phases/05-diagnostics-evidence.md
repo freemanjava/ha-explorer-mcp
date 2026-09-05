@@ -57,8 +57,10 @@ correlation and integration-health analyzers need a per-integration seam or
 stay flat. Designing them first and learning the answer afterwards is how a
 structural decision gets made on an unverified premise.
 
-- [ ] **`P5-01` · Verify mesh/Zigbee metric normalization (F-6, Q9)** —
-  `needs-verify`
+- [x] **`P5-01` · Verify mesh/Zigbee metric normalization (F-6, Q9)** —
+  `needs-verify` · **done 2026-09-05** →
+  `docs/research/2026-09-05-zigbee-mesh-metric-normalization.md`, decided as
+  **D-05-5** (flat analyzer + hint table). Raised **F-27**.
   A `devflow verify` cycle, not an implementation one. Establish, against the
   owner's actual Zigbee stack via `cmd/spike`, whether LQI/RSSI and parent
   topology are readable in a comparable shape regardless of which Zigbee
@@ -178,13 +180,50 @@ structural decision gets made on an unverified premise.
 
 ## Decisions
 
-- [ ] **`needs-verify` → decided with `P5-01` — Zigbee/mesh metric normalization**
-  Q9, F-6. Whether LQI/RSSI and parent topology normalize across ZHA and
-  Zigbee2MQTT decides whether this phase needs a per-integration diagnostic
-  plugin seam or a flat analyzer. **Not answerable from the doc and not the
-  owner's to choose** — it is reality's, so `P5-01` observes it first and this
-  entry is ticked in the same cycle with the record written: the evidence, the
-  flat-vs-plugin call, and the rejected alternative.
+- [x] **D-05-5 — Mesh metrics are read by a flat analyzer over a name/
+  `device_class` hint table, not a per-integration plugin seam**
+  Q9, F-6, decided with `P5-01`. **Evidence:**
+  `docs/research/2026-09-05-zigbee-mesh-metric-normalization.md` — the owner's
+  live Zigbee2MQTT installation plus pinned-source reading of `zha` 2.1.0 and
+  core 2026.8.3 for the ZHA half, which the owner's installation cannot answer
+  (it has zero `zha` devices).
+
+  The axis that would have forced a plugin — *where the value lives* — does not
+  disagree: both integrations expose link quality and signal strength as
+  ordinary **entities in the state machine**, with recorder history, not behind
+  an integration-private API. ZHA's `LQISensor`/`RSSISensor` are registered for
+  every device; Zigbee2MQTT's `linkquality` sensors were observed live. What
+  disagrees is only data: the entity **name** (`_lqi` vs `_linkquality`),
+  whether a **semantic marker** exists (RSSI carries `device_class:
+  signal_strength`; LQI deliberately carries none on either side), and whether
+  the entity is **enabled** (ZHA ships both `entity_registry_enabled_default =
+  False`; Zigbee2MQTT has no RSSI equivalent at all).
+
+  Decided: one flat analyzer resolves the metric by `device_class` first and a
+  named hint table (`lqi`, `linkquality`, `link_quality`, `rssi`,
+  `signal_strength`) second; the hint table is a constant with this research
+  file cited beside it. A metric that is absent — ZHA's disabled diagnostics,
+  Zigbee2MQTT's missing RSSI — is reported as `MissingEvidence` (D-05-1)
+  naming *why*, never as a zero and never as a reason to fail the call.
+
+  **Rejected:** a per-integration diagnostic plugin seam (an interface, a
+  registry and two implementations to absorb what is five strings and one
+  `device_class` lookup — speculative generality, and it would have to be
+  written against ZHA with no ZHA installation to test it on); keying off the
+  entity registry's `platform` field to branch behavior (it makes the analyzer
+  wrong for the third Zigbee integration nobody has installed yet, and CLAUDE.md
+  rule 6 already says HA-supplied strings are data, not control flow);
+  reading ZHA's richer `zha/devices` WebSocket payload (it carries `lqi`/`rssi`
+  even when the entities are disabled, but it is ZHA-only, admin-gated, and
+  outside the gateway allow-list — a genuinely per-integration path, which is
+  the thing being rejected).
+
+  **Consequence outside this decision:** `via_device_id` turned out to be a
+  coordinator/bridge **star** on both integrations (ZHA sets it to the
+  coordinator explicitly; the owner's 27-of-28 count is the same signature), so
+  "these cluster members share a `via_device` parent" is vacuous for Zigbee —
+  every device in the network shares it. That is **F-27**, against D-05-3 and
+  `P5-04`/`P5-08`, not a revision of this entry.
 
 - [x] **D-05-1 — Fact, inference and recommendation are separate *types*, not
   separate fields**
