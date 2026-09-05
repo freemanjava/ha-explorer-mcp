@@ -206,7 +206,10 @@ difference, but one that costs nothing to defer until Phase 04 closes.
 
 **Triage:** `defer`
 
-**Outcome:** Re-triaged at the 2026-08-25 `plan` and **left deferred** again on
+**Outcome:** Re-triaged at the 2026-09-05 `plan` and **left deferred** a third
+time: Phase 04 still has not closed — this `plan` is the one that queues its
+five boxes — so the statistics layer the verification needs does not exist yet.
+Re-triaged at the 2026-08-25 `plan` and **left deferred** on
 unchanged grounds. Previously re-triaged 2026-08-24 on the same grounds: Phase 04 has not closed and Phase 05
 still has no boxes. Originally re-triaged at the 2026-08-23 `plan`. It is
 owned by Phase 05's `needs-decision — Zigbee/mesh metric normalization` entry,
@@ -510,7 +513,12 @@ estimate uses the larger batched figure, so the error is conservative.
 
 **Triage:** `defer`
 
-**Outcome:** Open. Re-triaged at the 2026-08-25 `plan` and **left deferred**:
+**Outcome:** Open. Re-triaged at the 2026-09-05 `plan` and **left deferred**
+again: `P2-01`'s statistics estimate has still never bound in practice — nothing
+between `P3-02` and `P3-06` reads statistics at all — so the trigger the
+2026-08-25 deferral named has not fired. Phase 04 is the first consumer, and
+`P4-04` is where it can first bind; revisit there, not before.
+Re-triaged at the 2026-08-25 `plan` and **left deferred**:
 `P2-01` landed with the conservative batched figure and a comment saying so,
 exactly as the deferral anticipated, so nothing has changed to make resolving it
 worthwhile. Re-triaged 2026-08-24 on the then-current grounds that `P2-01` was
@@ -611,9 +619,17 @@ lets a storm through the mitigation for threat T1, too strict refuses a normal
 interactive investigation's opening fan-out. Neither can be judged without a
 sustained-arrival measurement against a real recorder.
 
-**Triage:** `defer`
+**Triage:** `queue-next`
 
-**Outcome:** Open. Deferred rather than queued because nothing consumes the
+**Outcome:** **Promoted 2026-09-05** at the `plan` the 2026-08-25 re-triage
+named as the exact revisit point — `P3-01` closed, so the limiter now runs at a
+real invocation boundary and a storm has something to hit. Planned into
+**`P2-06`** (`phases/02-policy-privacy-audit.md`), flagged `needs-verify`: the
+measurement runs first as `devflow verify`, and the constants are confirmed or
+changed against it afterwards, with their comment citing the run either way.
+Queued ahead of Phase 04 so its heavy recorder tools are written against a
+measured arrival limit rather than a derived one. It closes when `P2-06` closes.
+Previously: deferred rather than queued because nothing consumed the
 constants until `P3-01` wires the limiter, and the cheapest probe wants an MCP
 server to storm. Re-triaged at the 2026-08-25 `plan`, which queued `P3-01` as
 row 3 but did **not** promote this: the limiter still does not run anywhere, so
@@ -644,10 +660,14 @@ corrupts anything and never affects a live session.
 
 **Triage:** `queue-next`
 
-**Outcome:** Open. Belongs with the App lifecycle work rather than with a tool
-task. The likely fix is to treat any session-end error after a session was
-established as a normal shutdown at INFO, rather than to match an unreachable
-sentinel by string.
+**Outcome:** Planned 2026-09-05 into **`P3-08`**
+(`phases/03-inventory-tools.md`), which carries the fix this finding proposed —
+treat any session-end error after a session was established as a normal shutdown
+at INFO, rather than match an unreachable sentinel by message or JSON-RPC code,
+both of which an SDK release can change. It sits in Phase 03 because the code is
+`P3-01`'s, and is flagged `live-verify`: the defect was found by running the
+server, so the fix is not done until a client killed mid-request is observed
+leaving exit 0. It closes when `P3-08` closes.
 
 ### F-22 · `repairs/list_issues` has no P0 probe evidence at all · 2026-09-05
 

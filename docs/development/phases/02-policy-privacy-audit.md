@@ -174,6 +174,26 @@ internal/audit/    # logger.go
   a nested recover around the failure log line itself) so a broken sink or an
   unformattable payload cannot fail the tool call it is recording.
 
+- [ ] **`P2-06` — Measure the invocation rate limit** `needs-verify` — the two
+  constants in [`internal/policy/ratelimit.go`](../../../internal/policy/ratelimit.go)
+  (`invocationBurst = 10`, `invocationInterval = 500ms`) are the only ones in
+  this phase without a measured provenance: they are *derived* from the
+  2026-08-24 single-call run, which never measured a stream of calls (F-20).
+  `P3-01` wired the limiter into a running server, so a storm now has something
+  to hit — this is the first point at which measuring means anything. Run the
+  measurement first (`devflow verify`), then change or confirm the constants.
+  **DoD:** a `cmd/spike` probe issues a fixed-rate stream of max-page history
+  calls at three or more arrival rates spanning the current 2/s, reporting
+  recorder latency percentiles and Core CPU per rate and printing field names,
+  types and aggregates only — no installation values, no ids as map keys (F-9,
+  F-15); a dated `docs/research/` note records the run, the rates and the
+  arrival rate at which the recorder starts degrading; `invocationBurst` and
+  `invocationInterval` either keep their values or change, and in **both** cases
+  their comment cites that note instead of the 2026-08-24 derivation, so no
+  constant is left claiming a provenance it does not have; a test asserts the
+  limiter admits exactly `invocationBurst` immediate arrivals and refuses the
+  next with a `RetryAfter` consistent with `invocationInterval`.
+
 ## Decisions
 
 - [x] **PRIVATE handling — mask by default** — decided 2026-08-25

@@ -17,16 +17,29 @@ cycle. Remove a row when its task closes.
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
 | 1 | `P3-07` | `get_automation` / `get_automation_traces` | 03 | claude-sonnet-5 | |
+| 2 | `P3-08` | session end is a shutdown, not a crash | 03 | claude-sonnet-5 | `live-verify` |
+| 3 | `P2-06` | measure the invocation rate limit | 02 | claude-sonnet-5 | `needs-verify` |
+| 4 | `P4-01` | `get_entity_history` | 04 | claude-sonnet-5 | |
+| 5 | `P4-02` | availability and outage analysis | 04 | claude-opus-5 | 🧠 |
+| 6 | `P4-03` | update-cadence and staleness analysis | 04 | claude-opus-5 | 🧠 |
+| 7 | `P4-04` | `get_entity_statistics` | 04 | claude-sonnet-5 | |
+| 8 | `P4-05` | `find_unavailable_entities` / `find_stale_entities` | 04 | claude-sonnet-5 | |
 
-**Order rationale.** `P3-01` closed 2026-09-05: the static catalog, the stdio
-server and the per-invocation envelope (rate limit, budget, panic recovery,
-audit) all exist, and every one of doc §9's twenty rows is registered against a
-not-implemented handler. Each remaining Phase 03 task now swaps one or two of
-those rows for a real handler — a strictly additive change to a table, never a
-branch inside an existing tool — so the queue keeps its written order and
-`P3-07` stays last as the most compatibility-sensitive surface. Phase 04's five
-follow this queue unbroken: the catalog decision below rules out an interleaved
-release cut, so there is no reason to reorder them against Phase 03.
+**Order rationale (2026-09-05 `plan`).** Phase 03 finishes first: `P3-07` keeps
+its written last-in-phase position as the most compatibility-sensitive surface,
+and `P3-08` — the F-21 fix, the only new box this `plan` wrote for Phase 03 —
+follows it so the phase closes complete rather than with a known non-zero exit
+in it. `P2-06` then sits between the phases on purpose: it is the F-20
+measurement, whose revisit point the 2026-08-25 `plan` fixed as "the `plan`
+after `P3-01` closes", and Phase 04's tools are the heaviest recorder callers
+this server will ever make — writing them against an arrival limit nobody
+measured is exactly the guess the finding names. Phase 04's five then run in
+their written order, which is a real dependency chain: `P4-01` fetches,
+`P4-02`/`P4-03` compute over what it fetches, `P4-04` exposes both as one tool,
+and `P4-05` applies them installation-wide. Nothing here is flagged
+`needs-verify` on `P2-06`'s result: the rate limit bounds how fast invocations
+arrive, not what any Phase 04 tool computes, so a changed constant re-tunes the
+envelope without re-opening a box.
 
 **Four decisions settled 2026-08-25.** *Transport:* **stdio only** — no
 listening port, no client-auth subsystem, and every log line goes to stderr
@@ -60,8 +73,8 @@ done
 |------:|-------|:------------:|
 | 00 | Spike & Foundations | 15 / 15 |
 | 01 | HA Access & Read-Only Gateway | 10 / 10 |
-| 02 | Policy, Privacy, Budget & Audit | 6 / 7 |
-| 03 | MCP Server & Inventory Tools | 7 / 8 |
+| 02 | Policy, Privacy, Budget & Audit | 6 / 8 |
+| 03 | MCP Server & Inventory Tools | 7 / 9 |
 | 04 | History, Statistics & Detection | 0 / 5 |
 | 05 | Diagnostics & Evidence Engine | 0 / 1 |
 | 06 | Proposal Mode — gated | 0 / 1 |
@@ -74,15 +87,18 @@ closed 2026-08-25: `SupervisorClient` and its own route allow-list in
 `internal/ha`, `addon/config.yaml` flipped to `hassio_api: true`. Phase 02's one
 remaining open box is the Q10 persistence decision — `P2-05` closed 2026-08-25.
 Phase 03's seven ticks are its catalog-scope decision, `P3-01`, `P3-02`,
-`P3-03`, `P3-04`, `P3-05` and `P3-06`, closed 2026-09-05.
+`P3-03`, `P3-04`, `P3-05` and `P3-06`, closed 2026-09-05. Both totals grew by
+one at the 2026-09-05 `plan`, which wrote `P2-06` (the F-20 rate-limit
+measurement) and `P3-08` (the F-21 non-zero exit): new work does not reopen a
+phase, it simply leaves it with open boxes again.
 
 Phases 00–04 are milestone M1 (v1 observer). Phase 05 is M2. Phases 06–07 are
 gated: they open only on an explicit owner decision plus a fresh security review.
 Phases 05–07 carry no task boxes yet — theirs are written by `devflow plan` when
 the phase before them closes.
 
-Last refreshed: 2026-09-05 (`P3-06` closed — `list_repairs` lands; pointer
-advanced to `P3-07`)
+Last refreshed: 2026-09-05 (`plan` — Phase 04's five queued behind Phase 03,
+two new boxes written from the findings inbox; pointer unchanged at `P3-07`)
 
 ## Open findings
 
@@ -90,7 +106,7 @@ advanced to `P3-07`)
      grep -c '^\*\*Triage:\*\* `queue-next`' docs/development/FINDINGS.md  (etc.)
      This block exists so captured work cannot quietly rot: every session sees it. -->
 
-`blocks-active` 0 · `queue-next` 2 · `defer` 3 · `unknown` 3 (open)
+`blocks-active` 0 · `queue-next` 3 · `defer` 2 · `unknown` 3 (open)
 
 > Any `blocks-active` is stop-work. If `queue-next` is non-zero and the queue
 > above has fewer than 3 rows, drain it with `devflow plan` before continuing —
@@ -99,24 +115,19 @@ advanced to `P3-07`)
 > An open `unknown` outranks the queue: it is an assumption the plan already
 > rests on. Run `devflow verify` before building further on it.
 
-**F-22 closed 2026-09-05** by `devflow verify`: `repairs/list_issues` is
-confirmed reachable and not admin-gated on `2026.9.0`. See the Active
-pointer's note above and
-[`2026-09-05-ha-repairs-api.md`](../research/2026-09-05-ha-repairs-api.md).
+**Inbox drained 2026-09-05.** All three `queue-next` are now planned and each
+closes with its task, not before: **F-11** with `P3-07` (row 1), **F-21** with
+the new `P3-08` (row 2), **F-20** with the new `P2-06` (row 3). F-20 was
+promoted out of `defer` at exactly the revisit point its own outcome named —
+`P3-01` closed, so the rate limiter finally runs somewhere a storm can reach it.
 
-Two `queue-next` are open. **F-11** was already planned into `P3-07` (now queue
-row 6) plus a Phase 05 §13.1 bullet — it closes when `P3-07` closes, not now.
-**F-21** is new from `P3-01`: a client that disconnects mid-request makes the
-App exit non-zero, and the SDK sentinel that would identify it is in an
-`internal/` package. It belongs with the App lifecycle work, not with a tool
-task, so it waits for the next `plan`.
+Two `defer`s remain, re-triaged and deferred again on grounds that have not
+changed: **F-6** — Phase 04 has not closed, so the statistics layer its
+verification needs still does not exist · **F-17** — nothing has read statistics
+yet, so `P2-01`'s conservative estimate has never bound; `P4-04` is the first
+place it can, and that is where to revisit it.
 
-All three `defer`s were re-triaged and stay deferred: **F-6** (Phase 05 owns
-it) · **F-17** — `P2-01` landed with the conservative batched figure and a
-comment saying so, exactly as the deferral anticipated · **F-20** — the
-invocation rate limit's constants are still unmeasured, and `P3-01` is what
-first wires the limiter into a running server, so the earliest honest point to
-measure them is the `plan` after `P3-01` closes — which is now the next one.
+The three open `unknown`s are F-6, F-17 and F-20; only F-20 has a task.
 
 ## Recent
 

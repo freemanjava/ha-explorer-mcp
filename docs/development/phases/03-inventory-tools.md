@@ -155,6 +155,23 @@ internal/mcp/      # server.go, system_tools.go, entity_tools.go, automation_too
   with a mutated response shape (simulating an HA upgrade) fails loudly rather
   than mapping garbage into the domain model (Appendix B).
 
+- [ ] **`P3-08` — Session end is a shutdown, not a crash** `live-verify` — a
+  client that dies *while a request is in flight* closes stdin mid-session;
+  `Server.Run` then returns the SDK's `jsonrpc2.ErrServerClosing`, `cmd/server`'s
+  `run()` does not recognize it, and the App exits 1 (F-21). Under the Supervisor
+  a non-zero exit reads as a crash and, with a restart policy, triggers a
+  restart. The sentinel is unreachable — it lives in the SDK's `internal/`
+  package — so the fix is to treat *any* session-end error after a session was
+  established as a normal shutdown logged at INFO, not to match a message string
+  or the JSON-RPC code, both of which an SDK release can change under us.
+  **DoD:** a test drives the server over a pipe, closes the client end with a
+  request in flight, and asserts `run()` returns nil and logs the shutdown at
+  INFO; the clean between-requests disconnect still returns nil; an error that is
+  *not* a session end (a startup or transport failure before any session was
+  established) still returns non-nil, so the fix cannot swallow a real failure;
+  observed running (`live-verify`) — a real client killed mid-request leaves the
+  process at exit 0.
+
 ## Decisions
 
 - [x] **Tool catalog scope for the first usable release — the full twenty** — decided 2026-08-25
