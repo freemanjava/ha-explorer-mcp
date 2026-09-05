@@ -39,6 +39,11 @@ const (
 	// list endpoint and selects in-process.
 	CommandConfigEntriesGet = "config_entries/get"
 
+	// Repairs/issues. Unlike the automation surface, confirmed reachable by
+	// both an admin and a non-admin principal
+	// (docs/research/2026-09-05-ha-repairs-api.md, F-22).
+	CommandRepairsListIssues = "repairs/list_issues"
+
 	// Automations and traces. Every one of these is admin-gated by HA
 	// (P0-05); a non-admin principal gets `unauthorized`, which the layers
 	// above must surface as unsupported rather than as an empty answer.
@@ -75,6 +80,7 @@ var allowedCommands = map[string]struct{}{
 	CommandLabelRegistryList:            {},
 	CommandCategoryRegistryList:         {},
 	CommandConfigEntriesGet:             {},
+	CommandRepairsListIssues:            {},
 	CommandAutomationConfig:             {},
 	CommandTraceList:                    {},
 	CommandTraceGet:                     {},

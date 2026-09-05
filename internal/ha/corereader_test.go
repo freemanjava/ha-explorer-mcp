@@ -85,6 +85,42 @@ func TestCoreReader_States_ReturnsPerEntityState(t *testing.T) {
 	}
 }
 
+func TestCoreReader_Automations_FiltersToAutomationDomain(t *testing.T) {
+	fc := newFakeCaller()
+	fc.set(CommandGetStates, json.RawMessage(`[
+		{"entity_id":"automation.morning","state":"on","attributes":{"friendly_name":"Morning","last_triggered":"2026-09-01T12:00:00+00:00"}},
+		{"entity_id":"light.kitchen","state":"on","attributes":{}}
+	]`))
+
+	automations, err := NewCoreReader(fc).Automations(testCtx(t))
+	if err != nil {
+		t.Fatalf("Automations: %v", err)
+	}
+	if len(automations) != 1 || automations[0].EntityID != "automation.morning" {
+		t.Fatalf("Automations = %+v, want only automation.morning", automations)
+	}
+	if !automations[0].Enabled {
+		t.Errorf("automation.morning Enabled = false, want true")
+	}
+}
+
+func TestCoreReader_Repairs_MapsIssues(t *testing.T) {
+	fc := newFakeCaller()
+	fc.set(CommandRepairsListIssues, json.RawMessage(`{
+		"issues": [
+			{"issue_id": "deprecated_setting", "domain": "sun", "severity": "warning", "created": "2026-09-01T12:00:00+00:00"}
+		]
+	}`))
+
+	repairs, err := NewCoreReader(fc).Repairs(testCtx(t))
+	if err != nil {
+		t.Fatalf("Repairs: %v", err)
+	}
+	if len(repairs) != 1 || repairs[0].IssueID != "deprecated_setting" {
+		t.Fatalf("Repairs = %+v, want one deprecated_setting entry", repairs)
+	}
+}
+
 func TestCoreReader_UpstreamError_Propagates(t *testing.T) {
 	fc := newFakeCaller()
 	fc.err = ErrUpstreamUnavailable
@@ -100,5 +136,11 @@ func TestCoreReader_UpstreamError_Propagates(t *testing.T) {
 	}
 	if _, err := NewCoreReader(fc).States(testCtx(t)); err == nil {
 		t.Fatal("States swallowed the upstream error")
+	}
+	if _, err := NewCoreReader(fc).Automations(testCtx(t)); err == nil {
+		t.Fatal("Automations swallowed the upstream error")
+	}
+	if _, err := NewCoreReader(fc).Repairs(testCtx(t)); err == nil {
+		t.Fatal("Repairs swallowed the upstream error")
 	}
 }

@@ -3,7 +3,7 @@
 <!-- BOUNDED FILE — rewritten in place, never appended to. Keep under ~100 lines.
      Anything that grows goes to journal/. This file is read by every session. -->
 
-**▶ Active:** `P3-06` — `list_areas` / `list_automations` / `list_repairs` / `list_apps`
+**▶ Active:** `P3-07` — `get_automation` / `get_automation_traces`
 · [`phases/03-inventory-tools.md`](phases/03-inventory-tools.md) · model: **claude-sonnet-5** · flags: —
 
 > Advancing this pointer is part of finishing a task, together with ticking the
@@ -16,8 +16,7 @@ cycle. Remove a row when its task closes.
 
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
-| 1 | `P3-06` | `list_areas` / `list_automations` / `list_repairs` / `list_apps` | 03 | claude-sonnet-5 | |
-| 2 | `P3-07` | `get_automation` / `get_automation_traces` | 03 | claude-sonnet-5 | |
+| 1 | `P3-07` | `get_automation` / `get_automation_traces` | 03 | claude-sonnet-5 | |
 
 **Order rationale.** `P3-01` closed 2026-09-05: the static catalog, the stdio
 server and the per-invocation envelope (rate limit, budget, panic recovery,
@@ -62,7 +61,7 @@ done
 | 00 | Spike & Foundations | 15 / 15 |
 | 01 | HA Access & Read-Only Gateway | 10 / 10 |
 | 02 | Policy, Privacy, Budget & Audit | 6 / 7 |
-| 03 | MCP Server & Inventory Tools | 6 / 8 |
+| 03 | MCP Server & Inventory Tools | 7 / 8 |
 | 04 | History, Statistics & Detection | 0 / 5 |
 | 05 | Diagnostics & Evidence Engine | 0 / 1 |
 | 06 | Proposal Mode — gated | 0 / 1 |
@@ -74,15 +73,16 @@ decisions, both settled 2026-08-25. **Phase 01 is now fully ticked** — `P1-08`
 closed 2026-08-25: `SupervisorClient` and its own route allow-list in
 `internal/ha`, `addon/config.yaml` flipped to `hassio_api: true`. Phase 02's one
 remaining open box is the Q10 persistence decision — `P2-05` closed 2026-08-25.
-Phase 03's six ticks are its catalog-scope decision, `P3-01`, `P3-02`,
-`P3-03`, `P3-04` and `P3-05`, closed 2026-09-05.
+Phase 03's seven ticks are its catalog-scope decision, `P3-01`, `P3-02`,
+`P3-03`, `P3-04`, `P3-05` and `P3-06`, closed 2026-09-05.
 
 Phases 00–04 are milestone M1 (v1 observer). Phase 05 is M2. Phases 06–07 are
 gated: they open only on an explicit owner decision plus a fresh security review.
 Phases 05–07 carry no task boxes yet — theirs are written by `devflow plan` when
 the phase before them closes.
 
-Last refreshed: 2026-09-05 (`devflow next` — `P3-05` closed, pointer advanced to `P3-06`)
+Last refreshed: 2026-09-05 (`P3-06` closed — `list_repairs` lands; pointer
+advanced to `P3-07`)
 
 ## Open findings
 
@@ -98,6 +98,11 @@ Last refreshed: 2026-09-05 (`devflow next` — `P3-05` closed, pointer advanced 
 >
 > An open `unknown` outranks the queue: it is an assumption the plan already
 > rests on. Run `devflow verify` before building further on it.
+
+**F-22 closed 2026-09-05** by `devflow verify`: `repairs/list_issues` is
+confirmed reachable and not admin-gated on `2026.9.0`. See the Active
+pointer's note above and
+[`2026-09-05-ha-repairs-api.md`](../research/2026-09-05-ha-repairs-api.md).
 
 Two `queue-next` are open. **F-11** was already planned into `P3-07` (now queue
 row 6) plus a Phase 05 §13.1 bullet — it closes when `P3-07` closes, not now.
@@ -117,6 +122,22 @@ measure them is the `plan` after `P3-01` closes — which is now the next one.
 
 Last 5 closed tasks, one line each. Older entries live in `journal/`.
 
+- 2026-09-05 · `P3-06` — `list_areas`, `list_automations`, `list_repairs` and
+  `list_apps` land, closing the phase's last inventory-breadth task:
+  `list_repairs` was the piece left after F-22's `devflow verify` confirmed
+  `repairs/list_issues` reachable at any principal
+  ([`2026-09-05-ha-repairs-api.md`](../research/2026-09-05-ha-repairs-api.md));
+  `gateway.go` allow-lists it, `internal/model.Repair`/`RepairList` and
+  `internal/ha.MapRepairs`/`MapRepair` unwrap its `{"issues": [...]}` object
+  shape (not a bare array) and mark an element `Partial` on a missing
+  `issue_id`/`domain`/`severity`/`created`; `translation_placeholders` is
+  carried as opaque `map[string]any`, defaulted to `{}` rather than `nil`
+  because the MCP SDK's schema validation requires the declared `object` type
+  even when HA sent nothing; `internal/mcp/repair_tools.go` sorts by
+  `issue_id` and pages like every other `list_*` tool, with no filter beyond
+  pagination; a failed upstream call is a real tool error, not degraded to
+  `Unsupported` — unlike `list_apps`, this surface has no permission-refused
+  branch.
 - 2026-09-05 · `P3-05` — `list_entities` and `get_entity` land: `internal/ha`
   gains `MapEntityStateValues`/`CoreReader.States`, a per-entity current-state
   read deliberately unlike the aggregate-only readers P3-02/P3-03 added,
@@ -173,14 +194,6 @@ Last 5 closed tasks, one line each. Older entries live in `journal/`.
   than serving a partially-filled report; `cmd/server/main.go` now actually
   connects to Core (`ws://supervisor/core/websocket`) and Supervisor for the
   first time in this project's life.
-- 2026-09-05 · `P3-01` — `internal/mcp`: the static twenty-row catalog (doc §9,
-  in doc order) with a budget class on every row, so "registered without a
-  budget" is not a state the type can express; the stdio server registers each
-  row read-only-annotated, and one receiving middleware gives every invocation
-  rate limiting, a class budget with its deadline, panic recovery and an audit
-  record whichever way it ends; an uncatalogued name is denied before dispatch;
-  rows without a handler yet answer `not implemented in this build`, never
-  `unsupported`; `cmd/server` now runs it, logging to stderr only.
 
 ## Project facts
 

@@ -2,8 +2,9 @@
 // Home Assistant which read commands actually exist, what they answer with, and
 // what they cost on the installation the owner actually runs.
 //
-// This revision serves P0-09 (F-14): what the queries a fleet-wide detector
-// issues actually cost. P0-07 measured every query against exactly one entity
+// This revision still carries P0-09 (F-14)'s multi-entity cost ladder — what
+// the queries a fleet-wide detector issues actually cost. P0-07 measured every
+// query against exactly one entity
 // (docs/research/2026-08-23-ha-history-statistics.md), so whether
 // history/history_during_period and recorder/statistics_during_period scale
 // linearly in the number of entity ids — and whether one batched call beats N
@@ -11,12 +12,18 @@
 // 50 and 200 ids over a 24h and a 7d window, each against the summed cost of
 // the equivalent single-entity calls.
 //
+// Despite the doc comments below still describing it as Phase 00's throwaway,
+// this binary was not deleted when that phase closed: NEXT.md now treats it as
+// the reusable probe vehicle every later task's world-discoverable unknowns
+// route through (the owner runs it against their own installation and pastes
+// the report back — no HA token ever reaches the agent). probeRepairs below,
+// added for F-22, is the first such addition after Phase 00.
+//
 // It is deliberately not built on internal/ha's Client. That package has no
 // generic "send any command" method and must not grow one: Phase 01's gateway
 // allow-list is what decides which commands may ever leave the process, and a
 // general sender added before it exists is exactly the escape hatch CLAUDE.md
-// rule 2 forbids. The spike dials and authenticates on its own, and is deleted
-// when Phase 00 closes.
+// rule 2 forbids. The spike dials and authenticates on its own.
 //
 // Output is a markdown report containing field names, types, counts, sizes and
 // timings only — never a value or an id from the installation, and never the
@@ -129,12 +136,13 @@ func run() error {
 	defer cancel()
 
 	out := &report{}
-	out.writef("# P0-09 probe — multi-entity history & statistics cost\n\n")
+	out.writef("# spike probe\n\n")
 	out.writef("Run at %s (UTC)\n\n", time.Now().UTC().Format(time.RFC3339))
-	out.writef("Every query is bounded to an explicit window and an explicit id list. "+
-		"Each batched call is measured twice (cold, then warm); the single-entity "+
-		"baseline is measured once per id and prefix-summed, so a rung of N is compared "+
-		"against exactly those N ids. Windows: %s and %s. Statistics buckets: `%s`.\n\n",
+	out.writef("Always run: run context (admin?, entity count), `repairs/list_issues` (F-22). "+
+		"Set `SPIKE_COST_LADDER=1` to also re-run P0-09's multi-entity history/statistics cost "+
+		"ladder: every query bounded to an explicit window and id list, batched calls measured "+
+		"twice (cold, then warm) against a prefix-summed single-entity baseline. Windows: %s and "+
+		"%s. Statistics buckets: `%s`.\n\n",
 		dayWindow, weekWindow, statisticsPeriod)
 
 	if err := probeConfigREST(ctx, out, baseURL, token); err != nil {
@@ -155,6 +163,20 @@ func run() error {
 		return err
 	}
 	red.add(entityIDs...)
+
+	probeRepairs(ctx, out, conn, ids, red)
+
+	// The P0-09 cost ladder answered its own question once
+	// (docs/research/2026-08-24-ha-multi-entity-query-cost.md) and costs up to
+	// runBudget to re-run: hundreds of calls at up to 200 ids, several minutes
+	// wide. Re-running it on every later probe (F-22's repairs check among
+	// them) would make each one of those cost the same as the original
+	// measurement to answer an unrelated question. It is opt-in, not default.
+	if os.Getenv("SPIKE_COST_LADDER") == "" {
+		out.writef("## Multi-entity cost ladder (P0-09)\n\nSkipped — set `SPIKE_COST_LADDER=1` to re-run it.\n\n")
+		fmt.Print(out.String())
+		return nil
+	}
 
 	statisticIDs, err := probeStatisticTargets(ctx, out, conn, ids)
 	if err != nil {
@@ -204,6 +226,26 @@ func probeTargets(ctx context.Context, out *report, conn *websocket.Conn, ids *i
 	out.writef("History ladder uses %d entity ids (%d of them numeric `sensor.*`): rungs %v.\n\n",
 		len(targets), countNumericSensors(list), ladder(len(targets)))
 	return targets, nil
+}
+
+// probeRepairs asks whether `repairs/list_issues` — the command name the
+// architecture doc §9/§23 assumes for list_repairs — exists on this
+// installation and at this principal, and what it answers with. Unlike every
+// other command this project allow-lists, no Phase 00 probe ever exercised
+// this one (F-22): `P3-06` was suspended rather than allow-listing a command
+// nobody had observed answering. A transport failure or a non-OK status is
+// itself the result, not a probe defect — report it, do not retry it away.
+func probeRepairs(ctx context.Context, out *report, conn *websocket.Conn, ids *idSeq, red *redactor) {
+	out.writef("## WebSocket `repairs/list_issues` (F-22)\n\n")
+	res, err := wsCall(ctx, conn, ids, map[string]any{"type": "repairs/list_issues"})
+	if err != nil {
+		out.writef("TRANSPORT FAILURE: %v\n\n", err)
+		return
+	}
+	out.writef("Status: %s (%d bytes, %s)\n\n", red.apply(res.status), res.bytes, res.elapsed)
+	if res.decoded != nil {
+		out.writef("```\n%s```\n\n", red.apply(renderShape(shapeOf(res.decoded))))
+	}
 }
 
 // probeStatisticTargets collects the statistic ids the statistics ladder uses.

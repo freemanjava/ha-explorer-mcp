@@ -59,6 +59,18 @@ type Options struct {
 	// list_entities/get_entity (P3-05). Nil leaves those two rows "not
 	// implemented in this build".
 	States entityStateReader
+
+	// Areas reads the area registry plus the floor/label registries for
+	// list_areas (P3-06). Nil leaves that row "not implemented in this
+	// build".
+	Areas areaRegistryReader
+	// Automations reads get_states' automation-domain entries for
+	// list_automations (P3-06), the confirmed non-admin fallback source. Nil
+	// leaves that row "not implemented in this build".
+	Automations automationReader
+	// Repairs reads repairs/list_issues for list_repairs (P3-06), reachable
+	// at any principal. Nil leaves that row "not implemented in this build".
+	Repairs repairReader
 }
 
 // NewServer builds the MCP server over the static catalog: every tool doc §9
@@ -87,6 +99,10 @@ func newServer(opts Options, tools []Tool) *sdkmcp.Server {
 	tools = withIntegrationTools(tools, opts)
 	tools = withDeviceTools(tools, opts)
 	tools = withEntityTools(tools, opts)
+	tools = withAreaTools(tools, opts)
+	tools = withAutomationTools(tools, opts)
+	tools = withRepairTools(tools, opts)
+	tools = withAppTools(tools, opts)
 	for _, t := range tools {
 		register(srv, t)
 	}

@@ -96,7 +96,7 @@ internal/mcp/      # server.go, system_tools.go, entity_tools.go, automation_too
   instruction text returns it as inert data — a test asserts it is never
   interpreted (threat T2).
 
-- [ ] **`P3-06` — `list_areas`, `list_automations`, `list_repairs`,
+- [x] **`P3-06` — `list_areas`, `list_automations`, `list_repairs`,
   `list_apps`** — area/floor/label topology, automation inventory
   with enabled state and `last_triggered`, native HA Repairs/issues, and the
   Supervisor App inventory. `list_apps` is implementable rather than permanently
@@ -104,6 +104,33 @@ internal/mcp/      # server.go, system_tools.go, entity_tools.go, automation_too
   payload embeds the installed-App inventory; that embedded list is its only
   enumeration path, and no `*/stats` is available, so per-App resource use is out
   of scope.
+
+  **2026-09-05: `list_areas`, `list_automations` and `list_apps` landed.**
+  `list_repairs` was briefly suspended on F-22 (`repairs/list_issues` had no
+  P0 probe evidence at all — not allow-listed, not in `cmd/spike`, not in any
+  research doc, unlike every other command this phase needed) and is now
+  unblocked: `devflow verify` confirmed the command exists on `2026.9.0` and
+  answers identically for an admin and a non-admin principal — unlike the
+  automation surface, it is **not** admin-gated. Evidence:
+  [`2026-09-05-ha-repairs-api.md`](../../research/2026-09-05-ha-repairs-api.md).
+  `gateway.go` may now allow-list `repairs/list_issues` on the same footing as
+  every other entry; `list_repairs` itself remains to implement.
+
+  **2026-09-05: `list_repairs` lands, closing `P3-06`.** `gateway.go`
+  allow-lists `repairs/list_issues`; `internal/model.Repair`/`RepairList` and
+  `internal/ha.MapRepairs`/`MapRepair` unwrap the `{"issues": [...]}` object
+  the research doc observed — not a bare array — and map each element
+  permissively, marking it `Partial` on a missing `issue_id`/`domain`/
+  `severity`/`created` rather than aborting the scan; `translation_placeholders`
+  is carried as an opaque `map[string]any` (rule 6), defaulted to `{}` rather
+  than `nil` so the field survives the MCP SDK's schema validation, which
+  requires the declared `object` type even when HA sent nothing (a `nil` map
+  marshals to JSON `null`); `CoreReader.Repairs` fetches and maps it;
+  `internal/mcp/repair_tools.go` sorts by `issue_id` and pages like every
+  other `list_*` tool, with no filter beyond pagination (the DoD asks only for
+  provenance and per-item severity/issue id); a failed upstream call is a real
+  tool error (`IsError`), not degraded to `Unsupported` — unlike `list_apps`,
+  this surface has no permission-refused branch to distinguish.
   **DoD:** each is paginated and provenance-stamped; `list_apps` enumerates from
   `/supervisor/info` and returns `unsupported` (not empty) when Supervisor is
   unreachable — a test asserts the two cases are distinguishable in the response;

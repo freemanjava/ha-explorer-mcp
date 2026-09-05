@@ -101,6 +101,9 @@ func run() error {
 		Supervisor:   supervisor,
 		Availability: core,
 		States:       core,
+		Areas:        registry,
+		Automations:  core,
+		Repairs:      core,
 	})
 	// A client that closes the pipe ends the session; that is a shutdown, not
 	// a failure to report.

@@ -55,6 +55,30 @@ func (r *CoreReader) UnavailableEntityIDs(ctx context.Context) (map[model.Entity
 	return MapUnavailableEntityIDs(raw)
 }
 
+// Automations returns get_states filtered and mapped to one summary per
+// automation-domain entity, for list_automations (P3-06) — the confirmed
+// non-admin fallback (enabled state and last_triggered), not
+// automation/config's admin-gated detail get_automation (P3-07) reaches
+// instead.
+func (r *CoreReader) Automations(ctx context.Context) ([]model.AutomationSummary, error) {
+	raw, err := r.call.Call(ctx, BareCommand(CommandGetStates))
+	if err != nil {
+		return nil, err
+	}
+	return MapAutomationStates(raw)
+}
+
+// Repairs returns repairs/list_issues mapped to one Repair per issue, for
+// list_repairs (P3-06) — reachable at any principal, admin or not
+// (docs/research/2026-09-05-ha-repairs-api.md).
+func (r *CoreReader) Repairs(ctx context.Context) ([]model.Repair, error) {
+	raw, err := r.call.Call(ctx, BareCommand(CommandRepairsListIssues))
+	if err != nil {
+		return nil, err
+	}
+	return MapRepairs(raw)
+}
+
 // States returns get_states mapped to each entity's current state string,
 // keyed by id — for list_entities and get_entity (P3-05), whose job is
 // reporting individual current state rather than an aggregate.

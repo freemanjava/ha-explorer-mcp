@@ -20,6 +20,8 @@ const (
 	deviceRegistryTTL = 5 * time.Minute
 	areaRegistryTTL   = 5 * time.Minute
 	configEntriesTTL  = 3 * time.Minute
+	floorRegistryTTL  = 5 * time.Minute
+	labelRegistryTTL  = 5 * time.Minute
 )
 
 // caller is the subset of *Manager a RegistryCache needs. Kept narrow
@@ -45,6 +47,8 @@ type RegistryCache struct {
 	devices       *cachedValue[[]model.DeviceRef]
 	areas         *cachedValue[[]model.Area]
 	configEntries *cachedValue[[]model.Integration]
+	floors        *cachedValue[[]model.Floor]
+	labels        *cachedValue[[]model.Label]
 }
 
 // NewRegistryCache returns a cache that fetches through call.
@@ -55,6 +59,8 @@ func NewRegistryCache(call caller) *RegistryCache {
 		devices:       newCachedValue[[]model.DeviceRef](deviceRegistryTTL),
 		areas:         newCachedValue[[]model.Area](areaRegistryTTL),
 		configEntries: newCachedValue[[]model.Integration](configEntriesTTL),
+		floors:        newCachedValue[[]model.Floor](floorRegistryTTL),
+		labels:        newCachedValue[[]model.Label](labelRegistryTTL),
 	}
 }
 
@@ -91,6 +97,31 @@ func (c *RegistryCache) Areas(ctx context.Context) ([]model.Area, time.Time, err
 			return nil, err
 		}
 		return MapAreaRegistryList(raw)
+	})
+}
+
+// Floors returns the floor registry, refetching if the cached copy has
+// expired. Its element schema is unverified (see model.Floor) — MapFloor
+// degrades an entry to Partial rather than trusting an assumed shape.
+func (c *RegistryCache) Floors(ctx context.Context) ([]model.Floor, time.Time, error) {
+	return c.floors.Get(ctx, func(ctx context.Context) ([]model.Floor, error) {
+		raw, err := c.call.Call(ctx, BareCommand(CommandFloorRegistryList))
+		if err != nil {
+			return nil, err
+		}
+		return MapFloorRegistryList(raw)
+	})
+}
+
+// Labels returns the label registry, refetching if the cached copy has
+// expired. Same unverified-schema caveat as Floors.
+func (c *RegistryCache) Labels(ctx context.Context) ([]model.Label, time.Time, error) {
+	return c.labels.Get(ctx, func(ctx context.Context) ([]model.Label, error) {
+		raw, err := c.call.Call(ctx, BareCommand(CommandLabelRegistryList))
+		if err != nil {
+			return nil, err
+		}
+		return MapLabelRegistryList(raw)
 	})
 }
 
