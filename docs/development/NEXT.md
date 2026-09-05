@@ -3,7 +3,7 @@
 <!-- BOUNDED FILE — rewritten in place, never appended to. Keep under ~100 lines.
      Anything that grows goes to journal/. This file is read by every session. -->
 
-**▶ Active:** `P4-06` — doc §12.1's example statistics made self-consistent
+**▶ Active:** `P4-04` — `get_entity_statistics`
 · [`phases/04-history-statistics.md`](phases/04-history-statistics.md) · model: **claude-sonnet-5** · flags: —
 
 > Advancing this pointer is part of finishing a task, together with ticking the
@@ -16,10 +16,9 @@ cycle. Remove a row when its task closes.
 
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
-| 1 | `P4-06` | doc §12.1 made self-consistent (F-24) | 04 | claude-sonnet-5 | |
-| 2 | `P4-04` | `get_entity_statistics` | 04 | claude-sonnet-5 | |
-| 3 | `P3-09` | fallback logbook events go through the privacy profile (F-23) | 03 | claude-opus-5 | 🧠 |
-| 4 | `P4-05` | `find_unavailable_entities` / `find_stale_entities` | 04 | claude-sonnet-5 | |
+| 1 | `P4-04` | `get_entity_statistics` | 04 | claude-sonnet-5 | |
+| 2 | `P3-09` | fallback logbook events go through the privacy profile (F-23) | 03 | claude-opus-5 | 🧠 |
+| 3 | `P4-05` | `find_unavailable_entities` / `find_stale_entities` | 04 | claude-sonnet-5 | |
 
 **Order rationale (2026-09-05 `plan` #2 — the inbox-draining one).** Nothing new
 was scoped; this `plan` queued the two open findings and re-triaged the two
@@ -72,7 +71,7 @@ done
 | 01 | HA Access & Read-Only Gateway | 10 / 10 |
 | 02 | Policy, Privacy, Budget & Audit | 7 / 8 |
 | 03 | MCP Server & Inventory Tools | 10 / 11 |
-| 04 | History, Statistics & Detection | 3 / 6 |
+| 04 | History, Statistics & Detection | 4 / 6 |
 | 05 | Diagnostics & Evidence Engine | 0 / 1 |
 | 06 | Proposal Mode — gated | 0 / 1 |
 | 07 | Controlled Change (Admin) — gated | 0 / 1 |
@@ -81,15 +80,15 @@ Counts include each phase's decision entries, which are boxes too. Phases 00 and
 01 are fully ticked. Phase 02's one open box is the Q10 persistence decision.
 **Phase 03 is open again at 10/11** — not reopened, it simply has a box again:
 `P3-09`, the F-23 privacy fix, plus its already-settled decision record. Phase 04
-gained `P4-06` (F-24's doc fix), so it is 3/6, not 3/5.
+is 4/6: `P4-06` (F-24's doc fix) closed 2026-09-05.
 
 Phases 00–04 are milestone M1 (v1 observer). Phase 05 is M2. Phases 06–07 are
 gated: they open only on an explicit owner decision plus a fresh security review.
 Phases 05–07 carry no task boxes yet — theirs are written by `devflow plan` when
 the phase before them closes.
 
-Last refreshed: 2026-09-05 (`plan` — inbox drained: F-23 → `P3-09`, F-24 →
-`P4-06`; pointer moved to `P4-06`)
+Last refreshed: 2026-09-05 (`next` — `P4-06` closed, F-24 resolved; pointer
+moved to `P4-04`)
 
 ## Open findings
 
@@ -97,7 +96,7 @@ Last refreshed: 2026-09-05 (`plan` — inbox drained: F-23 → `P3-09`, F-24 →
      grep -c '^\*\*Triage:\*\* `queue-next`' docs/development/FINDINGS.md  (etc.)
      This block exists so captured work cannot quietly rot: every session sees it. -->
 
-`blocks-active` 0 · `queue-next` 2 · `defer` 2 · `unknown` 2 (open)
+`blocks-active` 0 · `queue-next` 1 · `defer` 2 · `unknown` 2 (open)
 
 > Any `blocks-active` is stop-work. If `queue-next` is non-zero and the queue
 > above has fewer than 3 rows, drain it with `devflow plan` before continuing —
@@ -106,18 +105,23 @@ Last refreshed: 2026-09-05 (`plan` — inbox drained: F-23 → `P3-09`, F-24 →
 > An open `unknown` outranks the queue: it is an assumption the plan already
 > rests on. Run `devflow verify` before building further on it.
 
-Both `queue-next`s now have tasks in the queue above (F-23 → `P3-09`, F-24 →
-`P4-06`); each closes when its task does, not now. The two `defer`s are the two
-open `unknown`s, re-triaged this `plan` and left deferred on trigger conditions
-that have not fired: **F-17** (batched statistics ~30% larger) is revisited when
-`P4-04` closes — the first consumer of statistics, and the first place `P2-01`'s
-estimate can bind · **F-6** (Zigbee metric normalization) waits on Phase 04
-closing and on Phase 05 having boxes to consume the answer.
+`F-24` closed with `P4-06`. The remaining `queue-next` (F-23) has its task in
+the queue above (`P3-09`) and closes when that does. The two `defer`s are the
+two open `unknown`s, re-triaged 2026-09-05's `plan` and left deferred on
+trigger conditions that have not fired: **F-17** (batched statistics ~30%
+larger) is revisited when `P4-04` closes — the first consumer of statistics,
+and the first place `P2-01`'s estimate can bind · **F-6** (Zigbee metric
+normalization) waits on Phase 04 closing and on Phase 05 having boxes to
+consume the answer.
 
 ## Recent
 
 Last 5 closed tasks, one line each. Older entries live in `journal/`.
 
+- 2026-09-05 · `P4-06` — doc §12.1 made self-consistent (F-24 resolved):
+  `availability_ratio` → `0.98095`, `median_update_interval_s` → `1376.5`,
+  `p95_update_interval_s` → `2578.8`, matching the fixture through the real
+  mapper. Doc-only; `test/fixtures/entity_history_7d.json` untouched.
 - 2026-09-05 · `P4-03` — cadence and staleness: median/p95 update intervals,
   state-change rate, and a stale verdict at `3 × p95` against the entity's own
   cadence. Found: §12.1's cadence half is impossible too (appended to F-24).
@@ -129,5 +133,3 @@ Last 5 closed tasks, one line each. Older entries live in `journal/`.
   query budget; `resolution` deferred to `P4-04` by decision record.
 - 2026-09-05 · `P2-06` — measured the invocation rate limit (F-20): no
   degradation to 4 calls/s, double the sustained limit; both constants unchanged.
-- 2026-09-05 · `P3-08` — session end is a shutdown, not a crash (F-21):
-  `mcp.Run` calls `srv.Connect` itself; client killed mid-request exits 0.

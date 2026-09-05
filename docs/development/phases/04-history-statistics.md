@@ -80,7 +80,7 @@ internal/mcp/        # entity_tools.go (history/statistics tools)
   excluded per the Phase 02 profile, and the response says which happened, so
   absence is never mistaken for health.
 
-- [ ] **`P4-06` — Doc §12.1's example statistics made self-consistent** — F-24,
+- [x] **`P4-06` — Doc §12.1's example statistics made self-consistent** — F-24,
   doc-only, no code. §12.1 prints `"availability_ratio": 0.982` against
   `"total_unavailable": "3h12m"` over `"period": "7d"` (11520s of 604800s is
   0.98095), and `"median_update_interval_s": 31` against `"state_changes": 412`

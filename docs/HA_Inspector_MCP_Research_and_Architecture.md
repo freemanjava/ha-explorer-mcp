@@ -339,13 +339,13 @@ This layer differentiates HA Inspector from a thin API wrapper. Deterministic me
 {  
 "entity_id": "sensor.example",  
 "period": "7d",  
-"availability_ratio": 0.982,  
+"availability_ratio": 0.98095,  
 "state_changes": 412,  
 "unavailable_periods": 7,  
 "total_unavailable": "3h12m",  
 "longest_unavailable": "54m",  
-"median_update_interval_s": 31,  
-"p95_update_interval_s": 104  
+"median_update_interval_s": 1376.5,  
+"p95_update_interval_s": 2578.8  
 }
 
 ## 12.2 Evidence model
