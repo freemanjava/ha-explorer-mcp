@@ -2,6 +2,7 @@ package ha
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -247,5 +248,133 @@ func TestMapAutomation_MissingRequiredFields_MarksPartial(t *testing.T) {
 	})
 	if !a.Partial {
 		t.Error("automation missing id and alias not marked Partial")
+	}
+}
+
+func TestMapCoreConfig_WellFormed(t *testing.T) {
+	cfg, err := MapCoreConfig(json.RawMessage(`{
+		"version": "2026.8.3",
+		"location_name": "Home",
+		"time_zone": "Europe/Berlin",
+		"state": "RUNNING"
+	}`))
+	if err != nil {
+		t.Fatalf("MapCoreConfig: %v", err)
+	}
+	if cfg.Version != "2026.8.3" || cfg.LocationName != "Home" || cfg.TimeZone != "Europe/Berlin" || cfg.State != "RUNNING" {
+		t.Fatalf("MapCoreConfig mapped %+v unexpectedly", cfg)
+	}
+	if cfg.Partial {
+		t.Errorf("well-formed get_config marked Partial: %s", cfg.PartialReason)
+	}
+}
+
+func TestMapCoreConfig_MissingVersion_MarksPartial(t *testing.T) {
+	cfg, err := MapCoreConfig(json.RawMessage(`{"location_name": "Home"}`))
+	if err != nil {
+		t.Fatalf("MapCoreConfig: %v", err)
+	}
+	if !cfg.Partial {
+		t.Error("get_config missing version was not marked Partial")
+	}
+}
+
+func TestMapCoreConfig_NotAnObject_Errors(t *testing.T) {
+	if _, err := MapCoreConfig(json.RawMessage(`[1,2,3]`)); err == nil {
+		t.Fatal("MapCoreConfig accepted a non-object payload")
+	}
+}
+
+func TestMapStateCounts_CountsWithoutExposingEntities(t *testing.T) {
+	counts, err := MapStateCounts(json.RawMessage(`[
+		{"entity_id":"light.kitchen","state":"on"},
+		{"entity_id":"light.hallway","state":"unavailable"},
+		{"entity_id":"sensor.attic","state":"unknown"},
+		{"entity_id":"sensor.basement","state":"unavailable"}
+	]`))
+	if err != nil {
+		t.Fatalf("MapStateCounts: %v", err)
+	}
+	if counts.Total != 4 || counts.Unavailable != 2 || counts.Unknown != 1 {
+		t.Fatalf("MapStateCounts = %+v, want Total 4, Unavailable 2, Unknown 1", counts)
+	}
+}
+
+func TestMapStateCounts_MalformedElement_Skipped(t *testing.T) {
+	counts, err := MapStateCounts(json.RawMessage(`[
+		{"entity_id":"light.kitchen","state":"on"},
+		"not an object",
+		{"entity_id":"sensor.attic","state":"unknown"}
+	]`))
+	if err != nil {
+		t.Fatalf("MapStateCounts: %v", err)
+	}
+	if counts.Total != 2 || counts.Unknown != 1 {
+		t.Fatalf("MapStateCounts = %+v, want the malformed element skipped, not fatal", counts)
+	}
+}
+
+func TestMapCoreInfo_WellFormed(t *testing.T) {
+	info, err := MapCoreInfo(json.RawMessage(`{
+		"supervisor": "2026.08.0",
+		"homeassistant": "2026.8.3",
+		"hassos": "14.2",
+		"hostname": "homeassistant",
+		"machine": "rpi4",
+		"arch": "aarch64",
+		"state": "running",
+		"supported": true
+	}`))
+	if err != nil {
+		t.Fatalf("MapCoreInfo: %v", err)
+	}
+	if info.CoreVersion != "2026.8.3" || info.SupervisorVersion != "2026.08.0" || info.OSVersion != "14.2" {
+		t.Fatalf("MapCoreInfo mapped %+v unexpectedly", info)
+	}
+	if info.Hostname != "homeassistant" || info.Machine != "rpi4" || info.Arch != "aarch64" {
+		t.Fatalf("MapCoreInfo mapped %+v unexpectedly", info)
+	}
+	if info.State != "running" || !info.Supported {
+		t.Fatalf("MapCoreInfo mapped %+v unexpectedly", info)
+	}
+}
+
+func TestMapCoreInfo_MutatedShape_FailsLoudly(t *testing.T) {
+	if _, err := MapCoreInfo(json.RawMessage(`{"supported": "yes"}`)); !errors.Is(err, ErrUnexpectedMessage) {
+		t.Fatalf("MapCoreInfo: got %v, want ErrUnexpectedMessage", err)
+	}
+}
+
+func TestMapHostDisk_WellFormed(t *testing.T) {
+	disk, err := MapHostDisk(json.RawMessage(`{"disk_free": 10.5, "disk_total": 32, "disk_used": 21.5}`))
+	if err != nil {
+		t.Fatalf("MapHostDisk: %v", err)
+	}
+	if disk.FreeGB != 10.5 || disk.TotalGB != 32 || disk.UsedGB != 21.5 {
+		t.Fatalf("MapHostDisk mapped %+v unexpectedly", disk)
+	}
+}
+
+func TestMapResolutionInfo_WellFormed(t *testing.T) {
+	summary, err := MapResolutionInfo(json.RawMessage(`{
+		"unhealthy": ["privileged"],
+		"unsupported": [],
+		"issues": [{"uuid": "1", "type": "free_space"}]
+	}`))
+	if err != nil {
+		t.Fatalf("MapResolutionInfo: %v", err)
+	}
+	if summary.IssueCount != 1 || len(summary.Unhealthy) != 1 || summary.Unhealthy[0] != "privileged" {
+		t.Fatalf("MapResolutionInfo mapped %+v unexpectedly", summary)
+	}
+}
+
+func TestMapAddonStats_WellFormed(t *testing.T) {
+	stats, err := MapAddonStats(json.RawMessage(`{"cpu_percent": 1.5, "memory_percent": 4.2}`))
+	if err != nil {
+		t.Fatalf("MapAddonStats: %v", err)
+	}
+	if stats.CPUPercent != 1.5 || stats.MemoryPercent != 4.2 {
+		t.Fatalf("MapAddonStats mapped %+v unexpectedly", stats)
 	}
 }

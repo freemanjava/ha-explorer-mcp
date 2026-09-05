@@ -35,6 +35,21 @@ type Options struct {
 	// Limiter bounds how fast invocations may arrive. Defaults to
 	// policy.NewInvocationLimiter.
 	Limiter *policy.RateLimiter
+
+	// Core reads Home Assistant Core's identity and live-state summary for
+	// get_system_overview. Nil leaves that row answering "not implemented in
+	// this build" rather than serving a tool that would panic on a nil
+	// reader.
+	Core systemCoreReader
+	// Inventory reads the slow-moving registries (entity/device/area/config
+	// entry counts) for get_system_overview.
+	Inventory systemInventoryReader
+	// Supervisor reads Supervisor's own health surface for
+	// get_system_health. Nil is a valid deployment state — Supervisor being
+	// unconfigured leaves that row "not implemented", distinct from the
+	// per-invocation "unsupported" a reachable-but-refusing Supervisor
+	// produces (rule 7).
+	Supervisor systemHealthReader
 }
 
 // NewServer builds the MCP server over the static catalog: every tool doc §9
@@ -59,7 +74,7 @@ func newServer(opts Options, tools []Tool) *sdkmcp.Server {
 		Logger:       opts.Logger,
 	})
 
-	for _, t := range tools {
+	for _, t := range withSystemTools(tools, opts) {
 		register(srv, t)
 	}
 

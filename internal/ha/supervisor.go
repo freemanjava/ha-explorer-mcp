@@ -89,6 +89,57 @@ func (c *SupervisorClient) ResolutionInfo(ctx context.Context) (json.RawMessage,
 	return c.get(ctx, SupervisorRouteResolutionInfo)
 }
 
+// CoreInfo returns Supervisor's /info mapped to model.CoreInfo — get_system_
+// health's component versions, hostname, machine, arch and Core's run state,
+// granted whether or not hassio_api is set (api_bypass).
+func (c *SupervisorClient) CoreInfo(ctx context.Context) (model.CoreInfo, error) {
+	raw, err := c.get(ctx, SupervisorRouteInfo)
+	if err != nil {
+		return model.CoreInfo{}, err
+	}
+	return MapCoreInfo(raw)
+}
+
+// OSHealth returns Supervisor's /os/info mapped to model.OSInfo.
+func (c *SupervisorClient) OSHealth(ctx context.Context) (model.OSInfo, error) {
+	raw, err := c.get(ctx, SupervisorRouteOSInfo)
+	if err != nil {
+		return model.OSInfo{}, err
+	}
+	return MapOSInfo(raw)
+}
+
+// HostDisk returns the disk fields of Supervisor's /host/info mapped to
+// model.HostDisk.
+func (c *SupervisorClient) HostDisk(ctx context.Context) (model.HostDisk, error) {
+	raw, err := c.get(ctx, SupervisorRouteHostInfo)
+	if err != nil {
+		return model.HostDisk{}, err
+	}
+	return MapHostDisk(raw)
+}
+
+// ResolutionSummary returns Supervisor's /resolution/info mapped to
+// model.ResolutionSummary.
+func (c *SupervisorClient) ResolutionSummary(ctx context.Context) (model.ResolutionSummary, error) {
+	raw, err := c.get(ctx, SupervisorRouteResolutionInfo)
+	if err != nil {
+		return model.ResolutionSummary{}, err
+	}
+	return MapResolutionInfo(raw)
+}
+
+// SelfStats returns this App's own container resource use, mapped to
+// model.AddonStats — never another App's (that needs the manager role,
+// deliberately not requested).
+func (c *SupervisorClient) SelfStats(ctx context.Context) (model.AddonStats, error) {
+	raw, err := c.get(ctx, SupervisorRouteAddonSelfStats)
+	if err != nil {
+		return model.AddonStats{}, err
+	}
+	return MapAddonStats(raw)
+}
+
 // NetworkInfo returns Supervisor's /network/info.
 func (c *SupervisorClient) NetworkInfo(ctx context.Context) (json.RawMessage, error) {
 	return c.get(ctx, SupervisorRouteNetworkInfo)

@@ -18,6 +18,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/freemanjava/ha-explorer-mcp/internal/ha"
 	"github.com/freemanjava/ha-explorer-mcp/internal/mcp"
 	"github.com/freemanjava/ha-explorer-mcp/internal/policy"
 )
@@ -39,6 +40,14 @@ const (
 	envLogLevel = "HA_INSPECTOR_LOG_LEVEL"
 )
 
+// coreWebSocketURL is where Core's WebSocket API is reachable from inside an
+// App container, through the Supervisor proxy (architecture doc §2;
+// docs/research/2026-08-23-supervisor-permissions.md: `/core/websocket` is
+// `no_security_check` at Supervisor's own layer — Core still requires its own
+// auth handshake, which is what SUPERVISOR_TOKEN is for). There is no
+// override: this binary only ever runs as the App the Supervisor started.
+const coreWebSocketURL = "ws://supervisor/core/websocket"
+
 func main() {
 	if err := run(); err != nil {
 		// The discard is explicit, not an oversight: this is the last-resort
@@ -59,8 +68,9 @@ func run() error {
 		return err
 	}
 
+	token := os.Getenv(envSupervisorToken)
 	var secrets []string
-	if token := os.Getenv(envSupervisorToken); token != "" {
+	if token != "" {
 		secrets = append(secrets, token)
 	}
 
@@ -73,11 +83,22 @@ func run() error {
 
 	log.InfoContext(ctx, "starting", "version", version, "transport", "stdio", "privacy_profile", os.Getenv(envPrivacyProfile))
 
+	manager := ha.NewManager(coreWebSocketURL, token, log)
+	manager.Start(ctx)
+	defer manager.Close()
+
+	registry := ha.NewRegistryCache(manager)
+	core := ha.NewCoreReader(manager)
+	supervisor := ha.NewSupervisorClient("", token, nil, log)
+
 	err = mcp.Run(ctx, mcp.Options{
-		Version: version,
-		Logger:  log,
-		Profile: profile,
-		Secrets: secrets,
+		Version:    version,
+		Logger:     log,
+		Profile:    profile,
+		Secrets:    secrets,
+		Core:       core,
+		Inventory:  registry,
+		Supervisor: supervisor,
 	})
 	// A client that closes the pipe ends the session; that is a shutdown, not
 	// a failure to report.

@@ -57,7 +57,7 @@ internal/mcp/      # server.go, system_tools.go, entity_tools.go, automation_too
   without killing the server; a test asserts every registered tool receives a
   budget (no tool can be registered without one).
 
-- [ ] **`P3-02` — `get_system_overview` and `get_system_health`**
+- [x] **`P3-02` — `get_system_overview` and `get_system_health`**
   — root discovery snapshot (version, installation, inventory counts, headline
   health) and the Supervisor-backed resource/service health, built on `P1-08`'s
   reader at the default role: component versions, hostname, machine, arch, Core
