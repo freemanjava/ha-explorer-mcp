@@ -44,7 +44,7 @@ internal/mcp/      # server.go, system_tools.go, entity_tools.go, automation_too
 
 ## Tasks
 
-- [ ] **`P3-01` — MCP server bootstrap and tool registry** 🧠 — wire the official
+- [x] **`P3-01` — MCP server bootstrap and tool registry** 🧠 — wire the official
   Go SDK over **stdio** (Phase 01's transport decision, 2026-08-25 — no listening
   socket, no auth middleware), the static tool table, and per-invocation budget +
   audit + panic recovery middleware. Route every log sink to **stderr**: stdout

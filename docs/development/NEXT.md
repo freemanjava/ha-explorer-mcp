@@ -3,8 +3,8 @@
 <!-- BOUNDED FILE — rewritten in place, never appended to. Keep under ~100 lines.
      Anything that grows goes to journal/. This file is read by every session. -->
 
-**▶ Active:** `P3-01` — MCP server bootstrap and tool registry
-· [`phases/03-inventory-tools.md`](phases/03-inventory-tools.md) · model: **claude-opus-5** · flags: 🧠
+**▶ Active:** `P3-02` — `get_system_overview` / `get_system_health`
+· [`phases/03-inventory-tools.md`](phases/03-inventory-tools.md) · model: **claude-sonnet-5** · flags: —
 
 > Advancing this pointer is part of finishing a task, together with ticking the
 > box, recomputing status and appending a journal entry. All four, or none.
@@ -16,25 +16,22 @@ cycle. Remove a row when its task closes.
 
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
-| 1 | `P3-01` | MCP server bootstrap and tool registry | 03 | claude-opus-5 | 🧠 |
-| 2 | `P3-02` | `get_system_overview` / `get_system_health` | 03 | claude-sonnet-5 | |
-| 3 | `P3-03` | `list_integrations` / `get_integration` | 03 | claude-sonnet-5 | |
-| 4 | `P3-04` | `list_devices` / `get_device` | 03 | claude-sonnet-5 | |
-| 5 | `P3-05` | `list_entities` / `get_entity` | 03 | claude-sonnet-5 | |
-| 6 | `P3-06` | `list_areas` / `list_automations` / `list_repairs` / `list_apps` | 03 | claude-sonnet-5 | |
-| 7 | `P3-07` | `get_automation` / `get_automation_traces` | 03 | claude-sonnet-5 | |
+| 1 | `P3-02` | `get_system_overview` / `get_system_health` | 03 | claude-sonnet-5 | |
+| 2 | `P3-03` | `list_integrations` / `get_integration` | 03 | claude-sonnet-5 | |
+| 3 | `P3-04` | `list_devices` / `get_device` | 03 | claude-sonnet-5 | |
+| 4 | `P3-05` | `list_entities` / `get_entity` | 03 | claude-sonnet-5 | |
+| 5 | `P3-06` | `list_areas` / `list_automations` / `list_repairs` / `list_apps` | 03 | claude-sonnet-5 | |
+| 6 | `P3-07` | `get_automation` / `get_automation_traces` | 03 | claude-sonnet-5 | |
 
-**Order rationale.** `P2-05` closed Phase 02: `internal/audit` reused
-`P2-03`'s redaction rather than growing a second copy, so `P3-01` can wire
-audit middleware into every invocation against a record shape that already
-exists. `P1-08` closed Phase 01: `SupervisorClient` now reads the endpoints
-the 2026-08-25 Supervisor decision grants, so `P3-02` and `P3-06`'s
-`blocked:P1-08` is lifted — both queued unblocked. Phase 03 now runs in its
-written order — `P3-01` first because everything registers into it, `P3-07`
-last because it is the most compatibility-sensitive surface in the phase.
-Phase 04's five follow this queue unbroken: the catalog decision below rules
-out an interleaved release cut, so there is no reason to reorder them against
-Phase 03.
+**Order rationale.** `P3-01` closed 2026-09-05: the static catalog, the stdio
+server and the per-invocation envelope (rate limit, budget, panic recovery,
+audit) all exist, and every one of doc §9's twenty rows is registered against a
+not-implemented handler. Each remaining Phase 03 task now swaps one or two of
+those rows for a real handler — a strictly additive change to a table, never a
+branch inside an existing tool — so the queue keeps its written order and
+`P3-07` stays last as the most compatibility-sensitive surface. Phase 04's five
+follow this queue unbroken: the catalog decision below rules out an interleaved
+release cut, so there is no reason to reorder them against Phase 03.
 
 **Four decisions settled 2026-08-25.** *Transport:* **stdio only** — no
 listening port, no client-auth subsystem, and every log line goes to stderr
@@ -69,7 +66,7 @@ done
 | 00 | Spike & Foundations | 15 / 15 |
 | 01 | HA Access & Read-Only Gateway | 10 / 10 |
 | 02 | Policy, Privacy, Budget & Audit | 6 / 7 |
-| 03 | MCP Server & Inventory Tools | 1 / 8 |
+| 03 | MCP Server & Inventory Tools | 2 / 8 |
 | 04 | History, Statistics & Detection | 0 / 5 |
 | 05 | Diagnostics & Evidence Engine | 0 / 1 |
 | 06 | Proposal Mode — gated | 0 / 1 |
@@ -81,14 +78,15 @@ decisions, both settled 2026-08-25. **Phase 01 is now fully ticked** — `P1-08`
 closed 2026-08-25: `SupervisorClient` and its own route allow-list in
 `internal/ha`, `addon/config.yaml` flipped to `hassio_api: true`. Phase 02's one
 remaining open box is the Q10 persistence decision — `P2-05` closed 2026-08-25.
-Phase 03's one tick is its catalog-scope decision.
+Phase 03's two ticks are its catalog-scope decision and `P3-01`, closed
+2026-09-05.
 
 Phases 00–04 are milestone M1 (v1 observer). Phase 05 is M2. Phases 06–07 are
 gated: they open only on an explicit owner decision plus a fresh security review.
 Phases 05–07 carry no task boxes yet — theirs are written by `devflow plan` when
 the phase before them closes.
 
-Last refreshed: 2026-08-25 (`devflow next` — `P1-08` closed, Phase 01 done, pointer advanced to `P3-01`)
+Last refreshed: 2026-09-05 (`devflow next` — `P3-01` closed, pointer advanced to `P3-02`)
 
 ## Open findings
 
@@ -96,7 +94,7 @@ Last refreshed: 2026-08-25 (`devflow next` — `P1-08` closed, Phase 01 done, po
      grep -c '^\*\*Triage:\*\* `queue-next`' docs/development/FINDINGS.md  (etc.)
      This block exists so captured work cannot quietly rot: every session sees it. -->
 
-`blocks-active` 0 · `queue-next` 1 · `defer` 3 · `unknown` 3 (open)
+`blocks-active` 0 · `queue-next` 2 · `defer` 3 · `unknown` 3 (open)
 
 > Any `blocks-active` is stop-work. If `queue-next` is non-zero and the queue
 > above has fewer than 3 rows, drain it with `devflow plan` before continuing —
@@ -105,21 +103,32 @@ Last refreshed: 2026-08-25 (`devflow next` — `P1-08` closed, Phase 01 done, po
 > An open `unknown` outranks the queue: it is an assumption the plan already
 > rests on. Run `devflow verify` before building further on it.
 
-The 2026-08-25 `plan` drained the inbox again and wrote no boxes from it. The
-one `queue-next`, **F-11**, was already planned into `P3-07` (now queue row 8)
-plus a Phase 05 §13.1 bullet — it closes when `P3-07` closes, not now.
+Two `queue-next` are open. **F-11** was already planned into `P3-07` (now queue
+row 6) plus a Phase 05 §13.1 bullet — it closes when `P3-07` closes, not now.
+**F-21** is new from `P3-01`: a client that disconnects mid-request makes the
+App exit non-zero, and the SDK sentinel that would identify it is in an
+`internal/` package. It belongs with the App lifecycle work, not with a tool
+task, so it waits for the next `plan`.
 
 All three `defer`s were re-triaged and stay deferred: **F-6** (Phase 05 owns
 it) · **F-17** — `P2-01` landed with the conservative batched figure and a
 comment saying so, exactly as the deferral anticipated · **F-20** — the
 invocation rate limit's constants are still unmeasured, and `P3-01` is what
 first wires the limiter into a running server, so the earliest honest point to
-measure them is the `plan` after `P3-01` closes, not this one.
+measure them is the `plan` after `P3-01` closes — which is now the next one.
 
 ## Recent
 
 Last 5 closed tasks, one line each. Older entries live in `journal/`.
 
+- 2026-09-05 · `P3-01` — `internal/mcp`: the static twenty-row catalog (doc §9,
+  in doc order) with a budget class on every row, so "registered without a
+  budget" is not a state the type can express; the stdio server registers each
+  row read-only-annotated, and one receiving middleware gives every invocation
+  rate limiting, a class budget with its deadline, panic recovery and an audit
+  record whichever way it ends; an uncatalogued name is denied before dispatch;
+  rows without a handler yet answer `not implemented in this build`, never
+  `unsupported`; `cmd/server` now runs it, logging to stderr only.
 - 2026-08-25 · `P1-08` — `internal/ha/supervisor.go`: `SupervisorClient` reads
   Supervisor's own API — its own base (`http://supervisor`), its own
   exact-match GET-only route table holding only the eleven endpoints the
@@ -148,13 +157,6 @@ Last 5 closed tasks, one line each. Older entries live in `journal/`.
   to one entity's timeline, get_config coordinates coarsen to one decimal, and
   every withheld field is marked rather than dropped; a slog handler closes the
   log-line route.
-- 2026-08-25 · `P2-02` — Privacy classification and profiles in
-  `internal/policy`: `Sensitivity` (normal/private/secret) decided by readable
-  tables — private domains, occupancy device classes, secret key fragments,
-  location attributes, `get_config` coordinates — plus `ClassifyPayload`, which
-  classifies by the entities a payload embeds at any depth (F-12), and
-  `Profile` (mask default / allow / deny) with `ErrPolicyDenied` refusing bulk
-  history over a private domain.
 
 ## Project facts
 
