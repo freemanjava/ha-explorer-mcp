@@ -934,6 +934,61 @@ func MapAutomationTraces(raw json.RawMessage) ([]model.AutomationTraceSummary, e
 	return out, nil
 }
 
+// MapHistoryDuringPeriod maps a history/history_during_period result — an
+// object keyed by entity id (P0-07) — into one entity's HistoryPoints, in
+// the order HA answers them. A requested entity absent from the response (no
+// recorded history in the window) yields an empty slice, not an error
+// (CLAUDE.md rule 7: absence is "none", never "could not check"). An element
+// with neither a state nor a timestamp is skipped rather than aborting the
+// rest, following MapEntityRegistryList's convention.
+func MapHistoryDuringPeriod(entityID model.EntityID, raw json.RawMessage) ([]model.HistoryPoint, error) {
+	var byEntity map[string][]map[string]any
+	if err := json.Unmarshal(raw, &byEntity); err != nil {
+		return nil, fmt.Errorf("ha: decoding history/history_during_period: %w", err)
+	}
+
+	elements := byEntity[string(entityID)]
+	points := make([]model.HistoryPoint, 0, len(elements))
+	for _, e := range elements {
+		p, ok := mapHistoryPoint(e)
+		if !ok {
+			continue
+		}
+		points = append(points, p)
+	}
+	return points, nil
+}
+
+// mapHistoryPoint maps one history_during_period element. HA spells the
+// state and timestamp short ("s"/"lu", the latter epoch seconds) once
+// minimal_response has collapsed an element, and long ("state"/
+// "last_updated", RFC 3339 or epoch) otherwise (P0-07) — both are read here
+// so neither mode needs its own mapper. optTime already accepts either
+// encoding for "lu"/"last_updated".
+func mapHistoryPoint(e map[string]any) (model.HistoryPoint, bool) {
+	state, ok := stringField(e, "s")
+	if !ok {
+		state, ok = stringField(e, "state")
+	}
+	if !ok {
+		return model.HistoryPoint{}, false
+	}
+
+	ts, ok := optTime(e, "lu")
+	if !ok {
+		ts, ok = optTime(e, "last_updated")
+	}
+	if !ok {
+		return model.HistoryPoint{}, false
+	}
+
+	p := model.HistoryPoint{Timestamp: ts, State: state}
+	if attrs, ok := e["attributes"].(map[string]any); ok {
+		p.Attributes = attrs
+	}
+	return p, true
+}
+
 // MapLogbookEvents maps a logbook/get_events result — a bare array — into one
 // LogbookEvent per entry. An element missing a field degrades to Partial
 // rather than aborting the whole fallback read: this is degraded evidence

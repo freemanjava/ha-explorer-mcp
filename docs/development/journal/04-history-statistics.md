@@ -12,3 +12,21 @@ unrecoverable anywhere else — so if there was none, the entry is one line and
 that is correct.
 
 ---
+
+### 2026-09-05 · `P4-01`
+`get_entity_history` lands: `internal/ha` gains `historyDuringPeriodCommand`
+and `CoreReader.History` over the already-allow-listed
+`history/history_during_period`, `MapHistoryDuringPeriod` reading both the
+minimal_response short keys (`s`/`lu`) and the full long ones so neither mode
+needs its own mapper; `internal/mcp/history_tools.go` validates entity-id
+shape and `to > from`, refuses over a fixed 7-day range cap before touching
+policy or budget, calls the existing (but previously unused by any tool)
+`Profile.CheckHistoryScope` and `QueryBudget.Preflight`/`Charge*` machinery
+P2-01/P2-03 had already built, and masks the whole point series in one
+`redact.Payload` call so equal states keep the same token across the
+timeline.
+**Surprise:** `internal/policy` already had `HistoryScope`/`CheckHistoryScope`
+and `Preflight` fully built and tested from Phase 02, anticipating this exact
+tool — implementing P4-01 was mostly wiring, not designing new policy.
+**Left open:** `resolution` (Appendix A.2) not implemented — see the phase
+file's decision record; belongs to `P4-04`'s statistics source instead.

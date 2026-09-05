@@ -40,7 +40,7 @@ internal/mcp/        # entity_tools.go (history/statistics tools)
 
 ## Tasks
 
-- [ ] **`P4-01` — `get_entity_history`** — Appendix A.2: explicit `entity_id`,
+- [x] **`P4-01` — `get_entity_history`** — Appendix A.2: explicit `entity_id`,
   `from`/`to`, optional `resolution`, `minimal: true` by default, using the
   source P0-07 recommended.
   **DoD:** a range exceeding the configured maximum is refused with an explicit
@@ -82,9 +82,43 @@ internal/mcp/        # entity_tools.go (history/statistics tools)
 
 ## Decisions
 
-*(none open — the source-selection question is answered by P0-07's evidence, and
-the budget defaults by P2-01. Record here anything that turns out to be a real
-design fork during implementation.)*
+*(the source-selection question is answered by P0-07's evidence, and the budget
+defaults by P2-01. Below: real design forks hit during implementation.)*
+
+**`P4-01`, 2026-09-05 — `resolution` deferred, not implemented.** Appendix A.2
+lists `resolution?: string` on `get_entity_history`, but the phase's own DoD
+for this task names only range/point/byte/deadline refusal and `minimal`'s
+size effect — nothing exercises a resolution value. `get_entity_history`'s
+only source is `history/history_during_period`, which has no bucket/period
+parameter; a resolution coarser than raw points is a statistics-API concern,
+which `P4-04` (`get_entity_statistics`) owns. Implementing a `resolution` field
+here would mean silently switching sources mid-tool, which doc §9's two-tool
+split (raw history vs. computed statistics) does not intend. The field is
+left off `GetEntityHistoryInput` entirely rather than accepted and ignored
+(CLAUDE.md rule 7: an accepted-but-ignored parameter is a subtler way to
+fabricate an answer than a missing one). Revisit if `P4-04` finds a use for a
+shared vocabulary.
+
+**`P4-01`, 2026-09-05 — a fixed 7-day range cap, not a configurable one.**
+The DoD wants "a range exceeding the configured maximum" refused explicitly.
+No prior task set a maximum time span (only point/byte/entity/request budgets
+exist in `internal/policy`), and doc §10 names no number. `internal/mcp`'s new
+`maxHistoryWindow` (7 days) is pinned to the widest window the 2026-08-24
+multi-entity measurement actually exercised
+(`docs/research/2026-08-24-ha-multi-entity-query-cost.md`) — evidence-backed
+rather than a guess, matching §26's rule, but a constant rather than an
+environment-configurable limit like the query budget, since nothing yet
+needs it to vary per deployment. Revisit as a real `policy.Limits` field if a
+later task does.
+
+**`P4-01`, 2026-09-05 — no `Unsupported` branch.** Unlike `get_automation`/
+`get_automation_traces` (P3-07), `history/history_during_period` is not
+documented as admin-gated or compatibility-sensitive (doc §18), and P0-07's
+probe did not observe a permission or version-shaped refusal. A real failure
+(bad shape, upstream error) is returned as a Go error, not silently degraded
+to "unsupported" — CLAUDE.md rule 7 forbids inventing that answer without
+evidence it can happen. Revisit if a future HA release, or a non-admin
+principal, is observed refusing this command.
 
 ## Phase Definition of Done
 

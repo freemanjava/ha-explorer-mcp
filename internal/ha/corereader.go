@@ -131,6 +131,25 @@ func splitEntityID(entityID string) (domain, objectID string) {
 	return entityID, entityID
 }
 
+// History returns history/history_during_period for one entity over
+// [from, to), mapped — get_entity_history's source (P4-01), preferred over
+// the REST fallback for both size and latency (P0-07). minimal sets
+// minimal_response and no_attributes together, matching
+// historyDuringPeriodCommand's documented pairing.
+func (r *CoreReader) History(ctx context.Context, entityID model.EntityID, from, to time.Time, minimal bool) ([]model.HistoryPoint, error) {
+	raw, err := r.call.Call(ctx, historyDuringPeriodCommand{
+		StartTime:       from,
+		EndTime:         to,
+		EntityIDs:       []string{string(entityID)},
+		MinimalResponse: minimal,
+		NoAttributes:    minimal,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return MapHistoryDuringPeriod(entityID, raw)
+}
+
 // States returns get_states mapped to each entity's current state string,
 // keyed by id — for list_entities and get_entity (P3-05), whose job is
 // reporting individual current state rather than an aggregate.

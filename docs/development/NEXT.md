@@ -3,8 +3,8 @@
 <!-- BOUNDED FILE — rewritten in place, never appended to. Keep under ~100 lines.
      Anything that grows goes to journal/. This file is read by every session. -->
 
-**▶ Active:** `P4-01` — `get_entity_history`
-· [`phases/04-history-statistics.md`](phases/04-history-statistics.md) · model: **claude-sonnet-5** · flags: none
+**▶ Active:** `P4-02` — availability and outage analysis
+· [`phases/04-history-statistics.md`](phases/04-history-statistics.md) · model: **claude-opus-5** · flags: 🧠
 
 > Advancing this pointer is part of finishing a task, together with ticking the
 > box, recomputing status and appending a journal entry. All four, or none.
@@ -16,11 +16,10 @@ cycle. Remove a row when its task closes.
 
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
-| 1 | `P4-01` | `get_entity_history` | 04 | claude-sonnet-5 | |
-| 2 | `P4-02` | availability and outage analysis | 04 | claude-opus-5 | 🧠 |
-| 3 | `P4-03` | update-cadence and staleness analysis | 04 | claude-opus-5 | 🧠 |
-| 4 | `P4-04` | `get_entity_statistics` | 04 | claude-sonnet-5 | |
-| 5 | `P4-05` | `find_unavailable_entities` / `find_stale_entities` | 04 | claude-sonnet-5 | |
+| 1 | `P4-02` | availability and outage analysis | 04 | claude-opus-5 | 🧠 |
+| 2 | `P4-03` | update-cadence and staleness analysis | 04 | claude-opus-5 | 🧠 |
+| 3 | `P4-04` | `get_entity_statistics` | 04 | claude-sonnet-5 | |
+| 4 | `P4-05` | `find_unavailable_entities` / `find_stale_entities` | 04 | claude-sonnet-5 | |
 
 **Order rationale (2026-09-05 `plan`, `P3-07` since closed and dropped).**
 Phase 03 finished first: `P3-08` — the F-21 fix — closed it so the phase does
@@ -72,7 +71,7 @@ done
 | 01 | HA Access & Read-Only Gateway | 10 / 10 |
 | 02 | Policy, Privacy, Budget & Audit | 7 / 8 |
 | 03 | MCP Server & Inventory Tools | 9 / 9 |
-| 04 | History, Statistics & Detection | 0 / 5 |
+| 04 | History, Statistics & Detection | 1 / 5 |
 | 05 | Diagnostics & Evidence Engine | 0 / 1 |
 | 06 | Proposal Mode — gated | 0 / 1 |
 | 07 | Controlled Change (Admin) — gated | 0 / 1 |
@@ -93,8 +92,8 @@ gated: they open only on an explicit owner decision plus a fresh security review
 Phases 05–07 carry no task boxes yet — theirs are written by `devflow plan` when
 the phase before them closes.
 
-Last refreshed: 2026-09-05 (`P2-06` closed — Phase 02 now 7/8 — pointer
-advanced to `P4-01`; F-20 resolved)
+Last refreshed: 2026-09-05 (`P4-01` closed — Phase 04 now 1/5 — pointer
+advanced to `P4-02`)
 
 ## Open findings
 
@@ -129,6 +128,16 @@ The two open `unknown`s are F-6 and F-17; neither has a task yet.
 
 Last 5 closed tasks, one line each. Older entries live in `journal/`.
 
+- 2026-09-05 · `P4-01` — `get_entity_history` lands, Phase 04's first task:
+  `internal/ha` gains `CoreReader.History` over the already-allow-listed
+  `history/history_during_period`, mapping both the minimal_response short
+  keys (`s`/`lu`) and the full long ones; `internal/mcp/history_tools.go`
+  validates entity-id shape and the range, refuses over a fixed 7-day window
+  cap before touching policy or budget, and is the first tool to actually use
+  Phase 02's `Profile.CheckHistoryScope` and `QueryBudget.Preflight`/
+  `Charge*` machinery. `resolution` (Appendix A.2) deliberately not
+  implemented — left to `P4-04`'s statistics source (phase file decision
+  record).
 - 2026-09-05 · `P2-06` — measured the invocation rate limit, closing F-20:
   `cmd/spike/arrival.go`'s new `probeArrivalRate` streams a budget-compliant
   `history/history_during_period` call (10 ids, 24h — the 2026-08-24 run's
@@ -197,21 +206,6 @@ Last 5 closed tasks, one line each. Older entries live in `journal/`.
   pagination; a failed upstream call is a real tool error, not degraded to
   `Unsupported` — unlike `list_apps`, this surface has no permission-refused
   branch.
-- 2026-09-05 · `P3-05` — `list_entities` and `get_entity` land: `internal/ha`
-  gains `MapEntityStateValues`/`CoreReader.States`, a per-entity current-state
-  read deliberately unlike the aggregate-only readers P3-02/P3-03 added,
-  because reporting one entity's state is this pair's whole job;
-  `internal/mcp/entity_tools.go` implements the full Appendix A.1 filter set
-  (domain, integration — resolved through the entity's config entry —
-  device_id, area_id, state, availability, category, disabled, search) over
-  the entity registry, pages through `internal/page.Paginate`, and masks each
-  returned `State` by handing a synthetic HA-shaped payload to
-  `internal/redact.Redactor.Payload` rather than re-implementing
-  classification; `get_entity` adds device/area/integration name resolution,
-  degrading a dangling reference to an empty name rather than failing; a
-  malformed `availability` value is rejected rather than silently matching
-  nothing; `search` is a plain case-insensitive substring test, so
-  instruction-shaped entity names are never interpreted (threat T2).
 
 ## Project facts
 
