@@ -80,6 +80,10 @@ type Options struct {
 	// Repairs reads repairs/list_issues for list_repairs (P3-06), reachable
 	// at any principal. Nil leaves that row "not implemented in this build".
 	Repairs repairReader
+	// History reads history/history_during_period for get_entity_history
+	// (P4-01), the source P0-07 recommends over the REST fallback. Nil
+	// leaves that row "not implemented in this build".
+	History historyReader
 }
 
 // NewServer builds the MCP server over the static catalog: every tool doc §9
@@ -112,6 +116,7 @@ func newServer(opts Options, tools []Tool) *sdkmcp.Server {
 	tools = withAutomationTools(tools, opts)
 	tools = withRepairTools(tools, opts)
 	tools = withAppTools(tools, opts)
+	tools = withHistoryTools(tools, opts)
 	for _, t := range tools {
 		register(srv, t)
 	}

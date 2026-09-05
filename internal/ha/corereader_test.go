@@ -162,6 +162,21 @@ func TestCoreReader_LogbookEvents_MapsEvents(t *testing.T) {
 	}
 }
 
+func TestCoreReader_History_MapsPointsAndSetsBothFlagsFromMinimal(t *testing.T) {
+	fc := newFakeCaller()
+	fc.set(CommandHistoryDuringPeriod, json.RawMessage(`{"sensor.x": [{"lu": 1755000000, "s": "1"}]}`))
+
+	from := time.Date(2026, 8, 22, 0, 0, 0, 0, time.UTC)
+	to := from.Add(24 * time.Hour)
+	points, err := NewCoreReader(fc).History(testCtx(t), "sensor.x", from, to, true)
+	if err != nil {
+		t.Fatalf("History: %v", err)
+	}
+	if len(points) != 1 || points[0].State != "1" {
+		t.Fatalf("History = %+v, want one point with state 1", points)
+	}
+}
+
 func TestCoreReader_AutomationDetail_PermissionRefused_ReturnsUnsupported(t *testing.T) {
 	fc := newFakeCaller()
 	fc.err = &CommandError{Code: "unauthorized", Message: "unauthorized"}

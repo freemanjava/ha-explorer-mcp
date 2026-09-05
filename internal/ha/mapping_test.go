@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/freemanjava/ha-explorer-mcp/internal/model"
 )
@@ -741,5 +742,82 @@ func TestMapLogbookEvents_MissingWhen_MarksPartial(t *testing.T) {
 	}
 	if len(events) != 1 || !events[0].Partial {
 		t.Fatalf("events = %+v, want one entry marked Partial", events)
+	}
+}
+
+// TestMapHistoryDuringPeriod_MinimalShape covers the shape shape_test.go's
+// probe observed: a map keyed by entity id, elements collapsed to "s"/"lu"
+// (P0-07).
+func TestMapHistoryDuringPeriod_MinimalShape(t *testing.T) {
+	points, err := MapHistoryDuringPeriod("sensor.ha_panel1_app_memory", json.RawMessage(`{
+		"sensor.ha_panel1_app_memory": [
+			{"lu": 1755000000, "s": "812.4"},
+			{"lu": 1755000060, "s": "813.1"}
+		]
+	}`))
+	if err != nil {
+		t.Fatalf("MapHistoryDuringPeriod: %v", err)
+	}
+	if len(points) != 2 {
+		t.Fatalf("got %d points, want 2", len(points))
+	}
+	if points[0].State != "812.4" || points[1].State != "813.1" {
+		t.Fatalf("states = %+v", points)
+	}
+	if !points[0].Timestamp.Equal(time.Unix(1755000000, 0)) {
+		t.Errorf("Timestamp = %v, want epoch 1755000000", points[0].Timestamp)
+	}
+	if points[0].Attributes != nil {
+		t.Errorf("minimal shape carried attributes: %+v", points[0].Attributes)
+	}
+}
+
+// TestMapHistoryDuringPeriod_FullShape covers the unfiltered variant P0-07
+// measured: every element carries the long field names and full attributes.
+func TestMapHistoryDuringPeriod_FullShape(t *testing.T) {
+	points, err := MapHistoryDuringPeriod("lock.front_door", json.RawMessage(`{
+		"lock.front_door": [
+			{"entity_id": "lock.front_door", "state": "locked", "last_changed": "2026-08-22T19:00:00+00:00", "last_updated": "2026-08-22T19:00:00+00:00", "attributes": {"friendly_name": "Front Door"}}
+		]
+	}`))
+	if err != nil {
+		t.Fatalf("MapHistoryDuringPeriod: %v", err)
+	}
+	if len(points) != 1 {
+		t.Fatalf("got %d points, want 1", len(points))
+	}
+	if points[0].State != "locked" {
+		t.Errorf("State = %q", points[0].State)
+	}
+	if points[0].Attributes["friendly_name"] != "Front Door" {
+		t.Errorf("Attributes = %+v", points[0].Attributes)
+	}
+}
+
+// TestMapHistoryDuringPeriod_EntityAbsent asserts that an entity with no
+// recorded history in the window answers an empty slice, not an error —
+// "none" and "could not check" must stay distinguishable (CLAUDE.md rule 7).
+func TestMapHistoryDuringPeriod_EntityAbsent(t *testing.T) {
+	points, err := MapHistoryDuringPeriod("sensor.never_recorded", json.RawMessage(`{}`))
+	if err != nil {
+		t.Fatalf("MapHistoryDuringPeriod: %v", err)
+	}
+	if len(points) != 0 {
+		t.Fatalf("points = %+v, want empty", points)
+	}
+}
+
+// TestMapHistoryDuringPeriod_MalformedElement_Skipped asserts a state-less,
+// timestamp-less element is skipped rather than aborting the rest, following
+// MapEntityRegistryList's per-element tolerance.
+func TestMapHistoryDuringPeriod_MalformedElement_Skipped(t *testing.T) {
+	points, err := MapHistoryDuringPeriod("sensor.x", json.RawMessage(`{
+		"sensor.x": [{"unexpected": true}, {"lu": 1755000000, "s": "1"}]
+	}`))
+	if err != nil {
+		t.Fatalf("MapHistoryDuringPeriod: %v", err)
+	}
+	if len(points) != 1 || points[0].State != "1" {
+		t.Fatalf("points = %+v, want one well-formed point", points)
 	}
 }
