@@ -74,3 +74,19 @@ duration, capped at `maxHistoryWindow` (reused from `P4-01`, not duplicated).
 tool needed — a Phase 00 scaffold nobody had wired up yet.
 **Left open:** F-17's "revisit when P4-04 closes" trigger has now fired;
 needs a `plan`/`finding` pass to re-triage rather than sitting deferred.
+
+### 2026-09-05 · P4-05
+`find_unavailable_entities` pages a cheap aggregate scan (registry +
+`UnavailableEntityIDs`, no per-entity cost). `find_stale_entities` scans
+filtered candidates in id order, judging each with `ComputeCadence` against
+one recorder read; `Truncated` means "candidates remain unexamined" (the
+HA-request budget binds at 20, well below a real installation's size), not
+the usual "more results exist" — `NextCursor` resumes the scan itself. Both
+exclude PRIVATE entities outright under the deny profile rather than masking
+a value neither tool has, and report the count via `PrivateExcluded`.
+**Surprise:** `analysis.CadenceReport.StalenessRatio` already existed,
+commented "for ranking entities against each other (P4-05)" — P4-03 had
+already reserved the ranking key this task needed.
+**Left open:** filed F-26 — `find_stale_entities` stays `ClassNormalRead`
+rather than the wider composite budget `catalog.go`'s own comment invites,
+for lack of a real-installation measurement to justify it.

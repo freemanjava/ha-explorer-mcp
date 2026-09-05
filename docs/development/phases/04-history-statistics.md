@@ -72,7 +72,7 @@ internal/mcp/        # entity_tools.go (history/statistics tools)
   maximum; the source (recorder history vs statistics API) is named in the
   response so a reader knows what the numbers came from.
 
-- [ ] **`P4-05` — `find_unavailable_entities` and `find_stale_entities`** —
+- [x] **`P4-05` — `find_unavailable_entities` and `find_stale_entities`** —
   installation-wide detection with filters and pagination.
   **DoD:** entity counts and ranking are computed server-side; both respect the
   entity budget and return an explicit `truncated` marker rather than an
@@ -275,6 +275,71 @@ that could drift from it. Appendix A.3's "Nd" shorthand (`"7d"`) is parsed
 before falling back to `time.ParseDuration`, so `"24h"` also works without
 `get_entity_history`'s own `resolution` ambiguity (P4-01's decision record)
 resurfacing here.
+
+**`P4-05`, 2026-09-05 — `find_stale_entities`' `limit`/`Truncated` bound
+candidates examined, not results returned.** Judging cadence costs one
+recorder read per entity (P4-03), so an installation-wide scan cannot
+pre-compute the full result set the way `find_unavailable_entities` (an
+aggregate-only, cheap scan) does before paging it. `Limit` instead bounds how
+many filtered candidates this call examines, in deterministic id order;
+`Items` holds only the ones judged stale within that window. `Truncated`
+therefore means "more candidates remain unexamined", not doc §9.1's usual
+"more matching results exist" — a deliberate divergence from every other
+list_\* tool, called out in `model.StaleEntityList`'s own doc comment so a
+reader does not carry the wrong assumption over. `NextCursor` resumes the
+candidate scan, not the result list, at the last entity actually touched
+(examined or excluded), so a second call neither skips nor re-examines one.
+
+**`P4-05`, 2026-09-05 — the entity-request budget, not `limit`, is what
+actually truncates on a real installation.** `ClassNormalRead`'s
+`MaxHARequests` (20, doc's own default — P4-02's decision record notes doc
+§10's request counts are unmeasured) charges one request per entity a
+recorder read is issued for, so a scan over more than 20 candidates
+truncates there long before `limit`'s default of 50 or max of 200 would
+bind. This is surfaced honestly rather than hidden: `Scanned` reports how
+many were actually examined, and the remaining-usage check runs *before*
+`reader.History` is called (`budget.Usage().HARequests` against
+`budget.Limits().MaxHARequests`, backed by `Preflight` for bytes/points), so
+a request that would exceed the budget is never issued and never discarded
+after being paid for (CLAUDE.md, Performance & Resources: "do not ask the
+recorder for data you will discard"). Filters (`domain`, `area_id`,
+`device_id`, `integration`, `search`) are how a caller narrows a scan to fit
+one call; the cursor is how it continues one that does not.
+
+**`P4-05`, 2026-09-05 — neither `find_*` tool is re-classed to
+`ClassComposite`.** `catalog.go`'s own comment flags the `find_*` pair as the
+likely candidate for the wider composite budget, but re-classing without a
+measurement would be exactly the guess §26 forbids — the same reasoning
+F-17 already applies to the statistics estimate. `find_unavailable_entities`
+does not need it (two aggregate reads regardless of installation size, no
+per-entity cost). `find_stale_entities` is left at `ClassNormalRead` too: its
+truncation is now honest and visible (the decision above), which is what
+lets a future task measure a real false-positive/truncation rate against a
+live installation before spending a widened budget on it — the same
+trigger P4-03's `staleIntervalFactor` decision already named this task to
+produce. Filed as a `queue-next` finding rather than decided here, since it
+needs a real installation's numbers, not a judgement call.
+
+**`P4-05`, 2026-09-05 — a PRIVATE entity is excluded outright under the deny
+profile, never masked, in both `find_*` tools.** Every other tool's PRIVATE
+handling masks a *value* (a state, a coordinate) while keeping the entity
+itself visible. Neither `find_*` tool has a value to mask: the finding *is*
+membership in "currently unavailable" or "judged stale", and reporting that
+about a `person`/`device_tracker`/`lock`-domain entity across an entire
+installation is precisely the bulk-correlation exposure
+`policy.Profile.CheckHistoryScope` already refuses for named history queries
+over a private domain ("the correlation between N masked trackers still
+reconstructs the household's day") — applied here to a live, installation-
+wide scan instead of a historical one. So `profile.Decide` resolving to
+`ActionDeny` drops the entity from `Items` (and, for `find_stale_entities`,
+skips its recorder read entirely — never spending a request on data that
+will be withheld) rather than substituting a masked token. Under the default
+mask profile, both tools include the entity: `HandlingMask`'s own stated
+purpose is that flapping and availability analysis keep working while
+occupancy reconstruction does not, and "is this entity currently unavailable
+/ stale" is exactly that kind of shape-only fact. Both list types carry
+`PrivateExcluded` so an installation-wide scan under deny is never mistaken
+for "everything healthy" (CLAUDE.md rule 7).
 
 ## Phase Definition of Done
 
