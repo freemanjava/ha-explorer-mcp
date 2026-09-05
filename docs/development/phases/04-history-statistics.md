@@ -80,6 +80,20 @@ internal/mcp/        # entity_tools.go (history/statistics tools)
   excluded per the Phase 02 profile, and the response says which happened, so
   absence is never mistaken for health.
 
+- [ ] **`P4-06` — Doc §12.1's example statistics made self-consistent** — F-24,
+  doc-only, no code. §12.1 prints `"availability_ratio": 0.982` against
+  `"total_unavailable": "3h12m"` over `"period": "7d"` (11520s of 604800s is
+  0.98095), and `"median_update_interval_s": 31` against `"state_changes": 412`
+  over that same 7d window (412 changes a median 31s apart span ~3.5h, not a
+  week). The two halves currently describe different entities, and §12.1 is the
+  shape `P4-04` implements against.
+  **DoD:** §12.1's numbers satisfy their own arithmetic in both halves —
+  availability ratio consistent with the printed outage total over the printed
+  period, and the printed change count consistent with the printed median
+  interval over that period — per the decision record below; no source file
+  changes and `test/fixtures/entity_history_7d.json` is untouched;
+  `internal/analysis`'s existing tests still pass; `make check` green.
+
 ## Decisions
 
 *(the source-selection question is answered by P0-07's evidence, and the budget
@@ -209,6 +223,24 @@ counted in `Updates`: it happened before the window. With no interval
 observable at all, `Computable` and `StaleJudgeable` are false and the
 percentiles stay zero values no caller may read — "could not tell" is not
 "not stale", the same rule `P4-02` applied to its ratio.
+
+**`P4-06`, 2026-09-05 — §12.1 is corrected to the fixture, not the fixture to
+§12.1.** F-24's two inconsistencies are fixed by changing the *derived* numbers
+in the doc and leaving the observed ones alone: the availability ratio becomes
+what `3h12m` over `7d` actually is, and the cadence pair becomes what 412
+changes over `7d` actually are — the fixture
+`test/fixtures/entity_history_7d.json`, built by `P4-02` to reproduce the
+example through the real mapper, has 412 intervals with a median of 1376.5s and
+a p95 of ~2579s, so those are the numbers a real series of this shape yields.
+**Why:** the fixture and the two closed analysis tasks already assert computed
+values; re-cutting the fixture to make `31`/`104` true would mean a different
+entity (~19500 changes over a week), invalidating the outage half that the same
+example prints and the tests that pin it. **Rejected:** shortening `period` to
+~3.5h so the cadence half holds — it breaks the outage half instead, moving the
+inconsistency rather than removing it; and deleting the cadence fields — §12.1
+is the response shape `P4-04` implements against, so dropping fields from it
+removes the specification `P4-04` needs. **Consequences:** `P4-04` implements
+against an example whose arithmetic holds, and F-24 closes when this box does.
 
 ## Phase Definition of Done
 

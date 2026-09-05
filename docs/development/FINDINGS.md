@@ -206,7 +206,11 @@ difference, but one that costs nothing to defer until Phase 04 closes.
 
 **Triage:** `defer`
 
-**Outcome:** Re-triaged at the 2026-09-05 `plan` and **left deferred** a third
+**Outcome:** Re-triaged at the second 2026-09-05 `plan` and **left deferred** a
+fourth time on unchanged grounds: Phase 04 still has three open boxes
+(`P4-04`, `P4-05`, `P4-06`), so the statistics layer this verification needs
+still does not exist and Phase 05 still has no boxes to consume the answer.
+Re-triaged at the first 2026-09-05 `plan` and **left deferred** a third
 time: Phase 04 still has not closed — this `plan` is the one that queues its
 five boxes — so the statistics layer the verification needs does not exist yet.
 Re-triaged at the 2026-08-25 `plan` and **left deferred** on
@@ -530,7 +534,12 @@ estimate uses the larger batched figure, so the error is conservative.
 
 **Triage:** `defer`
 
-**Outcome:** Open. Re-triaged at the 2026-09-05 `plan` and **left deferred**
+**Outcome:** Open. Re-triaged at the second 2026-09-05 `plan` and **left
+deferred** again, with the trigger unchanged and now one task away: `P4-04` is
+the first consumer of statistics and is next in the queue, so this is revisited
+when `P4-04` closes — if `P2-01`'s statistics byte estimate binds there, resolve
+it; if it does not bind, defer again with that as evidence rather than as
+expectation. Re-triaged at the first 2026-09-05 `plan` and **left deferred**
 again: `P2-01`'s statistics estimate has still never bound in practice — nothing
 between `P3-02` and `P3-06` reads statistics at all — so the trigger the
 2026-08-25 deferral named has not fired. Phase 04 is the first consumer, and
@@ -758,7 +767,14 @@ whose recent logbook entries actually reference a PRIVATE entity.
 
 **Triage:** `queue-next`
 
-**Outcome:**
+**Outcome:** Queued 2026-09-05 as `P3-09` (phase 03 — Phase 03 simply has open
+boxes again), with the masking design settled in the same `plan` as that
+phase's `P3-09` decision record: the event is masked whole, keyed by its own
+entity's classification, rather than searched for substrings. Ordered after
+`P4-04` and before `P4-05`: it is a privacy-guarantee gap, so it outranks a new
+feature, but it reaches an agent only on a non-admin deployment (not today's
+default, per F-2/F-4), so it does not displace the pointer mid-phase. Closes
+when `P3-09` closes.
 
 ### F-24 · Doc §12.1's example statistics are not self-consistent · 2026-09-05
 
@@ -785,6 +801,12 @@ recorded in the phase file's decision record. The cost is future confusion:
 a reader treating the example as a specification would chase a phantom
 rounding bug. A one-line doc fix.
 
-**Triage:** `defer`
+**Triage:** `queue-next`
 
-**Outcome:**
+**Outcome:** Re-triaged 2026-09-05 from `defer` to `queue-next` and queued as
+`P4-06`: the deferral's own trigger — "revisit when it traps whoever implements
+`P4-04`" — is now, since `P4-04` is the next task and §12.1 is the shape it
+implements against. Ordered *first*, ahead of `P4-04`, so the trap is gone
+before that session reads the section. The fix direction is settled in phase
+04's `P4-06` decision record (correct §12.1 to the fixture, not the fixture to
+§12.1). Closes when `P4-06` closes.
