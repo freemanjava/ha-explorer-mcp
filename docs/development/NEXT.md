@@ -3,8 +3,8 @@
 <!-- BOUNDED FILE — rewritten in place, never appended to. Keep under ~100 lines.
      Anything that grows goes to journal/. This file is read by every session. -->
 
-**▶ Active:** `P2-06` — measure the invocation rate limit
-· [`phases/02-policy-privacy-audit.md`](phases/02-policy-privacy-audit.md) · model: **claude-sonnet-5** · flags: `needs-verify`
+**▶ Active:** `P4-01` — `get_entity_history`
+· [`phases/04-history-statistics.md`](phases/04-history-statistics.md) · model: **claude-sonnet-5** · flags: none
 
 > Advancing this pointer is part of finishing a task, together with ticking the
 > box, recomputing status and appending a journal entry. All four, or none.
@@ -16,28 +16,27 @@ cycle. Remove a row when its task closes.
 
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
-| 1 | `P2-06` | measure the invocation rate limit | 02 | claude-sonnet-5 | `needs-verify` |
-| 2 | `P4-01` | `get_entity_history` | 04 | claude-sonnet-5 | |
-| 3 | `P4-02` | availability and outage analysis | 04 | claude-opus-5 | 🧠 |
-| 4 | `P4-03` | update-cadence and staleness analysis | 04 | claude-opus-5 | 🧠 |
-| 5 | `P4-04` | `get_entity_statistics` | 04 | claude-sonnet-5 | |
-| 6 | `P4-05` | `find_unavailable_entities` / `find_stale_entities` | 04 | claude-sonnet-5 | |
+| 1 | `P4-01` | `get_entity_history` | 04 | claude-sonnet-5 | |
+| 2 | `P4-02` | availability and outage analysis | 04 | claude-opus-5 | 🧠 |
+| 3 | `P4-03` | update-cadence and staleness analysis | 04 | claude-opus-5 | 🧠 |
+| 4 | `P4-04` | `get_entity_statistics` | 04 | claude-sonnet-5 | |
+| 5 | `P4-05` | `find_unavailable_entities` / `find_stale_entities` | 04 | claude-sonnet-5 | |
 
 **Order rationale (2026-09-05 `plan`, `P3-07` since closed and dropped).**
-Phase 03 finishes first: `P3-08` — the F-21 fix, the only box this `plan`
-still leaves in Phase 03 — closes it so the phase does not linger with a
-known non-zero exit in it. `P2-06` then sits between the phases on purpose: it
-is the F-20
-measurement, whose revisit point the 2026-08-25 `plan` fixed as "the `plan`
-after `P3-01` closes", and Phase 04's tools are the heaviest recorder callers
-this server will ever make — writing them against an arrival limit nobody
-measured is exactly the guess the finding names. Phase 04's five then run in
-their written order, which is a real dependency chain: `P4-01` fetches,
-`P4-02`/`P4-03` compute over what it fetches, `P4-04` exposes both as one tool,
-and `P4-05` applies them installation-wide. Nothing here is flagged
-`needs-verify` on `P2-06`'s result: the rate limit bounds how fast invocations
-arrive, not what any Phase 04 tool computes, so a changed constant re-tunes the
-envelope without re-opening a box.
+Phase 03 finished first: `P3-08` — the F-21 fix — closed it so the phase does
+not linger with a known non-zero exit in it. `P2-06` sat between the phases on
+purpose: it was the F-20 measurement, whose revisit point the 2026-08-25 `plan`
+fixed as "the `plan` after `P3-01` closes", and Phase 04's tools are the
+heaviest recorder callers this server will ever make — writing them against an
+arrival limit nobody measured was exactly the guess the finding named. It
+closed 2026-09-05 confirming both constants unchanged
+([`2026-09-05-ha-invocation-rate-limit.md`](../research/2026-09-05-ha-invocation-rate-limit.md)).
+Phase 04's five now run in their written order, which is a real dependency
+chain: `P4-01` fetches, `P4-02`/`P4-03` compute over what it fetches, `P4-04`
+exposes both as one tool, and `P4-05` applies them installation-wide. None of
+them is flagged `needs-verify` on `P2-06`'s result: the rate limit bounds how
+fast invocations arrive, not what any Phase 04 tool computes, and the
+constants came out unchanged besides.
 
 **Four decisions settled 2026-08-25.** *Transport:* **stdio only** — no
 listening port, no client-auth subsystem, and every log line goes to stderr
@@ -71,7 +70,7 @@ done
 |------:|-------|:------------:|
 | 00 | Spike & Foundations | 15 / 15 |
 | 01 | HA Access & Read-Only Gateway | 10 / 10 |
-| 02 | Policy, Privacy, Budget & Audit | 6 / 8 |
+| 02 | Policy, Privacy, Budget & Audit | 7 / 8 |
 | 03 | MCP Server & Inventory Tools | 9 / 9 |
 | 04 | History, Statistics & Detection | 0 / 5 |
 | 05 | Diagnostics & Evidence Engine | 0 / 1 |
@@ -82,22 +81,20 @@ Counts include each phase's `needs-decision` entries, which are boxes too. Phase
 00 is now fully ticked — its last two were the HA-version and Supervisor
 decisions, both settled 2026-08-25. **Phase 01 is now fully ticked** — `P1-08`
 closed 2026-08-25: `SupervisorClient` and its own route allow-list in
-`internal/ha`, `addon/config.yaml` flipped to `hassio_api: true`. Phase 02's one
-remaining open box is the Q10 persistence decision — `P2-05` closed 2026-08-25.
-**Phase 03 is now fully ticked** — its catalog-scope decision, `P3-01` through
-`P3-08`, the last (`P3-08`, the F-21 exit-code fix) closed 2026-09-05. Both
-totals grew by one at the 2026-09-05 `plan`, which wrote `P2-06` (the F-20
-rate-limit measurement) and `P3-08`: new work does not reopen a phase, it
-simply leaves it with open boxes again — Phase 02 is that phase now, at its
-one remaining box.
+`internal/ha`, `addon/config.yaml` flipped to `hassio_api: true`. **`P2-06`
+closed 2026-09-05** — the F-20 rate-limit measurement, `invocationBurst`/
+`invocationInterval` confirmed unchanged. Phase 02's one remaining open box is
+the Q10 persistence decision — `P2-05` closed 2026-08-25. **Phase 03 is now
+fully ticked** — its catalog-scope decision, `P3-01` through `P3-08`, the last
+(`P3-08`, the F-21 exit-code fix) closed 2026-09-05.
 
 Phases 00–04 are milestone M1 (v1 observer). Phase 05 is M2. Phases 06–07 are
 gated: they open only on an explicit owner decision plus a fresh security review.
 Phases 05–07 carry no task boxes yet — theirs are written by `devflow plan` when
 the phase before them closes.
 
-Last refreshed: 2026-09-05 (`P3-08` closed — Phase 03 now 9/9, complete —
-pointer advanced to `P2-06`; F-21 resolved)
+Last refreshed: 2026-09-05 (`P2-06` closed — Phase 02 now 7/8 — pointer
+advanced to `P4-01`; F-20 resolved)
 
 ## Open findings
 
@@ -105,7 +102,7 @@ pointer advanced to `P2-06`; F-21 resolved)
      grep -c '^\*\*Triage:\*\* `queue-next`' docs/development/FINDINGS.md  (etc.)
      This block exists so captured work cannot quietly rot: every session sees it. -->
 
-`blocks-active` 0 · `queue-next` 2 · `defer` 2 · `unknown` 3 (open)
+`blocks-active` 0 · `queue-next` 1 · `defer` 2 · `unknown` 2 (open)
 
 > Any `blocks-active` is stop-work. If `queue-next` is non-zero and the queue
 > above has fewer than 3 rows, drain it with `devflow plan` before continuing —
@@ -114,11 +111,11 @@ pointer advanced to `P2-06`; F-21 resolved)
 > An open `unknown` outranks the queue: it is an assumption the plan already
 > rests on. Run `devflow verify` before building further on it.
 
-**F-21 resolved 2026-09-05** by `P3-08`'s close (row 1 dropped from the
-queue). Two `queue-next` remain: **F-20** with `P2-06` (row 1, now active) and
-**F-23**, filed while closing `P3-07` (the logbook fallback it added bypasses
-`internal/redact`'s privacy classification), not yet queued as a task — the
-next `plan` should give it one.
+**F-20 resolved 2026-09-05** by `P2-06`'s close (row dropped from the queue,
+pointer advanced to `P4-01`). One `queue-next` remains: **F-23**, filed while
+closing `P3-07` (the logbook fallback it added bypasses `internal/redact`'s
+privacy classification), not yet queued as a task — the next `plan` should
+give it one.
 
 Two `defer`s remain, re-triaged and deferred again on grounds that have not
 changed: **F-6** — Phase 04 has not closed, so the statistics layer its
@@ -126,12 +123,29 @@ verification needs still does not exist · **F-17** — nothing has read statist
 yet, so `P2-01`'s conservative estimate has never bound; `P4-04` is the first
 place it can, and that is where to revisit it.
 
-The three open `unknown`s are F-6, F-17 and F-20; only F-20 has a task.
+The two open `unknown`s are F-6 and F-17; neither has a task yet.
 
 ## Recent
 
 Last 5 closed tasks, one line each. Older entries live in `journal/`.
 
+- 2026-09-05 · `P2-06` — measured the invocation rate limit, closing F-20:
+  `cmd/spike/arrival.go`'s new `probeArrivalRate` streams a budget-compliant
+  `history/history_during_period` call (10 ids, 24h — the 2026-08-24 run's
+  largest rung inside both the byte and point caps) at 1/2/4 calls/s, pipelined
+  via a paced writer goroutine + a draining reader matched by WS message id so
+  it measures contention rather than round-trip time; best-effort Core CPU via
+  a `sensor.*` name/unit heuristic, `unsupported` when none matches
+  (`/core/stats` needs a role this App doesn't request). **Found:** no
+  measurable latency or CPU degradation at any tested rate, including 4/s —
+  double the current sustained limit
+  ([`2026-09-05-ha-invocation-rate-limit.md`](../research/2026-09-05-ha-invocation-rate-limit.md));
+  `invocationBurst`/`invocationInterval` confirmed unchanged, comment now citing
+  the note. `internal/policy/ratelimit_test.go` extended to assert the
+  post-burst refusal's `RetryAfter` is consistent with `invocationInterval`. A
+  first probe cut mis-sized "max-page" as the cost ladder's widest rung
+  (200 ids/7d, 7.63 MB, 15× over the byte cap) and was caught before its severe
+  degradation under load was mistaken for the answer.
 - 2026-09-05 · `P3-08` — session end is a shutdown, not a crash, closing
   F-21 and Phase 03: `internal/mcp.Run` stops delegating to
   `(*sdkmcp.Server).Run`, which cannot tell a session-end error from a
@@ -198,18 +212,6 @@ Last 5 closed tasks, one line each. Older entries live in `journal/`.
   malformed `availability` value is rejected rather than silently matching
   nothing; `search` is a plain case-insensitive substring test, so
   instruction-shaped entity names are never interpreted (threat T2).
-- 2026-09-05 · `P3-04` — `list_devices` and `get_device` land: `internal/mcp/device_tools.go`
-  filters (area_id/config_entry_id/disabled) and pages `RegistryCache.Devices`
-  through `internal/page.Paginate`, returning `DeviceRef` itself — no derived
-  counts, no related lists — as `list_devices`' items; `get_device` drills
-  into one device by id (`ha.ErrNotFound` when absent, never a partial
-  object), joins the entity registry to report each related entity's
-  domain/name plus availability computed the same way `P3-03`'s counts were
-  (membership in `UnavailableEntityIDs`, never the underlying state list),
-  and resolves both directions of `ViaDeviceID` topology (`ViaDevice` up,
-  `ChildDevices` down) from the device registry already in hand; a dangling
-  `ViaDeviceID` degrades the topology field to nil rather than failing the
-  response; both tools' schemas are left to the SDK's struct-based inference.
 
 ## Project facts
 

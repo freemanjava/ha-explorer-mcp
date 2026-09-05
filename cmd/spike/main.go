@@ -165,6 +165,7 @@ func run() error {
 	red.add(entityIDs...)
 
 	probeRepairs(ctx, out, conn, ids, red)
+	probeArrivalRate(ctx, out, conn, ids, entityIDs)
 
 	// The P0-09 cost ladder answered its own question once
 	// (docs/research/2026-08-24-ha-multi-entity-query-cost.md) and costs up to

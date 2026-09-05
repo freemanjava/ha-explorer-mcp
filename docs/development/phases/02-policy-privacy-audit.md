@@ -174,25 +174,29 @@ internal/audit/    # logger.go
   a nested recover around the failure log line itself) so a broken sink or an
   unformattable payload cannot fail the tool call it is recording.
 
-- [ ] **`P2-06` — Measure the invocation rate limit** `needs-verify` — the two
-  constants in [`internal/policy/ratelimit.go`](../../../internal/policy/ratelimit.go)
-  (`invocationBurst = 10`, `invocationInterval = 500ms`) are the only ones in
-  this phase without a measured provenance: they are *derived* from the
-  2026-08-24 single-call run, which never measured a stream of calls (F-20).
-  `P3-01` wired the limiter into a running server, so a storm now has something
-  to hit — this is the first point at which measuring means anything. Run the
-  measurement first (`devflow verify`), then change or confirm the constants.
-  **DoD:** a `cmd/spike` probe issues a fixed-rate stream of max-page history
-  calls at three or more arrival rates spanning the current 2/s, reporting
-  recorder latency percentiles and Core CPU per rate and printing field names,
-  types and aggregates only — no installation values, no ids as map keys (F-9,
-  F-15); a dated `docs/research/` note records the run, the rates and the
-  arrival rate at which the recorder starts degrading; `invocationBurst` and
-  `invocationInterval` either keep their values or change, and in **both** cases
-  their comment cites that note instead of the 2026-08-24 derivation, so no
-  constant is left claiming a provenance it does not have; a test asserts the
-  limiter admits exactly `invocationBurst` immediate arrivals and refuses the
-  next with a `RetryAfter` consistent with `invocationInterval`.
+- [x] **`P2-06` — Measure the invocation rate limit** — closed 2026-09-05. The
+  two constants in [`internal/policy/ratelimit.go`](../../../internal/policy/ratelimit.go)
+  (`invocationBurst = 10`, `invocationInterval = 500ms`) were *derived* from
+  the 2026-08-24 single-call run, which never measured a stream of calls
+  (F-20). `cmd/spike`'s new `probeArrivalRate` streams a budget-compliant
+  `history/history_during_period` call (10 ids, 24h — the 2026-08-24 run's
+  largest rung inside both the byte and point caps) at 1/2/4 calls/s,
+  pipelined (a paced writer, a draining reader matched by WS message id) so it
+  measures real contention, not round-trip time. **Found:** no measurable
+  recorder-latency or Core-CPU degradation at any tested rate, including 4/s —
+  double the current sustained limit
+  ([`2026-09-05-ha-invocation-rate-limit.md`](../../research/2026-09-05-ha-invocation-rate-limit.md)).
+  Both constants are **confirmed unchanged**, their comment now citing this
+  note instead of the 2026-08-24 derivation. A first probe cut mis-sized
+  "max-page" as the widest cost-ladder rung (200 ids/7d, 7.63 MB) — 15× over
+  the normal-read byte cap, a call `Preflight` would refuse before any shipped
+  tool could issue it — streamed anyway before being caught; that run's severe
+  degradation (kept in the note as context, not as this box's answer) is what
+  an ever-successful `Preflight` bypass would cost, not evidence about the
+  arrival limit. `internal/policy/ratelimit_test.go`'s
+  `TestNewInvocationLimiter_Defaults_AllowAnInteractiveBurst` now also asserts
+  the refusal past `invocationBurst` carries a `RetryAfter` consistent with
+  `invocationInterval`.
 
 ## Decisions
 

@@ -6,10 +6,15 @@ import (
 	"time"
 )
 
-// Default arrival limits for MCP invocations. Not measured directly: the
-// 2026-08-24 run measured the cost of one call, not of a stream of them. They
-// are derived from it, though — the widest in-budget call observed took 339 ms
-// cold, so roughly three back-to-back calls saturate one recorder read stream.
+// Default arrival limits for MCP invocations, confirmed by
+// docs/research/2026-09-05-ha-invocation-rate-limit.md (P2-06, resolving
+// F-20): a sustained stream of budget-compliant history calls (10 ids, 24h —
+// the 2026-08-24 run's largest rung inside both the byte and point caps)
+// showed no latency or Core CPU degradation at 1, 2 or 4 calls/s, double the
+// interval below. The values are unchanged from their original derivation —
+// the 2026-08-24 single-call run's worst in-budget cold call, 339 ms, implying
+// roughly three back-to-back calls saturate one recorder read stream — but
+// now carry a stream measurement's provenance, not only a single-call one.
 // Sustained arrivals are held below that so a storm cannot pin the recorder,
 // while the burst covers an interactive investigation's opening fan-out
 // (threat T1, Appendix B "request storm").

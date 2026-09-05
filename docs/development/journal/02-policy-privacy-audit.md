@@ -60,3 +60,15 @@ always panics to prove it.
 **Left open:** no MCP server exists yet to call `Emit` at (`P3-01` wires it
 into the invocation path); the `Record.Body`/`WithBody` opt-in has no caller
 until a tool response shape exists to decide whether to pass one.
+
+### 2026-09-05 · `P2-06`
+`cmd/spike/arrival.go`'s new `probeArrivalRate` streamed a budget-compliant
+history call (10 ids, 24h) at 1/2/4 calls/s: no latency or Core-CPU
+degradation at any rate, including 4/s — `invocationBurst`/`invocationInterval`
+confirmed unchanged, now measured rather than derived (F-20).
+**Surprise:** the first probe cut streamed the cost ladder's widest rung
+(200 ids/7d, 7.63 MB) instead — 15× over the byte cap `Preflight` would
+refuse — and its severe, still-climbing latency/CPU under load was almost
+mistaken for the answer before the budget mismatch was caught.
+**Left open:** rates above 4/s and bursts (as opposed to sustained rates) at
+the burst size remain unmeasured; not this box's DoD.

@@ -636,25 +636,25 @@ lets a storm through the mitigation for threat T1, too strict refuses a normal
 interactive investigation's opening fan-out. Neither can be judged without a
 sustained-arrival measurement against a real recorder.
 
-**Triage:** `queue-next`
+**Triage:** `resolved`
 
-**Outcome:** **Promoted 2026-09-05** at the `plan` the 2026-08-25 re-triage
-named as the exact revisit point — `P3-01` closed, so the limiter now runs at a
-real invocation boundary and a storm has something to hit. Planned into
-**`P2-06`** (`phases/02-policy-privacy-audit.md`), flagged `needs-verify`: the
-measurement runs first as `devflow verify`, and the constants are confirmed or
-changed against it afterwards, with their comment citing the run either way.
-Queued ahead of Phase 04 so its heavy recorder tools are written against a
-measured arrival limit rather than a derived one. It closes when `P2-06` closes.
-Previously: deferred rather than queued because nothing consumed the
-constants until `P3-01` wires the limiter, and the cheapest probe wants an MCP
-server to storm. Re-triaged at the 2026-08-25 `plan`, which queued `P3-01` as
-row 3 but did **not** promote this: the limiter still does not run anywhere, so
-measuring now would measure nothing. The revisit point is now exact — the `plan`
-after `P3-01` closes. The probe: the probe is `cmd/spike`
-issuing a fixed-rate stream of max-page history calls while Core CPU and
-recorder latency are watched — the measurement the 2026-08-24 run explicitly did
-not make ("whether the widest calls degraded the installation while they ran").
+**Outcome:** Promoted 2026-09-05 at the `plan` the 2026-08-25 re-triage named
+as the exact revisit point — `P3-01` closed, so the limiter now runs at a real
+invocation boundary and a storm has something to hit. Planned into **`P2-06`**
+(`phases/02-policy-privacy-audit.md`), flagged `needs-verify`. **Closed
+2026-09-05 by `P2-06`.** `cmd/spike`'s new `probeArrivalRate` streamed a
+budget-compliant `history/history_during_period` call (10 ids, 24h — the
+2026-08-24 run's largest rung inside both the byte and point caps) at 1/2/4
+calls/s, pipelined so it measures contention, not round-trip time
+([`2026-09-05-ha-invocation-rate-limit.md`](../research/2026-09-05-ha-invocation-rate-limit.md)):
+no measurable recorder-latency or Core-CPU degradation at any tested rate,
+including 4/s — double the current sustained limit. `invocationBurst`/
+`invocationInterval` are confirmed unchanged, their comment now citing this
+note. A first probe cut mis-sized "max-page" as the widest cost-ladder rung
+(200 ids/7d, 7.63 MB) — 15× over the normal-read byte cap, a call `Preflight`
+would refuse before any shipped tool could issue it — and was caught and fixed
+before that run's severe degradation (real, but the shape of a `Preflight`
+bypass's cost, not of the arrival limit) was mistaken for the answer.
 
 ### F-21 · A client that dies mid-request makes the App exit non-zero · 2026-09-05
 
