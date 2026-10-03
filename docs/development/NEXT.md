@@ -3,11 +3,11 @@
 <!-- BOUNDED FILE — rewritten in place, never appended to. Keep under ~100 lines.
      Anything that grows goes to journal/. This file is read by every session. -->
 
-**▶ Active:** `P5-06` — `analyze_integration_health` · phase 05 · default model.
-Config-entry setup state, entity/device counts and unavailable ratio, open
-repairs, and the P5-04 outage clusters restricted to the integration's
-entities; Supervisor-derived evidence named in `missing_evidence` when absent.
-Reuses P5-05's `missing_evidence` mapping. Replaces its `bindNotImplemented` row.
+**▶ Active:** `P5-07` — investigation 1 (doc §13.1) end to end · phase 05 · default
+model. An integration-level test walking `get_automation` →
+`get_automation_traces` → dependency history/statistics → repairs → correlated
+timestamps → ranked hypotheses against a fixture installation; the degraded
+branch (F-11, traces unavailable) must carry strictly lower confidence.
 
 > Advancing this pointer is part of finishing a task, together with ticking the
 > box, recomputing status and appending a journal entry. All four, or none.
@@ -19,11 +19,10 @@ cycle. Remove a row when its task closes.
 
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
-| 1 | `P5-06` | `analyze_integration_health` | 05 | default | |
-| 2 | `P5-07` | investigation 1 — doc §13.1 e2e + degraded branch | 05 | default | |
-| 3 | `P5-08` | investigation 2 — doc §13.2 e2e (F-27's rule now in its DoD) | 05 | default | `blocked:P5-06` |
-| 4 | `P5-09` | investigation 3 — correlated mass unavailability (observe F-28 first) | 05 | default | `blocked:P5-06` |
-| 5 | `P5-10` | measure composite budget, re-class `find_stale_entities` (F-26) | 05 | default | `needs-verify` `blocked:P5-06` |
+| 1 | `P5-07` | investigation 1 — doc §13.1 e2e + degraded branch | 05 | default | |
+| 2 | `P5-08` | investigation 2 — doc §13.2 e2e (F-27's rule now in its DoD) | 05 | default | |
+| 3 | `P5-09` | investigation 3 — correlated mass unavailability (observe F-28 first) | 05 | default | |
+| 4 | `P5-10` | measure composite budget, re-class `find_stale_entities` (F-26) | 05 | default | `needs-verify` |
 
 **Ordering rationale (2026-09-05 `plan`).** Verify → model → analysis
 primitives → tools → workflows → measurement. `P5-01` went first because its
@@ -80,22 +79,21 @@ done
 | 02 | Policy, Privacy, Budget & Audit | 8 / 8 |
 | 03 | MCP Server & Inventory Tools | 11 / 11 |
 | 04 | History, Statistics & Detection | 6 / 6 |
-| 05 | Diagnostics & Evidence Engine | 10 / 15 |
+| 05 | Diagnostics & Evidence Engine | 11 / 15 |
 | 06 | Proposal Mode — gated | 0 / 1 |
 | 07 | Controlled Change (Admin) — gated | 0 / 1 |
 
 Counts include each phase's decision entries, which are boxes too. Phase 05's
-10 ticked are D-05-1…5 and the `P5-01`…`P5-05` task boxes; its five remaining task boxes
+11 ticked are D-05-1…5 and the `P5-01`…`P5-06` task boxes; its four remaining task boxes
 are open, and no decision entry in the phase is open any more. Phase 02 is
 complete: its last box, the Q10 persistence decision, closed 2026-10-03.
 
 Phases 00–04 are milestone M1 (v1 observer) and are **fully implemented**.
 Phase 05 is M2, and is where the last two catalog rows
-(`analyze_entity_health`, `analyze_integration_health` — today bound to
-`bindNotImplemented`) become real. Phases 06–07 are gated: they open only on an
+(`analyze_entity_health`, `analyze_integration_health`) became real. Phases 06–07 are gated: they open only on an
 explicit owner decision plus a fresh security review, and carry no task boxes.
 
-Last refreshed: 2026-10-03 (`P5-05` closed — `analyze_entity_health`)
+Last refreshed: 2026-10-03 (`P5-06` closed — `analyze_integration_health`)
 
 ## Open findings
 
@@ -129,6 +127,11 @@ call site, F-17 becomes `wont-fix` and F-25 becomes a deletion task, at that
 
 Last 5 closed tasks, one line each. Older entries live in `journal/`.
 
+- 2026-10-03 · `P5-06` — `analyze_integration_health`: setup state, inventory
+  ratio, domain repairs, clusters over the entry's entities, Supervisor
+  resolution counts (absence named, call still answers). History read for ≤25
+  entities, down-now first, the rest named in `missing_evidence` (P5-10 to
+  measure).
 - 2026-10-03 · `P5-05` — `analyze_entity_health`: each source (history,
   registry, repairs) read independently, a failed one becomes
   `missing_evidence`; hypotheses via `ConfidenceFor`, no score. Found and fixed:
@@ -142,7 +145,3 @@ Last 5 closed tasks, one line each. Older entries live in `journal/`.
   high ≥20 samples & ≥0.9 coverage, medium ≥5 & ≥0.5, `Degraded` demotes one
   step, several citations take the weakest. A source scan forbids naming a
   confidence level anywhere but `confidence.go`/`model/evidence.go`.
-- 2026-10-03 · `P5-02` — D-05-1's four types plus `HealthAnalysis` in
-  `internal/model/evidence.go`; `NewHypothesis` refuses zero citations;
-  `MissingReason` separates `entity_disabled` from `not_exposed` (D-05-5). The
-  no-`cause` rule is a `go/parser` scan over `internal/`, json tags included.

@@ -15,9 +15,9 @@ import (
 	"github.com/freemanjava/ha-explorer-mcp/internal/policy"
 )
 
-// entityHealthSource names the response as a composition: each Evidence
+// healthSource names the response as a composition: each Evidence
 // carries the subsystem it actually came from.
-const entityHealthSource = "composite"
+const healthSource = "composite"
 
 // AnalyzeEntityHealthInput is analyze_entity_health's typed input (Appendix
 // A.3): one entity id and a bounded lookback period — no field accepts a
@@ -37,11 +37,11 @@ type HypothesisView struct {
 	Cites      []model.EvidenceID
 }
 
-// EntityHealthResponse is analyze_entity_health's response: fact (Evidence),
+// HealthResponse is analyze_entity_health's response: fact (Evidence),
 // inference (Hypotheses) and recommendation (NextActions) in separate
 // fields, with what could not be observed named in MissingEvidence. It has no
 // score (D-05-4).
-type EntityHealthResponse struct {
+type HealthResponse struct {
 	Source     string
 	ObservedAt time.Time
 	SubjectID  string
@@ -85,7 +85,7 @@ func withEntityHealthTools(tools []Tool, opts Options) []Tool {
 
 func bindAnalyzeEntityHealth(deps entityHealthDeps) binder {
 	return func(srv *sdkmcp.Server, def *sdkmcp.Tool) {
-		sdkmcp.AddTool(srv, def, func(ctx context.Context, _ *sdkmcp.CallToolRequest, in AnalyzeEntityHealthInput) (*sdkmcp.CallToolResult, EntityHealthResponse, error) {
+		sdkmcp.AddTool(srv, def, func(ctx context.Context, _ *sdkmcp.CallToolRequest, in AnalyzeEntityHealthInput) (*sdkmcp.CallToolResult, HealthResponse, error) {
 			out, err := analyzeEntityHealth(ctx, deps, in)
 			return nil, out, err
 		})
@@ -97,62 +97,71 @@ func bindAnalyzeEntityHealth(deps entityHealthDeps) binder {
 // A source that cannot be read becomes MissingEvidence and lowers what is
 // concluded; it never fails the call (doc §3.2). Refusal order mirrors
 // get_entity_statistics: shape and range, then the profile, then any read.
-func analyzeEntityHealth(ctx context.Context, deps entityHealthDeps, in AnalyzeEntityHealthInput) (EntityHealthResponse, error) {
+func analyzeEntityHealth(ctx context.Context, deps entityHealthDeps, in AnalyzeEntityHealthInput) (HealthResponse, error) {
 	if !historyEntityIDPattern.MatchString(in.EntityID) {
-		return EntityHealthResponse{}, fmt.Errorf("analyze_entity_health: %q is not a valid entity id", in.EntityID)
+		return HealthResponse{}, fmt.Errorf("analyze_entity_health: %q is not a valid entity id", in.EntityID)
 	}
 	entityID := model.EntityID(in.EntityID)
 
-	periodStr := defaultStatisticsPeriod
-	if in.Period != nil && *in.Period != "" {
-		periodStr = *in.Period
-	}
-	window, err := parseStatisticsPeriod(periodStr)
+	window, err := healthWindow("analyze_entity_health", in.Period)
 	if err != nil {
-		return EntityHealthResponse{}, fmt.Errorf("analyze_entity_health: %q is not a valid period", periodStr)
-	}
-	if window <= 0 {
-		return EntityHealthResponse{}, fmt.Errorf("analyze_entity_health: period %q must be positive", periodStr)
-	}
-	if window > maxHistoryWindow {
-		return EntityHealthResponse{}, fmt.Errorf("%w: analyze_entity_health: requested period %s exceeds the maximum %s",
-			policy.ErrPolicyDenied, window, maxHistoryWindow)
+		return HealthResponse{}, err
 	}
 	if err := deps.profile.CheckHistoryScope(policy.HistoryScope{Entities: []model.EntityID{entityID}}); err != nil {
-		return EntityHealthResponse{}, err
+		return HealthResponse{}, err
 	}
 
 	to := time.Now().UTC()
 	input := analysis.EntityHealthInput{EntityID: entityID, ObservedAt: to, From: to.Add(-window), To: to}
 
 	if err := readHistory(ctx, deps.history, &input); err != nil {
-		return EntityHealthResponse{}, err
+		return HealthResponse{}, err
 	}
 	if err := readRegistry(ctx, deps.registry, &input); err != nil {
-		return EntityHealthResponse{}, err
+		return HealthResponse{}, err
 	}
 	if input.RegistryRead && input.Entity == nil && input.HistoryRead && len(input.Points) == 0 {
-		return EntityHealthResponse{}, fmt.Errorf("%w: entity %q", ha.ErrNotFound, in.EntityID)
+		return HealthResponse{}, fmt.Errorf("%w: entity %q", ha.ErrNotFound, in.EntityID)
 	}
 	if err := readRepairs(ctx, deps.repairs, &input); err != nil {
-		return EntityHealthResponse{}, err
+		return HealthResponse{}, err
 	}
 
 	result, err := analysis.AnalyzeEntityHealth(input)
 	if err != nil {
-		return EntityHealthResponse{}, err
+		return HealthResponse{}, err
 	}
-	out := renderEntityHealth(result)
+	out := renderHealth(result)
 
 	if budget, ok := policy.BudgetFrom(ctx); ok {
 		b, mErr := json.Marshal(out)
 		if mErr == nil {
 			if err := budget.ChargeBytes(int64(len(b))); err != nil {
-				return EntityHealthResponse{}, err
+				return HealthResponse{}, err
 			}
 		}
 	}
 	return out, nil
+}
+
+// healthWindow parses and bounds a composite health tool's lookback period.
+func healthWindow(tool string, period *string) (time.Duration, error) {
+	periodStr := defaultStatisticsPeriod
+	if period != nil && *period != "" {
+		periodStr = *period
+	}
+	window, err := parseStatisticsPeriod(periodStr)
+	if err != nil {
+		return 0, fmt.Errorf("%s: %q is not a valid period", tool, periodStr)
+	}
+	if window <= 0 {
+		return 0, fmt.Errorf("%s: period %q must be positive", tool, periodStr)
+	}
+	if window > maxHistoryWindow {
+		return 0, fmt.Errorf("%w: %s: requested period %s exceeds the maximum %s",
+			policy.ErrPolicyDenied, tool, window, maxHistoryWindow)
+	}
+	return window, nil
 }
 
 // readHistory reads the recorder once. Only a cancelled caller aborts;
@@ -288,8 +297,8 @@ func missingFor(what, source string, err error) (model.MissingEvidence, error) {
 	return m, nil
 }
 
-// renderEntityHealth is the serialized rendering of the analysis (D-05-1).
-func renderEntityHealth(a model.HealthAnalysis) EntityHealthResponse {
+// renderHealth is the serialized rendering of the analysis (D-05-1).
+func renderHealth(a model.HealthAnalysis) HealthResponse {
 	hypotheses := make([]HypothesisView, 0, len(a.Hypotheses))
 	for _, h := range a.Hypotheses {
 		hypotheses = append(hypotheses, HypothesisView{
@@ -298,8 +307,8 @@ func renderEntityHealth(a model.HealthAnalysis) EntityHealthResponse {
 			Cites:      h.Cites(),
 		})
 	}
-	return EntityHealthResponse{
-		Source:          entityHealthSource,
+	return HealthResponse{
+		Source:          healthSource,
 		ObservedAt:      a.ObservedAt,
 		SubjectID:       a.SubjectID,
 		From:            a.From,
