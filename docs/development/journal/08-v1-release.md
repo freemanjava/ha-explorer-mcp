@@ -35,3 +35,8 @@ golangci-lint 2.14.0, 13 issues fixed (12 errcheck — mostly deferred test `Clo
 Read HA Core `mcp_server`, Supervisor `apps.py`/`docker/app.py`/`ingress.py`, both SSH App manifests, `ha-mcp`. Owner chose (c): HTTP in the App, LAN, port closed by default, owner-set secret, fail closed, stdio kept. Re-planned into P8-08…P8-11; D-08-3 drops F-40's six entries.
 **Surprise:** Supervisor's `/apps/{app}/stdin` writes and hangs up — no response channel, so `stdin: true` was never a client path; and the official SSH App has no Docker at any protection level.
 **Left open:** whether the tools work for a non-admin HA user (irrelevant to (c); noted in the research file).
+
+### 2026-10-03 · P8-08
+Security review of D-08-1's HTTP transport: D-08-4…D-08-11, ADR-013, doc §4 T5/§15.2, SDK facts in `docs/research/2026-10-03-go-sdk-streamable-http.md`; `P8-02`/`P8-09` amended.
+**Surprise:** go-sdk passes the *whole* HTTP header set to server code (`RequestExtra.Header`), `Authorization` included — so the middleware must strip it; and the SDK has no default Origin check, its deprecated option admits same-origin (= DNS-rebinding) requests.
+**Left open:** "port closed" doesn't stop other Apps on the `hassio` network (P8-09 observes); privacy profile/log level unsettable in the App (F-42); TLS (F-43, defer).

@@ -1163,3 +1163,30 @@ is a change to D-05-3 and wants its own decision.
 **Triage:** `done`
 **Outcome:** run `devflow verify` (evidence on default model, interpretation on Opus); then return to D-08-1 with the findings.
 **Verification (2026-10-03, Opus, from source):** (1) answered — the official SSH App declares no `docker_api` at all; protection mode is irrelevant. Only the community "Advanced SSH" App has Docker, with protection off (host-root). (2) answered, **option (d) void** — Supervisor's `POST /apps/{app}/stdin` writes and closes; stdout returns to no caller, only to the log. (3) moot once (d) is void. Ingress is cookie-session only, not an MCP client path. HA's own `mcp_server` is a Core integration on `/api/mcp` (stateless Streamable HTTP, HA OAuth/LLAT, admin by default). Evidence: `docs/research/2026-10-03-mcp-client-paths.md`. D-08-1 is now a pure owner decision among (a), (b), (c), (e).
+
+### F-42 · In the App, the privacy profile and log level cannot be set · 2026-10-03
+
+**Kind:** `inconsistency`
+**What:** `cmd/server/main.go` reads `HA_INSPECTOR_PRIVACY_PROFILE` and `HA_INSPECTOR_LOG_LEVEL` from the environment only; `addon/config.yaml` has `options: {}` / `schema: {}`, and Supervisor passes App options only through `/data/options.json`. So on the Pi the profile is always `mask` and the level always `info`. CLAUDE.md "Configuration": "Budget limits and the privacy profile are configurable". Found by `P8-08` while settling D-08-9, which introduces the first options-file read (`http_secret`).
+**Impact:** the owner cannot pick `deny`/`allow` or turn on `debug` for the installation v1 ships to; `P8-05`'s acceptance walk cannot exercise a non-default profile on the Pi. Cheap to close once D-08-9's options-file reader exists — the same reader, two more keys — but that widens `P8-02`/`P8-09`, which is `plan`'s call, not this review's.
+
+**Triage:** `queue-next`
+**Outcome:** D-08-12 (owner, 2026-10-03: profile + log level as App options; budget limits stay constants, CLAUDE.md corrected); planned into `P8-12`.
+
+### F-43 · TLS for the HTTP transport · 2026-10-03
+
+**Kind:** `idea`
+**What:** D-08-11 ships plain HTTP: the bearer secret crosses the LAN in clear. Accepted for v1 on D-08-1's LAN-only, closed-by-default, read-only-blast-radius bound.
+**Impact:** a passive LAN sniffer can read the secret and call the read-only tools under the privacy profile. Nothing to reach beyond that. Becomes material the day remote access (Nabu Casa, reverse proxy) is reopened, which is where TLS should terminate.
+
+**Triage:** `defer`
+**Outcome:** re-triage when remote access is reopened (out of v1 per D-08-1).
+
+### F-44 · Budget limits as installation-level options · 2026-10-03
+
+**Kind:** `idea`
+**What:** D-08-12 keeps budget limits (`internal/policy/budget.go`, `ratelimit.go`) as measured constants in v1 and corrects CLAUDE.md, which claimed they were configurable.
+**Impact:** none today. An installation much larger or smaller than the measured one might want different limits; an option would also let an owner lift them past anything measured, so it needs bounds derived from measurement.
+
+**Triage:** `defer`
+**Outcome:** re-triage on v1 usage data (D-08-12).

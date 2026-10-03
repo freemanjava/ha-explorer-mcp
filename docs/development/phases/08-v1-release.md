@@ -115,7 +115,7 @@ and run while the owner is busy there.
   **Done 2026-10-03:** golangci-lint 2.14.0; 13 issues fixed (12 `errcheck`, 1
   `staticcheck` QF1002), none needing a design change.
 
-- [ ] **`P8-08` · Security review of the HTTP transport (D-08-1)** — 🧠
+- [x] **`P8-08` · Security review of the HTTP transport (D-08-1)** — 🧠
   The fresh review phase 01's decision demanded before any listener. Design
   only; no code. Settle, as decision records in this file, each with the
   rejected alternative: the auth check (header form, constant-time compare,
@@ -139,29 +139,64 @@ and run while the owner is busy there.
   Home: `internal/mcp` gains a transport choice behind `Run` (today
   `server.go:143` hard-wires `StdioTransport`) — a new `transport_http.go`, not
   a branch inside a tool; config parsing stays in `cmd/server`, the only place
-  that knows every layer. Implements exactly P8-08's records.
+  that knows every layer — in a new `cmd/server/config.go` (environment and
+  options-file reading, validation), so `main.go` stays wiring only. Implements exactly P8-08's records (D-08-4…D-08-11).
   **DoD (tests first, network-free, `httptest`):** no `Authorization` ⇒ 401 and
-  the MCP server never sees the request; wrong secret ⇒ 401; foreign `Origin` ⇒
-  403; HTTP selected with the secret absent or too short ⇒ start refused with a
-  non-zero exit and a message that does not echo any value; correct secret ⇒
-  `initialize` and `tools/list` succeed and list the same tools as stdio; the
-  stdio path still passes its existing tests; body over the cap ⇒ rejected; the
-  secret appears in no log line, error string, audit record or response
-  (assertion, like token-never-returned); `SUPERVISOR_TOKEN` likewise. `make
-  check` green, `-race` included.
+  the MCP server never sees the request; wrong secret ⇒ 401; a malformed or
+  duplicated `Authorization` ⇒ 401; **any** `Origin` header ⇒ 403, even one
+  equal to `Host` and even with the right secret (D-08-5); HTTP selected with
+  the secret absent, too short, too long or containing a space ⇒ start refused
+  with a non-zero exit and a message that names `http_secret` and does not echo
+  any value; `HA_INSPECTOR_TRANSPORT` unknown ⇒ start refused; secret read from
+  the options file when it exists and the environment variable then ignored, a
+  malformed options file ⇒ start refused (D-08-9); correct secret ⇒
+  `initialize` and `tools/list` succeed and list the same tools as stdio; a tool
+  handler sees **no `Authorization`** in `RequestExtra.Header` (D-08-4); GET ⇒
+  405, a path other than `/mcp` ⇒ 404; body over 128 KiB ⇒ 413, and the
+  largest legal tool input (200 ids at 255 characters) fits (D-08-7); a fifth
+  concurrent authenticated request ⇒ 503 with `Retry-After`; two HTTP requests
+  draw on **one** invocation rate limiter (D-08-7); `WriteTimeout` derived from
+  the composite deadline, not a literal; audit records carry `transport`
+  (D-08-10); the stdio path still passes its existing tests; the secret appears
+  in no log line, error string, audit record or response, and no log line
+  contains `Bearer ` (assertion, like token-never-returned); `SUPERVISOR_TOKEN`
+  likewise. `make check` green, `-race` included.
+
+- [ ] **`P8-12` · App options carry the privacy profile and log level (F-42,
+  D-08-12)** — `blocked:P8-02`
+  Home: `cmd/server/config.go` (from `P8-02`) gains two keys under D-08-9's
+  one-source rule — options file when it exists, environment otherwise, never
+  merged; `addon/config.yaml` declares them. CLAUDE.md "Configuration" is
+  amended in the same change to say budget limits are measured constants, not
+  configurable, in v1 (D-08-12).
+  **DoD (tests first):** options file with `privacy_profile: deny` and
+  `log_level: debug` ⇒ that profile and level, the environment ignored; options
+  file without the keys ⇒ `mask` / `info`; an unknown value in either ⇒ start
+  refused, message names the key (as `HA_INSPECTOR_PRIVACY_PROFILE` does today);
+  no options file ⇒ today's environment behavior unchanged;
+  `addon/config_test.go` asserts both keys in `schema` as closed lists
+  (`list(mask|allow|deny)`, `list(debug|info|warn|error)`) with defaults `mask`
+  and `info` in `options`; the startup log's `privacy_profile` is the effective
+  value, not the raw environment variable. `make check` green.
 
 - [ ] **`P8-09` · Package and connect: the App on the Pi with a real client**
-  — `blocked:P8-02`, `live-verify`
-  `addon/config.yaml`: the secret as a `password` option, the transport option,
-  `ports:` mapping P8-08's port to `null` (closed by default); `apparmor.txt`
+  — `blocked:P8-02`, `blocked:P8-12`, `live-verify`
+  `addon/config.yaml`: `http_secret` as a `password` option (D-08-9), `ports:`
+  mapping `8790/tcp` to `null` (closed by default, D-08-6); `run.sh` sets
+  `HA_INSPECTOR_TRANSPORT=http` (D-08-9 — no transport option); `apparmor.txt`
   allows accepting on that socket and nothing more; `addon/config_test.go`
-  asserts port-closed-by-default, `host_network: false`, no `ingress`.
+  asserts port-closed-by-default, `host_network: false`, no `ingress`, and the
+  secret declared as `password`. INSTALL.md also states that the secret
+  crosses the LAN in clear (D-08-11) and sits in HA backups, and how to rotate
+  it (D-08-9).
   `docs/INSTALL.md`: set the secret, open the port, connect Claude Code (HTTP
   with header) and a stdio-only client via `mcp-proxy`, step by step.
   **DoD:** on the Pi, with an image the owner publishes: App stays **Started**;
   a real MCP client completes `initialize`, `tools/list` and one tool call over
   the LAN; the same request without the secret gets 401; with the port left
-  closed the client cannot connect. Observations in
+  closed the client cannot connect from the LAN — and whether another App on
+  the `hassio` network still reaches `:8790` is observed and recorded either
+  way (D-08-6 expects it can). Observations in
   `docs/research/<date>-http-transport-on-pi.md`.
 
 - [ ] **`P8-10` · The binary reports the image's version (F-39)**
@@ -202,6 +237,144 @@ and run while the owner is busy there.
   owner's action and is not part of this box.
 
 ## Decisions
+
+D-08-4…D-08-11 are `P8-08`'s security review of D-08-1's HTTP transport, decided 2026-10-03 on Opus. What the
+SDK already does is recorded in `docs/research/2026-10-03-go-sdk-streamable-http.md`; the architecture doc carries
+the summary as **ADR-013** (§24), T5 (§4) and §15.2. The owner may overturn any of them at review; none is
+implemented yet (`P8-02`).
+
+- [x] **D-08-12 — In v1 the App configures the privacy profile and log level; budget limits stay constants** —
+  decided by the owner 2026-10-03 (`plan`, F-42)
+  **Decision:** `/data/options.json` carries `privacy_profile` (`mask`|`allow`|`deny`, default `mask`) and
+  `log_level` (`debug`|`info`|`warn`|`error`, default `info`), read under D-08-9's one-source rule. **Budget limits
+  are not configurable in v1** — they stay the measured constants in `internal/policy/budget.go` and
+  `ratelimit.go`, and CLAUDE.md's "Budget limits and the privacy profile are configurable" is corrected to match the
+  code (CLAUDE.md: fix one or the other). **Why:** the limits are what protects the Pi's recorder, set from
+  measurements (doc §10/§26); an option would let an installation lift them above anything measured, and no v1 user
+  has asked. The profile and level are the two settings an owner actually needs on the Pi, and today neither can be
+  set there. **Rejected:** *budget limits as App options in v1* — more surface, and a way to switch off the Pi's
+  protection; revisit on v1 usage data (F-44); *fold F-42 into `P8-02`* — `P8-02` is already the largest box in the
+  phase and security-critical; a separate reviewable change keeps its diff about the transport.
+
+- [x] **D-08-4 — Client authentication: one owner-set bearer secret, compared in constant time** — `P8-08`
+  **Header:** `Authorization: Bearer <secret>`, scheme case-insensitive, exactly one `Authorization` header;
+  anything else is **401** with `WWW-Authenticate: Bearer` and a fixed body that does not say which check failed.
+  **Compare:** SHA-256 of the presented value against SHA-256 of the configured one with
+  `crypto/subtle.ConstantTimeCompare` — equal-length digests, so neither content nor length leaks through timing.
+  **Secret rules:** 32–256 characters, printable ASCII without spaces (header-safe; 32 is the floor of `openssl rand
+  -hex 16`, and INSTALL.md will recommend `-hex 32`). HTTP selected with the secret absent or breaking a rule ⇒
+  **the process refuses to start**, non-zero exit, a message naming the option (`http_secret`) and the rule — never
+  the value, never its length. **After a match** the middleware **deletes `Authorization` from the request** before
+  the SDK handler sees it: the SDK passes every header to server code as `RequestExtra.Header` (research note), and
+  a secret that never enters `internal/mcp` cannot be logged from there. The secret is also registered with the
+  redactor (`Options.Secrets`), as `SUPERVISOR_TOKEN` is. No lockout: a lockout is a denial of service any LAN host
+  can trigger, and a 128-bit secret is not brute-forced over HTTP.
+  **Rejected:** *an HA token, or passing the client's credential to Core* — the MCP spec forbids token passthrough,
+  and D-08-1 chose an App-issued secret precisely so a leak reaches no write right; *the SDK's
+  `auth.RequireBearerToken`* — OAuth-shaped (scopes, mandatory expiry, verifier error text in the body) and it leaves
+  the header in `Extra.Header`; *HTTP Basic* — the same secret with a username nobody needs; *a query-string secret* —
+  lands in client history and proxy logs; *OAuth* — no authorization server in v1; *plain `==`* — timing-dependent.
+
+- [x] **D-08-5 — Origin: any `Origin` header is refused; absent is allowed** — `P8-08`
+  A request carrying `Origin` — any value, including one equal to the `Host` — is **403** before the secret is
+  checked. A request without `Origin` proceeds to D-08-4. No origin allow-list exists. **Why:** every client v1
+  supports (Claude Code, `mcp-proxy`, SDK clients) is a non-browser process that sends no `Origin`; a browser always
+  sends one on a cross-site POST. Refusing them all meets the MCP spec's "validate Origin" with the smallest rule, and
+  needs no notion of "our" origin, which the App does not have (the owner picks the host port and reaches it by
+  whatever LAN name). The SDK's localhost protection stays enabled but is inert on the `hassio` interface (research
+  note); it is not counted as a control. **Rejected:** *`http.CrossOriginProtection` or the SDK's deprecated
+  option* — admits same-origin browser requests, which is what a DNS-rebinding page is; *same-origin by comparing
+  `Origin` with `Host`* — the same hole; *a configurable allow-list* — no browser client in v1, and a knob nobody
+  needs is one more thing to misconfigure. A browser-based client (MCP Inspector) is a new decision, not an option.
+
+- [x] **D-08-6 — Bind `:8790`, path `/mcp`, port closed by default; the secret is the gate, not the port** —
+  `P8-08`
+  The listener binds `:8790` (all container interfaces — under `host_network: false` the container has only its
+  `hassio` bridge interface) and serves exactly `POST /mcp`; any other path is **404**, other methods **405** (the
+  SDK's stateless rule). The container port is a named constant with no override: the owner chooses the *host* port
+  on the App's Network tab, and `addon/config.yaml` maps `8790/tcp: null` so nothing is published until they do.
+  **What "closed" does not mean:** Apps share Supervisor's `hassio` Docker network and reach each other by container
+  name without any `ports:` mapping (how every App reaches `core-mosquitto`), so with the host port closed the
+  listener is still reachable from **other Apps and from Core**. Third-party App code is therefore a client
+  population from the first start, and D-08-4 holds for it exactly as for the LAN — which is why a missing secret
+  refuses start instead of "it's closed anyway". `P8-09` observes this rather than assuming it.
+  **Rejected:** *bind loopback only* — unreachable through Docker's port mapping, so the transport could not work;
+  *an option for the container port* — the Network tab already remaps the host side; *8099* — the conventional
+  Ingress port, and this App has no Ingress (D-08-1); *serve on `/`* — a fixed path is one more thing a scanner must
+  guess and keeps room for nothing else to ever be added there by accident.
+
+- [x] **D-08-7 — Request limits sit outside the query budget, not instead of it** — `P8-08`
+  **Body:** `MaxRequestBodyBytes` = **128 KiB** (SDK default 4 MiB). The largest legal tool input is ~52 KiB — 200
+  entity ids (`measuredMaxEntities`, `internal/policy/budget.go`) at HA's 255-character id ceiling plus JSON
+  framing — so 128 KiB is ~2.5× headroom; `P8-02` asserts that input fits. **`http.Server`:** `MaxHeaderBytes` 8
+  KiB; `ReadHeaderTimeout` 5 s; `ReadTimeout` 10 s (a ≤128 KiB body on a LAN); `WriteTimeout` = the composite
+  deadline (30 s, `policy.compositeDeadline`) **+ 15 s**, derived from that constant, not a second literal, so a
+  composite tool's own deadline always fires first and returns `partial` rather than a cut connection; `IdleTimeout`
+  60 s. **Concurrency:** at most **4** authenticated requests in flight; the fifth is **503** with `Retry-After: 1`,
+  checked *after* D-08-5/D-08-4 so unauthenticated traffic cannot occupy the slots. **Budget:** unchanged and per
+  invocation; the invocation rate limiter (`policy.NewInvocationLimiter`, 2/s, burst 10) stays **process-wide**
+  because `getServer` returns the **one** `*sdkmcp.Server` built at start — never one per request, which would give
+  every POST a fresh limiter. **Why 4:** composite tools fan out to several HA reads each, and the measured binding
+  constraint is the recorder on the Pi (`2026-10-03-composite-budget-measurement.md`); four concurrent composites
+  already exceed what the rate limiter lets arrive in two seconds. **Rejected:** *rely on the SDK default body cap* —
+  32× more than any legal input; *no concurrency cap, the rate limiter is enough* — it bounds arrivals of tool calls
+  only, not `initialize`/`tools/list` or slow requests holding goroutines; *cap before auth* — lets an
+  unauthenticated flood lock out the real client; *a connection-count limiter* — needs `x/net/netutil` or our own
+  listener wrapper, and the in-flight cap plus timeouts already bound the work.
+
+- [x] **D-08-8 — Stateless, JSON responses** — `P8-08`
+  `StreamableHTTPOptions{Stateless: true, JSONResponse: true, MaxRequestBodyBytes: …, Logger: <redacting logger>}`.
+  No session table, no `Mcp-Session-Id`, no GET stream; each POST is one request and one `application/json`
+  response. **Why:** sessions are per-client server state with no idle timeout by default (`SessionTimeout` zero ⇒
+  never closed) and an id that, if leaked, addresses someone else's session; nothing this server does needs
+  server→client requests (research note), and HA's own MCP server runs stateless for the same reasons
+  (`2026-10-03-mcp-client-paths.md`). JSON over SSE because no tool streams progress, and a plain response is what
+  `curl` and `mcp-proxy --stateless` handle without surprises. **Rejected:** *stateful with a `SessionTimeout`* —
+  state to bound and an id to protect for no feature we use; *`MCPGODEBUG=allowsessionsinstateless`* — a
+  compatibility path the SDK deletes in v1.9.0.
+
+- [x] **D-08-9 — Transport by environment, fixed by the image; the secret from the App options file** — `P8-08`
+  **Selection:** `HA_INSPECTOR_TRANSPORT` = `stdio` (default) | `http`; any other value refuses start, like
+  `HA_INSPECTOR_PRIVACY_PROFILE` today. `addon/rootfs/run.sh` sets `http` — the App always serves HTTP, and the owner
+  cannot switch it to stdio (which would only reproduce F-37's immediate exit). Development and `cmd/measure` keep
+  the stdio default. **Secret:** read once at start from the App options file **`/data/options.json`**, key
+  `http_secret` (declared `password` in `addon/config.yaml`'s schema, so the UI masks it); when that file does not
+  exist (development), from `HA_INSPECTOR_HTTP_SECRET`. One source per run, never merged: if the options file exists,
+  the environment variable is ignored. A malformed options file refuses start. Both are read in `cmd/server`, the
+  only place that knows every layer; `internal/mcp` receives the validated secret, never a path or a variable name.
+  `/data/options.json` is a fixed constant, not configurable — not `/config` (ADR-004). **Known exposure, accepted:**
+  Supervisor stores App options in plain text in `/data/options.json` and in HA backups, so a backup reveals the
+  secret; INSTALL.md (`P8-09`) says so and says how to rotate (change the option, restart the App). **Rejected:** *a
+  `transport` App option* — a choice whose only other value breaks the App; *auto-detect from `SUPERVISOR_TOKEN`* —
+  implicit, and a developer with the variable set would get a listener they did not ask for; *the secret in an
+  environment variable set by Supervisor* — App options reach the process only through the options file; *`bashio`
+  in `run.sh` to export options* — adds a shell dependency to an image that has none, and puts the secret in the
+  process environment, visible in `/proc/<pid>/environ`.
+
+- [x] **D-08-10 — What is logged and audited for an HTTP caller; what never is** — `P8-08`
+  **Audit:** the existing per-invocation record (doc §17), plus a `transport` field (`stdio`|`http`) set once from
+  options. No caller address: the SDK gives server code no remote address (research note), and with one shared
+  secret every authenticated caller is the same principal. **Rejected requests** never reach a tool, so they make no
+  audit record: each is logged at **DEBUG** (remote IP, reason class `origin`|`missing`|`malformed`|`mismatch`) and
+  counted (`http_auth_rejections`); a **WARN** is emitted at most **once a minute** with the count since the last and
+  the last remote IP — a probing LAN host is visible without flooding the log (CLAUDE.md: every recovery or refusal
+  path has a counter). Listener start/stop is **INFO** with the port, never the secret. **Never logged, at any
+  level:** the secret; the `Authorization` header in any form; request headers as a set; request or response bodies
+  at INFO or above (existing rule). **Rejected:** *remote IP in every audit record* — needs smuggling it through a
+  header or context the SDK does not define, for no principal it could distinguish; *a WARN per rejection* — one
+  scanner fills the Supervisor log; *no log of rejections* — a leaked secret being tried from a new host would be
+  invisible.
+
+- [x] **D-08-11 — No TLS in v1; the secret crosses the LAN in clear** — `P8-08`
+  The listener is plain HTTP. Anyone who can sniff the LAN segment between client and Pi can read the secret.
+  **Accepted because:** D-08-1 bounds the transport to the LAN with the port closed by default, and the blast radius
+  of a stolen secret is the read-only tools under the privacy profile — no write path exists to reach (rule 1,
+  ADR-008); rotation is one option change. INSTALL.md (`P8-09`) states the exposure plainly. **Revisit when:** remote
+  access (out of v1 per D-08-1) is reopened — a reverse proxy or Nabu Casa path would terminate TLS there, and that
+  is where it belongs (F-43). **Rejected:** *a self-signed certificate generated into `/data`* — every client must be
+  taught to trust it (Claude Code via `NODE_EXTRA_CA_CERTS`, `mcp-proxy` via its own flags), and an unpinned
+  self-signed cert stops a passive sniffer but not an active LAN attacker; *mapping `ssl:ro` for HA's certificates* —
+  widens `map: []`, and those certificates are usually issued for the public name, not the LAN address.
 
 - [x] **D-08-3 — The six uncalled allow-list entries are dropped, not kept for
   later** — decided at the 2026-10-03 second `plan` (F-40)
