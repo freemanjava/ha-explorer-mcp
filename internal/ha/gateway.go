@@ -15,22 +15,19 @@ import (
 // docs/research/2026-08-23-ha-history-statistics.md (P0-07).
 const (
 	// Core state and identity.
-	CommandGetConfig       = "get_config"
-	CommandGetStates       = "get_states"
-	CommandAuthCurrentUser = "auth/current_user"
+	CommandGetConfig = "get_config"
+	CommandGetStates = "get_states"
 
-	// Registries. list_for_display is a *display-filtered* population, not a
-	// cheaper form of the full list (P0-04 finding 1): 469 entries where
-	// list returned 952. It is allow-listed only so a tool that explicitly
-	// means "what a user sees" can exist; inventory reads the full list.
-	CommandEntityRegistryList           = "config/entity_registry/list"
-	CommandEntityRegistryListForDisplay = "config/entity_registry/list_for_display"
-	CommandEntityRegistryGet            = "config/entity_registry/get"
-	CommandDeviceRegistryList           = "config/device_registry/list"
-	CommandAreaRegistryList             = "config/area_registry/list"
-	CommandFloorRegistryList            = "config/floor_registry/list"
-	CommandLabelRegistryList            = "config/label_registry/list"
-	CommandCategoryRegistryList         = "config/category_registry/list"
+	// Registries. list_for_display is absent on purpose: it is a
+	// *display-filtered* population, not a cheaper form of the full list
+	// (P0-04 finding 1), and inventory reads the full list. Like trace/get,
+	// trace/contexts, auth/current_user, entity_registry/get and
+	// category_registry/list, it is re-added with its caller (D-08-3, F-40).
+	CommandEntityRegistryList = "config/entity_registry/list"
+	CommandDeviceRegistryList = "config/device_registry/list"
+	CommandAreaRegistryList   = "config/area_registry/list"
+	CommandFloorRegistryList  = "config/floor_registry/list"
+	CommandLabelRegistryList  = "config/label_registry/list"
 
 	// Config entries. config_entries/get_single is deliberately absent: it
 	// returns the same data as the list form but is the one registry command
@@ -48,8 +45,6 @@ const (
 	// above must surface as unsupported rather than as an empty answer.
 	CommandAutomationConfig = "automation/config"
 	CommandTraceList        = "trace/list"
-	CommandTraceGet         = "trace/get"
-	CommandTraceContexts    = "trace/contexts"
 
 	// History and logbook. The recorder statistics commands are deliberately
 	// absent: no production call site sends them in v1 (F-17 wont-fix, F-36
@@ -65,25 +60,19 @@ const (
 // guarantee would be lost without anyone editing a security file (phase 01
 // Design Notes, ADR-008).
 var allowedCommands = map[string]struct{}{
-	CommandGetConfig:                    {},
-	CommandGetStates:                    {},
-	CommandAuthCurrentUser:              {},
-	CommandEntityRegistryList:           {},
-	CommandEntityRegistryListForDisplay: {},
-	CommandEntityRegistryGet:            {},
-	CommandDeviceRegistryList:           {},
-	CommandAreaRegistryList:             {},
-	CommandFloorRegistryList:            {},
-	CommandLabelRegistryList:            {},
-	CommandCategoryRegistryList:         {},
-	CommandConfigEntriesGet:             {},
-	CommandRepairsListIssues:            {},
-	CommandAutomationConfig:             {},
-	CommandTraceList:                    {},
-	CommandTraceGet:                     {},
-	CommandTraceContexts:                {},
-	CommandLogbookGetEvents:             {},
-	CommandHistoryDuringPeriod:          {},
+	CommandGetConfig:           {},
+	CommandGetStates:           {},
+	CommandEntityRegistryList:  {},
+	CommandDeviceRegistryList:  {},
+	CommandAreaRegistryList:    {},
+	CommandFloorRegistryList:   {},
+	CommandLabelRegistryList:   {},
+	CommandConfigEntriesGet:    {},
+	CommandRepairsListIssues:   {},
+	CommandAutomationConfig:    {},
+	CommandTraceList:           {},
+	CommandLogbookGetEvents:    {},
+	CommandHistoryDuringPeriod: {},
 }
 
 // deniedCommands is a small, explicit deny set of known privileged escape

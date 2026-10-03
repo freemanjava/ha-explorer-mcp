@@ -207,7 +207,7 @@ and run while the owner is busy there.
   build --build-arg` run logs that version at start (observed, pasted in the
   journal). `make check` green.
 
-- [ ] **`P8-11` · Drop the six uncalled allow-list entries (F-40, D-08-3)**
+- [x] **`P8-11` · Drop the six uncalled allow-list entries (F-40, D-08-3)**
   Remove `CommandAuthCurrentUser`, `CommandEntityRegistryListForDisplay`,
   `CommandEntityRegistryGet`, `CommandCategoryRegistryList`, `CommandTraceGet`,
   `CommandTraceContexts` from `internal/ha/gateway.go` and delete
@@ -215,6 +215,7 @@ and run while the owner is busy there.
   **DoD:** `TestGateway_AllowList_EveryEntryHasACaller` passes with no exemption
   set; each dropped command is denied before transmission (existing
   unknown-command test pattern, one case per command); `make check` green.
+  **Done 2026-10-03:** `TestGateway_UncalledCommands_Denied` (six cases) written red first.
 
 - [ ] **`P8-05` · §21 acceptance walk on the Pi** — `blocked:P8-09`, `live-verify`
   For each of the twelve doc §21 criteria: the test(s) that assert it, by name,
