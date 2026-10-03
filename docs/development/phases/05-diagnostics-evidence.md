@@ -90,7 +90,14 @@ structural decision gets made on an unverified premise.
   is not constructible; and no type anywhere carries a field named `cause` or
   `root_cause` (asserted over the package by reflection, not by review).
 
-- [ ] **`P5-03` · Derived confidence** — 🧠 `blocked:P5-02`
+- [x] **`P5-03` · Derived confidence** — 🧠 · **done 2026-10-03**
+  Built as `ConfidenceFor(cited ...model.Evidence)` — the three D-05-2 inputs
+  read off each cited `Evidence` (`SampleSize`, `Coverage`, `Degraded`, the
+  fields `P5-02` added for this), so a multi-citation `Hypothesis` gets one
+  level: the **weakest** of its citations'. Ladder per Evidence: high ≥20
+  samples and ≥0.9 coverage; medium ≥5 and ≥0.5; else low; `Degraded` then
+  demotes one step. Thresholds are named, explained defaults, not
+  measurements — `P5-10` is where they get revisited.
   `internal/analysis/confidence.go`: one exported `ConfidenceFor` that maps
   sample size, period coverage and source reliability to a confidence level,
   per D-05-2. No other code produces a confidence value.
