@@ -218,3 +218,50 @@ func TestCoreReader_UpstreamError_Propagates(t *testing.T) {
 		t.Fatal("LogbookEvents swallowed the upstream error")
 	}
 }
+
+func TestCoreReader_LifecycleEvents_KeepsOnlyCoreRows(t *testing.T) {
+	fc := newFakeCaller()
+	fc.set(CommandLogbookGetEvents, json.RawMessage(`[
+		{"when":"2026-10-03T10:00:00+00:00","name":"Home Assistant","message":"stopped","domain":"homeassistant"},
+		{"when":"2026-10-03T10:01:00+00:00","name":"Kitchen light","message":"turned off","domain":"light","entity_id":"light.kitchen"},
+		{"when":"2026-10-03T10:02:00+00:00","name":"Home Assistant","message":"started","domain":"homeassistant"},
+		{"name":"Home Assistant","domain":"homeassistant"}]`))
+
+	from := time.Date(2026, 10, 3, 9, 55, 0, 0, time.UTC)
+	events, err := NewCoreReader(fc).LifecycleEvents(testCtx(t), from, from.Add(10*time.Minute))
+	if err != nil {
+		t.Fatalf("LifecycleEvents: %v", err)
+	}
+	if len(events) != 2 {
+		t.Fatalf("LifecycleEvents = %+v, want the two timestamped core rows and nothing else", events)
+	}
+}
+
+func TestCoreReader_LifecycleEvents_UpstreamError_NotSwallowed(t *testing.T) {
+	fc := newFakeCaller()
+	fc.err = errors.New("boom")
+	if _, err := NewCoreReader(fc).LifecycleEvents(testCtx(t), time.Now().Add(-time.Minute), time.Now()); err == nil {
+		t.Fatal("LifecycleEvents swallowed the upstream error")
+	}
+}
+
+func TestLogbookWindowCommand_Wire_BoundedAndUnfiltered(t *testing.T) {
+	from := time.Date(2026, 10, 3, 9, 55, 0, 0, time.UTC)
+	b, err := json.Marshal(logbookWindowCommand{StartTime: from, EndTime: from.Add(10 * time.Minute)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(b, &m); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := m["end_time"]; !ok {
+		t.Errorf("wire form %s has no end_time: the read would be unbounded", b)
+	}
+	if _, ok := m["entity_ids"]; ok {
+		t.Errorf("wire form %s carries entity_ids", b)
+	}
+	if (logbookWindowCommand{}).CommandType() != CommandLogbookGetEvents {
+		t.Error("window command must stay inside the allow-listed logbook command")
+	}
+}

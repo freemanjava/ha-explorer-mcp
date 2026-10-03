@@ -119,6 +119,18 @@ func (r *CoreReader) LogbookEvents(ctx context.Context, entityID model.EntityID,
 	return MapLogbookEvents(raw)
 }
 
+// LifecycleEvents returns Home Assistant's own start/stop logbook rows in
+// [from, to]. The window is unfiltered on the wire (those rows belong to no
+// entity), so the mapper keeps only the lifecycle rows and nothing else leaves
+// this package; a caller bounds the window to minutes.
+func (r *CoreReader) LifecycleEvents(ctx context.Context, from, to time.Time) ([]model.LifecycleEvent, error) {
+	raw, err := r.call.Call(ctx, logbookWindowCommand{StartTime: from, EndTime: to})
+	if err != nil {
+		return nil, err
+	}
+	return MapLifecycleEvents(raw)
+}
+
 // splitEntityID separates an entity id into its domain and object id, the
 // shape trace/list's domain/item_id arguments need. A malformed id (no dot)
 // returns the whole string as both, which fails the same way an invalid

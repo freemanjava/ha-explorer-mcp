@@ -36,3 +36,16 @@ type logbookGetEventsCommand struct {
 
 // CommandType implements Command.
 func (logbookGetEventsCommand) CommandType() string { return CommandLogbookGetEvents }
+
+// logbookWindowCommand asks logbook/get_events for every entity's rows in a
+// closed window, with no entity filter: Home Assistant's own start/stop rows
+// belong to no entity, so they cannot be selected any other way
+// (docs/research/2026-10-03-composite-budget-measurement.md). Unfiltered 7d is
+// ~10 MB, so a caller must keep the window to minutes.
+type logbookWindowCommand struct {
+	StartTime time.Time `json:"start_time"`
+	EndTime   time.Time `json:"end_time"`
+}
+
+// CommandType implements Command.
+func (logbookWindowCommand) CommandType() string { return CommandLogbookGetEvents }

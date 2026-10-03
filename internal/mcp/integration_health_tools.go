@@ -32,6 +32,20 @@ const maxClusterEntities = 25
 // (doc §26), measured by P5-10.
 const maxMeshMetricEntities = 10
 
+// maxRestartProbes bounds how many clusters have the logbook read around their
+// onset: one HA request each, inside the composite budget of 50 and on top of
+// maxClusterEntities + maxMeshMetricEntities + the three fixed reads (the
+// measured ceiling was 36). Clusters beyond it are named as budget_exceeded.
+// A starting default (doc §26).
+const maxRestartProbes = 3
+
+// lifecycleReader reads Home Assistant's own start/stop logbook rows in a
+// window. The window is unfiltered upstream, so a caller keeps it to the
+// analysis.RestartProbeWindow of a cluster onset, never to the analysis period.
+type lifecycleReader interface {
+	LifecycleEvents(ctx context.Context, from, to time.Time) ([]model.LifecycleEvent, error)
+}
+
 // configEntryIDPattern accepts the identifiers HA gives config entries (ULID
 // style, but older entries use other word-character ids). It exists so the
 // id is never anything a route or query could be built from (rule 2).
@@ -55,6 +69,7 @@ type integrationHealthDeps struct {
 	avail      entityAvailabilityReader
 	repairs    repairReader
 	supervisor systemHealthReader
+	lifecycle  lifecycleReader
 	profile    policy.Profile
 }
 
@@ -68,7 +83,7 @@ func withIntegrationHealthTools(tools []Tool, opts Options) []Tool {
 	}
 	deps := integrationHealthDeps{
 		history: opts.History, registry: opts.Inventory, avail: opts.Availability,
-		repairs: opts.Repairs, supervisor: opts.Supervisor, profile: opts.Profile,
+		repairs: opts.Repairs, supervisor: opts.Supervisor, lifecycle: opts.Lifecycle, profile: opts.Profile,
 	}
 	for i := range out {
 		if out[i].Name == "analyze_integration_health" {
@@ -116,6 +131,9 @@ func analyzeIntegrationHealth(ctx context.Context, deps integrationHealthDeps, i
 		return HealthResponse{}, err
 	}
 	if err := readMesh(ctx, deps, entities, down, &input); err != nil {
+		return HealthResponse{}, err
+	}
+	if err := readRestarts(ctx, deps.lifecycle, &input); err != nil {
 		return HealthResponse{}, err
 	}
 	if err := readIntegrationRepairs(ctx, deps.repairs, &input); err != nil {
@@ -306,6 +324,51 @@ func readMesh(ctx context.Context, deps integrationHealthDeps, entities []model.
 	return nil
 }
 
+// readRestarts looks for a Home Assistant start or stop near each outage
+// cluster's onset, the one evidence that tells "HA restarted" from "this
+// integration failed" (F-31). It reads a few minutes of logbook per cluster,
+// never the analysis period: unfiltered, a week is ~10 MB. An unread window is
+// named in missing_evidence, so it is never mistaken for "no restart" (rule 7).
+func readRestarts(ctx context.Context, reader lifecycleReader, in *analysis.IntegrationHealthInput) error {
+	const what = "Home Assistant start/stop events near outage clusters"
+	if !in.OutagesRead {
+		return nil
+	}
+	onsets, err := analysis.OutageOnsets(in.From, in.To, in.Outages, in.Devices)
+	if err != nil {
+		return err
+	}
+	if len(onsets) == 0 {
+		return nil
+	}
+	if reader == nil {
+		in.Missing = append(in.Missing, notConfigured(what, logbookSourceName))
+		return nil
+	}
+	if len(onsets) > maxRestartProbes {
+		in.Missing = append(in.Missing, model.MissingEvidence{
+			What: what, Source: logbookSourceName, Reason: model.MissingBudgetExceeded,
+			Detail: fmt.Sprintf("the logbook was read near %d of %d outage clusters", maxRestartProbes, len(onsets)),
+		})
+		onsets = onsets[:maxRestartProbes]
+	}
+	budget, hasBudget := policy.BudgetFrom(ctx)
+	for i, onset := range onsets {
+		if hasBudget {
+			if err := budget.ChargeHARequests(1); err != nil {
+				return noteMissing(&in.Missing, what, logbookSourceName, err, withPartial(i > 0))
+			}
+		}
+		from, to := analysis.RestartProbeWindow(onset)
+		events, err := reader.LifecycleEvents(ctx, from, to)
+		if err != nil {
+			return noteMissing(&in.Missing, what, logbookSourceName, err, withPartial(i > 0))
+		}
+		in.RestartProbes = append(in.RestartProbes, analysis.RestartProbe{Onset: onset, Events: events})
+	}
+	return nil
+}
+
 // affectedDevices are the devices with an entity down now or an outage in the
 // window — the ones whose link quality is worth reading.
 func affectedDevices(entities []model.Entity, down map[model.EntityID]struct{}, outages []analysis.EntityOutages) map[model.DeviceID]struct{} {
@@ -423,6 +486,7 @@ const (
 	coreHealthSource       = "home_assistant_core"
 	recorderSourceName     = "recorder_history"
 	supervisorHealthSource = "supervisor"
+	logbookSourceName      = "logbook"
 )
 
 // notConfigured is the gap left by a source this build was not given.

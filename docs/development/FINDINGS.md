@@ -1049,11 +1049,13 @@ is a change to D-05-3 and wants its own decision.
 
 **Impact:** Unknown pending verification. If the logbook carries start/stop, `P5-09` is a bounded addition; if not, "HA restarted" rests on the cross-entry cluster alone and its confidence must say so.
 
-**Triage:** `queue-next`
+**Triage:** `done`
 
 **Outcome:** Open. Observed in `P5-10`'s `cmd/spike` session (with F-28), before `P5-09` is built — the queue now orders `P5-10` ahead of `P5-09` for this reason.
 
 **Observed 2026-10-03** ([research](../research/2026-10-03-composite-budget-measurement.md)): the logbook carries `homeassistant`-domain `started`/`stopped` rows, readable with no `entity_ids`. Unfiltered it is 45 672 rows / 10.8 MB for 7d, ~10× the composite byte cap, and the shipped command always sends `entity_ids`. `P5-09` must bound the window and change the command. The unknown is answered; the finding closes with `P5-09`.
+
+**Closed 2026-10-03 by `P5-09`:** ±5 min probe windows per cluster onset, lifecycle rows only; see the phase 05 box.
 
 ### F-32 · `search/related` as the fallback dependency source for automations · 2026-10-03
 

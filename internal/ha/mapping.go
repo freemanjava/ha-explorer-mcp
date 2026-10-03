@@ -1025,6 +1025,33 @@ func MapLogbookEvents(raw json.RawMessage) ([]model.LogbookEvent, error) {
 	return out, nil
 }
 
+// lifecycleDomain is the logbook domain of Home Assistant's own start/stop
+// rows, observed on 2026.9.4 (docs/research/2026-10-03-composite-budget-measurement.md).
+// It is a structural field, not text a user can author through a friendly name.
+const lifecycleDomain = "homeassistant"
+
+// MapLifecycleEvents keeps only the core lifecycle rows of a logbook/get_events
+// result, dropping every other entry unread: the window was requested without
+// an entity filter, and nothing but these rows may travel on. A row without a
+// timestamp is skipped, since it cannot sit near anything; the caller sees the
+// rest.
+func MapLifecycleEvents(raw json.RawMessage) ([]model.LifecycleEvent, error) {
+	var elements []map[string]any
+	if err := json.Unmarshal(raw, &elements); err != nil {
+		return nil, fmt.Errorf("ha: decoding logbook/get_events: %w", err)
+	}
+	var out []model.LifecycleEvent
+	for _, e := range elements {
+		if optString(e, "domain") != lifecycleDomain {
+			continue
+		}
+		if t, ok := optTime(e, "when"); ok {
+			out = append(out, model.LifecycleEvent{When: t})
+		}
+	}
+	return out, nil
+}
+
 // maxAutomationDependencies caps the ids one automation's DependsOn carries
 // across all kinds (D-05-7). Generous for a real automation, small enough that
 // a pathological or hostile body cannot inflate a response.
