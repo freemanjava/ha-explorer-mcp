@@ -1,12 +1,16 @@
 package ha
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 )
 
 // TestSupervisorRoutes_AreGetShapedExactMatch guards the allow-list itself:
@@ -64,7 +68,7 @@ func TestSupervisorRoute_OutsideAllowList_NoBytesReachServer(t *testing.T) {
 }
 
 // TestSupervisorRoute_NonGetMethod_Denied — the method check happens before
-// the table lookup, exactly as Core's checkRoute does.
+// the table lookup, before the route table is consulted.
 func TestSupervisorRoute_NonGetMethod_Denied(t *testing.T) {
 	for _, method := range []string{http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete} {
 		t.Run(method, func(t *testing.T) {
@@ -79,8 +83,7 @@ func TestSupervisorRoute_NonGetMethod_Denied(t *testing.T) {
 	}
 }
 
-// TestNoNonGetSupervisorRequestPathExists mirrors TestNoNonGetRequestPathExists
-// for the Supervisor client file: read-only-ness must hold because no code
+// TestNoNonGetSupervisorRequestPathExists: read-only-ness must hold because no code
 // path here can build a mutating request, not only because the gateway check
 // catches it (CLAUDE.md rule 1).
 func TestNoNonGetSupervisorRequestPathExists(t *testing.T) {
@@ -229,5 +232,111 @@ func TestSupervisorInfo_MutatedShape_FailsLoudly(t *testing.T) {
 				t.Fatalf("SupervisorInfo: got %v, want ErrUnexpectedMessage", err)
 			}
 		})
+	}
+}
+
+// countingServer returns a test server that records how many requests reached
+// it, so a denial can be asserted on the wire rather than on the return value
+// alone (phase 01 DoD).
+func countingServer(t *testing.T, h http.HandlerFunc) (*httptest.Server, *atomic.Int64) {
+	t.Helper()
+	var got atomic.Int64
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got.Add(1)
+		if h != nil {
+			h(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	t.Cleanup(srv.Close)
+	return srv, &got
+}
+
+func testCtx(t *testing.T) context.Context {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	t.Cleanup(cancel)
+	return ctx
+}
+
+// TestSupervisorClient_OversizedResponse_TruncatedWithExplicitError — the body
+// offered here is unbounded: a client that buffered the whole response would
+// never return.
+func TestSupervisorClient_OversizedResponse_TruncatedWithExplicitError(t *testing.T) {
+	prev := maxSupervisorResponseBytes
+	maxSupervisorResponseBytes = 4096
+	t.Cleanup(func() { maxSupervisorResponseBytes = prev })
+
+	srv, _ := countingServer(t, func(w http.ResponseWriter, r *http.Request) {
+		chunk := strings.Repeat("a", 1024)
+		for {
+			select {
+			case <-r.Context().Done():
+				return
+			default:
+			}
+			if _, err := w.Write([]byte(chunk)); err != nil {
+				return
+			}
+		}
+	})
+	c := NewSupervisorClient(srv.URL, testToken, srv.Client(), nil)
+
+	body, err := c.Info(testCtx(t))
+	if !errors.Is(err, ErrResponseTooLarge) {
+		t.Fatalf("Info: got %v, want ErrResponseTooLarge", err)
+	}
+	if body != nil {
+		t.Fatalf("Info: returned %d bytes alongside a size error, want nil", len(body))
+	}
+}
+
+// A caller that supplies no deadline still gets one — no unbounded upstream
+// wait exists (CLAUDE.md, Error Handling).
+func TestSupervisorClient_NoCallerDeadline_AppliesBackstop(t *testing.T) {
+	prev := defaultSupervisorTimeout
+	defaultSupervisorTimeout = 50 * time.Millisecond
+	t.Cleanup(func() { defaultSupervisorTimeout = prev })
+
+	srv, _ := countingServer(t, func(w http.ResponseWriter, r *http.Request) {
+		<-r.Context().Done()
+	})
+	c := NewSupervisorClient(srv.URL, testToken, srv.Client(), nil)
+
+	done := make(chan error, 1)
+	go func() {
+		_, err := c.Info(context.Background())
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		if !errors.Is(err, ErrDeadline) {
+			t.Fatalf("Info: got %v, want ErrDeadline", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Info: no deadline applied — call did not return")
+	}
+}
+
+// A caller's own deadline, not just the backstop, must surface as
+// ErrDeadline — distinguishable from ErrUnsupported, which means Supervisor
+// itself could not be reached rather than the caller giving up first.
+func TestSupervisorClient_CallerDeadlineExceeded_ReturnsErrDeadline(t *testing.T) {
+	srv, _ := countingServer(t, func(w http.ResponseWriter, r *http.Request) {
+		<-r.Context().Done()
+	})
+	c := NewSupervisorClient(srv.URL, testToken, srv.Client(), nil)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	_, err := c.Info(ctx)
+	if !errors.Is(err, ErrDeadline) {
+		t.Fatalf("Info: got %v, want ErrDeadline", err)
+	}
+	if errors.Is(err, ErrUnsupported) {
+		t.Fatalf("Info: %v also matches ErrUnsupported, want it distinguishable from ErrDeadline", err)
 	}
 }
