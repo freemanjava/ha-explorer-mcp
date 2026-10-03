@@ -1031,6 +1031,42 @@ is a change to D-05-3 and wants its own decision.
 
 **Impact:** Box is larger than written and holds an unsettled design choice (dependency extraction vs. raw config exposure; where the hypothesis producer lives). `P5-08`/`P5-09` are unaffected.
 
-**Triage:** `blocks-active`
+**Triage:** `queue-next`
 
-**Outcome:** Open. Route to `devflow plan` on the stronger model: split `P5-07` into a 🧠 analysis/dependency task and the e2e test.
+**Outcome:** Planned 2026-10-03 (`devflow plan`): owner decided **D-05-6** (a twenty-first tool, `analyze_automation_health`) and **D-05-7** (ids-only dependency extraction in the mapper; `search/related` recorded as fallback, F-32). Became `P5-11` (dependencies), `P5-12` (analysis, 🧠), `P5-13` (tool) and the reduced `P5-07` (e2e). Closes when `P5-07` closes.
+
+### F-31 · No evidence source tells "HA restarted" from "one integration failed" · 2026-10-03
+
+**Kind:** `unknown`
+
+**What:** `P5-09`'s DoD requires the two fixtures to be distinguished by evidence. Nothing in `internal/analysis` observes an HA restart today (`grep -i restart internal/analysis` finds only a comment in `confidence.go`). Candidate source: the logbook's Home Assistant start/stop entries via `logbook/get_events`, already allow-listed for the F-11 fallback — whether they are present, and in what shape, on the current HA release is unobserved. A cluster spanning many config entries at once is a second, structural signal that needs no new source.
+
+**Impact:** Unknown pending verification. If the logbook carries start/stop, `P5-09` is a bounded addition; if not, "HA restarted" rests on the cross-entry cluster alone and its confidence must say so.
+
+**Triage:** `queue-next`
+
+**Outcome:** Open. Observed in `P5-10`'s `cmd/spike` session (with F-28), before `P5-09` is built — the queue now orders `P5-10` ahead of `P5-09` for this reason.
+
+### F-32 · `search/related` as the fallback dependency source for automations · 2026-10-03
+
+**Kind:** `idea`
+
+**What:** D-05-7 chose mapper-side extraction of `entity_id`/`device_id`/`area_id` from `automation/config`. HA's own `search/related` (the "Related" tab) computes the same relations itself and would absorb future config syntax without code changes here. Its admin gate, response shape, Pi cost and whether "related" is wider than "depends on" are all unverified.
+
+**Impact:** None today. Becomes worth a `verify` cycle if real automations show the mapper missing constructions (rising `UnextractedRefs` on non-template steps, or a known dependency absent).
+
+**Triage:** `defer`
+
+**Outcome:** Recorded as the owner's chosen fallback (D-05-7). Re-triage at each `plan`; trigger is evidence the mapper misses dependencies.
+
+### F-33 · Should the server help write fixes or new automations? · 2026-10-03
+
+**Kind:** `idea`
+
+**What:** Raised by the owner while planning `P5-07`: once phase 05 pinpoints why an automation failed, the next ask is help writing the fix or a new automation. That is proposal territory — phase 06, gated (ADR-011) — and this binary stays read-only regardless.
+
+**Impact:** None on v1. A scope question for the phase 06 gate decision.
+
+**Triage:** `defer`
+
+**Outcome:** Noted in phase 06's gate decision entry as a topic to discuss when that decision is taken. Not a commitment.

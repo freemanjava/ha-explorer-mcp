@@ -152,16 +152,78 @@ structural decision gets made on an unverified premise.
   Supervisor-derived evidence when Supervisor is absent (doc §3.2 degradation),
   and the call still answers.
 
-- [ ] **`P5-07` · Investigation 1 — doc §13.1, end to end** — `blocked:P5-05`
+**Re-planned 2026-10-03 (F-30).** `P5-07` as first written presumed an
+automation hypothesis producer and a dependency source; neither existed. It is
+now three building boxes — `P5-11` (dependencies), `P5-12` (analysis),
+`P5-13` (tool) — plus `P5-07` reduced to the end-to-end test it always named.
+Decided as **D-05-6** and **D-05-7** below.
+
+- [ ] **`P5-11` · Automation dependency extraction** — per D-05-7
+  Home: `internal/ha/mapping.go`, beside `MapAutomation` — the only unit that
+  sees the raw `automation/config` body, so the body never crosses into
+  `internal/model`. `model.Automation` gains, additively, `DependsOn` (typed
+  `EntityID`/`DeviceID`/area ids, de-duplicated, sorted), `DependsTruncated`
+  and `UnextractedRefs` (a count, never the text: a template or any value under
+  a dependency key that fails the id grammar). Resolution of a device or area to
+  its entities is **not** the mapper's job — it happens where the registry is
+  read (`P5-13`).
+  **DoD:** fixtures over both config syntaxes HA accepts (`trigger`/`triggers`,
+  `service`/`action`, `platform`/`trigger` keys, bare object vs. list) and
+  nesting (`choose`, `if`/`then`/`else`, `repeat`, `parallel`, `sequence`,
+  `target`, `data`); a template in `value_template` and a templated
+  `entity_id` are counted in `UnextractedRefs`, never extracted; a
+  prompt-like string under `entity_id` is rejected by the grammar (Appendix B:
+  attributes containing prompt-like text); more than
+  `maxAutomationDependencies` (a named constant) sets `DependsTruncated`; a
+  test asserts `get_automation`'s serialized response carries ids only — no
+  trigger/condition/action body text; under the deny profile a PRIVATE
+  dependency is withheld and counted, as `P4-05` does for `find_*`.
+
+- [ ] **`P5-12` · Automation run analysis** — 🧠 · `blocked:P5-11`
+  Home: new `internal/analysis/automation_health.go`,
+  `AnalyzeAutomationHealth(AutomationHealthInput)` — the third analyzer,
+  same shape as `entity_health.go`/`integration_health.go` (reuses the P5-06
+  `ledger`/`healthWindow`); not grown into either of them, which analyze a
+  different subject. Input arrives already read: the automation, its trace
+  summaries **or** the F-11 fallback (`last_triggered` + logbook events by
+  `context_id`), each dependency's history, repairs. Evidence: run outcomes
+  (stopped at a condition, error, aborted), dependency unavailable/stale
+  windows, and the overlap of a failed run with a dependency window (within
+  `outageClusterTolerance`, D-05-3 — overlap, never "caused by").
+  Fallback-derived evidence is `Degraded`, so `ConfidenceFor` demotes it; no
+  confidence is set anywhere else (D-05-2).
+  **DoD:** a failed run inside a dependency's unavailable window yields a
+  hypothesis citing both pieces of evidence, ranked above one without the
+  overlap; the same scenario through the fallback has **strictly lower**
+  confidence — asserted as a comparison, not a fixed level; traces absent,
+  `UnextractedRefs > 0`, a truncated dependency list and an unread dependency
+  history each appear in `missing_evidence` with why; a hypothesis with no
+  surviving evidence is absent; no `cause` field (the D-05-1 reflection test
+  covers the new types).
+
+- [ ] **`P5-13` · `analyze_automation_health`** — `blocked:P5-12`
+  Home: new `internal/mcp/automation_health_tools.go` plus one catalog row at
+  `ClassComposite` (open/closed: a new file and a table entry). Reads
+  `automation/config` (dependencies), `trace/list` or the fallback, registry
+  (device/area → entities), history for at most the `P5-06` cap of
+  dependencies (the rest named in `missing_evidence`), repairs; then
+  `AnalyzeAutomationHealth`.
+  **DoD:** the parity rule's four, each asserted; a non-admin principal still
+  answers (fallback branch, `missing_evidence` names `automation/config` and
+  `trace/list`); the catalog test moves from twenty to **twenty-one**, and in
+  the same change doc §9 gains the row and the phase 03 "full twenty"
+  decision record gains a one-line amendment pointing at D-05-6.
+
+- [ ] **`P5-07` · Investigation 1 — doc §13.1, end to end** — `blocked:P5-13`
   An integration-level test walking `get_automation` → `get_automation_traces`
-  → dependency history/statistics → repairs → correlated timestamps → ranked
-  hypotheses, against a fixture installation.
+  → dependency history/statistics → repairs → `analyze_automation_health`,
+  against a fixture installation.
   **DoD:** the happy path produces ranked hypotheses each citing evidence; the
   **degraded branch** (F-11 — traces unavailable to the principal) produces
   hypotheses from `last_triggered` + logbook + `context_id` correlation, names
   the absent traces in `missing_evidence`, and carries strictly lower
   confidence than the same scenario with traces present — asserted as a
-  comparison, not as a fixed level.
+  comparison, not as a fixed level. Closes F-30.
 
 - [ ] **`P5-08` · Investigation 2 — doc §13.2, end to end**
   Overview/health → integration health → `find_unavailable_entities` → P5-04
@@ -184,12 +246,18 @@ structural decision gets made on an unverified premise.
   name match; the doc §21 criterion ("at least three end-to-end investigations
   produce evidence-backed ranked hypotheses") is asserted by a test naming all
   three, so the criterion cannot silently regress.
+  **Before building (F-31, F-28):** nothing in `internal/analysis` today
+  observes an HA restart, so "HA restarted" has no evidence to rest on yet.
+  `P5-10`'s live run checks whether the logbook's start/stop events are
+  readable and observes F-28; this box's design starts from that report.
 
 - [ ] **`P5-10` · Measure the composite budget and re-class `find_stale_entities`
   (F-26)** — `needs-verify`
   One measurement session on a real installation covering both unmeasured
   request budgets at once: `find_stale_entities` at `ClassNormalRead`, and the
-  two `analyze_*` tools at `ClassComposite`. Record actual HA requests, bytes
+  three `analyze_*` tools at `ClassComposite` (`P5-13` added the third).
+  The same `cmd/spike` session observes F-28 (long outages chaining clusters)
+  and F-31 (is an HA restart visible in logbook/get_events). Record actual HA requests, bytes
   and wall time per call at realistic installation width.
   **DoD:** a dated report in `docs/research/` with the measured numbers, and a
   decision record here that either keeps the current classes with the
@@ -298,6 +366,42 @@ structural decision gets made on an unverified premise.
   good/degraded/bad verdict (the same problem, with the arithmetic hidden
   rather than absent). Revisit only if a scoring rule falls out of `P5-10`'s
   measurements, and only as an additive field.
+
+- [x] **D-05-6 — Automation hypotheses ship as a twenty-first tool,
+  `analyze_automation_health`** — owner, 2026-10-03 (F-30)
+  Doc §13.1 ends in ranked hypotheses, and nothing produced them: the two
+  existing analyzers never see traces, `last_triggered` or logbook. Decided: a
+  third composite tool at `ClassComposite`, built like the other two
+  (`P5-12` analysis, `P5-13` tool). This amends phase 03's "full twenty"
+  decision to twenty-one; the catalog test and doc §9 move with it in
+  `P5-13`. **Rejected:** hypotheses inside `get_automation_traces`' response
+  (a read tool emitting inference mixes fact and inference in one tool's
+  output — ADR-010's separation, eroded at the tool level); composing them only
+  inside the e2e test (an analyzer no tool calls is dead code, and §13.1's
+  answer would never reach a real agent).
+
+- [x] **D-05-7 — Dependencies are extracted by our mapper from
+  `automation/config`, ids only; `search/related` is the recorded fallback** —
+  owner, 2026-10-03 (F-30)
+  §13.1's "identify trigger / condition / action dependencies" needs ids to
+  walk to history. Decided: `internal/ha`'s mapper collects the values under
+  `entity_id`, `device_id` and `area_id` keys anywhere in the config body,
+  each validated by the id grammar, de-duplicated and capped; templates and
+  grammar failures are counted, never extracted or echoed. Nothing else of the
+  body leaves `internal/ha`. **Rule 6 reading, made explicit:** these values
+  are used only as lookup keys — the same use `via_device_id` already has in
+  `P5-04` — and no behavior branches on their content; a value that is not a
+  valid id is data that failed validation, not an instruction. The command is
+  already allow-listed and admin-gated, so the surface does not grow.
+  **Rejected for now — recorded fallback (F-32, `defer`):** HA's
+  `search/related`, which lets HA do the parsing and returns devices, areas and
+  integrations ready-made. Its admin gate, response shape and cost on a Pi are
+  unverified; it adds an allow-list command F-25 already counts against us; it
+  misses templates just as our mapper does; and "related" is likely wider than
+  "depends on" (neighbour entities of the same device or area). Reopen it if
+  real automations show our mapper missing constructions. **Also rejected:** no
+  dependencies in v1 (every §13.1 answer would carry "dependencies: not
+  checked", which is the diagnostic's whole value missing).
 
 ## Phase Definition of Done
 

@@ -3,18 +3,18 @@
 <!-- BOUNDED FILE — rewritten in place, never appended to. Keep under ~100 lines.
      Anything that grows goes to journal/. This file is read by every session. -->
 
-**▶ Active:** `P5-07` — investigation 1 (doc §13.1) end to end · phase 05 · default
-model. An integration-level test walking `get_automation` →
-`get_automation_traces` → dependency history/statistics → repairs → correlated
-timestamps → ranked hypotheses against a fixture installation; the degraded
-branch (F-11, traces unavailable) must carry strictly lower confidence.
+**▶ Active:** `P5-11` — automation dependency extraction (D-05-7) · phase 05 ·
+default model. `MapAutomation` collects `entity_id`/`device_id`/`area_id`
+values from the `automation/config` body — grammar-validated, de-duplicated,
+capped; templates counted, never extracted; ids only leave `internal/ha`.
 
 > Advancing this pointer is part of finishing a task, together with ticking the
 > box, recomputing status and appending a journal entry. All four, or none.
 
 ## Suspended
 
-- `P5-07` — branch `feat/P5-07` cut from `main`; no code, tests or plan edits landed. Waits on **F-30** (`blocks-active`): no automation hypothesis producer and no dependency source exist. Remaining: everything; re-plan first (`devflow plan`, stronger model).
+None. `P5-07`'s suspension (F-30) was re-planned 2026-10-03 into `P5-11`…`P5-13`
+plus a reduced `P5-07`. Its branch `feat/P5-07` holds no work.
 
 ## Queue
 
@@ -23,18 +23,32 @@ cycle. Remove a row when its task closes.
 
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
-| 1 | `P5-07` | investigation 1 — doc §13.1 e2e + degraded branch | 05 | default | |
-| 2 | `P5-08` | investigation 2 — doc §13.2 e2e (F-27's rule now in its DoD) | 05 | default | |
-| 3 | `P5-09` | investigation 3 — correlated mass unavailability (observe F-28 first) | 05 | default | |
-| 4 | `P5-10` | measure composite budget, re-class `find_stale_entities` (F-26) | 05 | default | `needs-verify` |
+| 1 | `P5-11` | automation dependency extraction (D-05-7) | 05 | default | |
+| 2 | `P5-12` | `AnalyzeAutomationHealth` — runs × dependency windows | 05 | stronger | 🧠 |
+| 3 | `P5-13` | `analyze_automation_health` tool — the twenty-first | 05 | default | |
+| 4 | `P5-07` | investigation 1 — doc §13.1 e2e + degraded branch | 05 | default | |
+| 5 | `P5-08` | investigation 2 — doc §13.2 e2e (F-27's rule in its DoD) | 05 | default | |
+| 6 | `P5-10` | measure composite budget (F-26); observe F-28, F-31 | 05 | default | `needs-verify` |
+| 7 | `P5-09` | investigation 3 — mass unavailability vs. HA restart | 05 | default | |
 
-**Ordering rationale (2026-09-05 `plan`).** Verify → model → analysis
-primitives → tools → workflows → measurement. `P5-01` went first because its
-answer was structural; it closed 2026-09-05, so `P5-04`/`P5-06` no longer wait
-on it. `P5-10` is last because measuring composite cost needs the composite
-tools to exist.
+**Ordering rationale (2026-10-03 `plan`).** Dependencies → analysis → tool →
+the §13.1 e2e that walks them. `P5-10` now runs **before** `P5-09`: one
+`cmd/spike` session measures all three composite tools and observes the two
+unknowns `P5-09` rests on (F-28 chaining, F-31 restart evidence), which the
+old order asked for but did not schedule.
 
-**Five design decisions now govern this phase's boxes**, D-05-1…5 in the phase
+**Two decisions taken 2026-10-03 (owner, F-30):** **D-05-6** — automation
+hypotheses ship as a **twenty-first tool**, `analyze_automation_health`
+(amends phase 03's "full twenty" in `P5-13`); **D-05-7** — dependencies come
+from **our mapper, ids only**, with HA's `search/related` recorded as the
+fallback (F-32, `defer`).
+
+**Earlier ordering (2026-09-05 `plan`).** Verify → model → analysis
+primitives → tools → workflows → measurement. **Ordering rationale (2026-09-05 `plan`).** Verify → model → analysis
+primitives → tools → workflows → measurement. `P5-10` follows the composite
+tools because measuring them needs them to exist.
+
+**Five earlier design decisions govern this phase's boxes**, D-05-1…5 in the phase
 file, so implementation follows a spec rather than making judgment calls:
 fact/inference/recommendation are **separate types**, not fields on one struct ·
 **confidence comes from one `ConfidenceFor` function** or does not exist ·
@@ -83,13 +97,13 @@ done
 | 02 | Policy, Privacy, Budget & Audit | 8 / 8 |
 | 03 | MCP Server & Inventory Tools | 11 / 11 |
 | 04 | History, Statistics & Detection | 6 / 6 |
-| 05 | Diagnostics & Evidence Engine | 11 / 15 |
+| 05 | Diagnostics & Evidence Engine | 13 / 20 |
 | 06 | Proposal Mode — gated | 0 / 1 |
 | 07 | Controlled Change (Admin) — gated | 0 / 1 |
 
 Counts include each phase's decision entries, which are boxes too. Phase 05's
-11 ticked are D-05-1…5 and the `P5-01`…`P5-06` task boxes; its four remaining task boxes
-are open, and no decision entry in the phase is open any more. Phase 02 is
+13 ticked are D-05-1…7 and the `P5-01`…`P5-06` task boxes; its seven remaining
+are task boxes (`P5-07`…`P5-13`), and no decision entry in the phase is open. Phase 02 is
 complete: its last box, the Q10 persistence decision, closed 2026-10-03.
 
 Phases 00–04 are milestone M1 (v1 observer) and are **fully implemented**.
@@ -97,7 +111,7 @@ Phase 05 is M2, and is where the last two catalog rows
 (`analyze_entity_health`, `analyze_integration_health`) became real. Phases 06–07 are gated: they open only on an
 explicit owner decision plus a fresh security review, and carry no task boxes.
 
-Last refreshed: 2026-10-03 (`P5-06` closed — `analyze_integration_health`)
+Last refreshed: 2026-10-03 (`plan` — F-30 split `P5-07` into `P5-11`…`P5-13` + e2e)
 
 ## Open findings
 
@@ -105,7 +119,7 @@ Last refreshed: 2026-10-03 (`P5-06` closed — `analyze_integration_health`)
      grep -c '^\*\*Triage:\*\* `queue-next`' docs/development/FINDINGS.md  (etc.)
      This block exists so captured work cannot quietly rot: every session sees it. -->
 
-`blocks-active` 1 · `queue-next` 3 · `defer` 2 · `unknown` 2 (open)
+`blocks-active` 0 · `queue-next` 5 · `defer` 4 · `unknown` 3 (open)
 
 > Any `blocks-active` is stop-work. If `queue-next` is non-zero and the queue
 > above has fewer than 3 rows, drain it with `devflow plan` before continuing —
@@ -114,18 +128,17 @@ Last refreshed: 2026-10-03 (`P5-06` closed — `analyze_integration_health`)
 > An open `unknown` outranks the queue: it is an assumption the plan already
 > rests on. Run `devflow verify` before building further on it.
 
-Three `queue-next`, all attached to boxes already in the queue and closing
-when those close: **F-26** → `P5-10`; **F-27** → `P5-08` (its `P5-04` half
-settled); and the new **F-28** (`unknown`) — long outages chain unrelated ones
-into one cluster; observe on `P5-10`'s live run, before `P5-09` asserts on a
-mass-outage cluster. Two `defer`s remain, both on
-the same unfired trigger — the first production
-`Preflight(policy.SourceStatistics, …)` call site: **F-17** (batched
-statistics ~30% larger) and **F-25** (three allow-listed recorder commands
-nothing calls). No Phase 05 box creates that call site, so a standing decision
-stands in place of a sixth deferral: **if Phase 05 closes with still no such
-call site, F-17 becomes `wont-fix` and F-25 becomes a deletion task, at that
-`plan`.** The open `unknown`s are F-17 and F-28.
+Five `queue-next`, all attached to queued boxes and closing with them:
+**F-26** → `P5-10`; **F-27** → `P5-08`; **F-28** (`unknown`) and **F-31**
+(`unknown`, no evidence for "HA restarted") → observed in `P5-10`'s live run,
+before `P5-09`; **F-30** → `P5-11`…`P5-13`, closes with `P5-07`. Four
+`defer`s: **F-17** and **F-25** wait on the first production
+`Preflight(policy.SourceStatistics, …)` call site — **if Phase 05 closes with
+still none, F-17 becomes `wont-fix` and F-25 a deletion task, at that
+`plan`**; **F-32** is D-05-7's recorded fallback (`search/related`),
+triggered by evidence the mapper misses dependencies; **F-33** is the owner's
+phase 06 topic (help writing fixes/new automations), noted at that gate. The
+open `unknown`s are F-17, F-28 and F-31.
 
 ## Recent
 

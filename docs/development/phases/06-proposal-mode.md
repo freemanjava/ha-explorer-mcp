@@ -52,6 +52,13 @@ as a finding instead.
   wants proposed, and a fresh security review. The doc treats write capability
   as a new security boundary, not an increment.
 
+  **To discuss when this decision is taken (owner, 2026-10-03 — F-33):** should
+  the server help *write* fixes for a diagnosed automation, or draft new
+  automations, as inert proposals? Raised while planning `P5-07`: phase 05
+  locates the failing dependency, and the natural next ask is "and what should
+  the automation look like instead". Not decided; recorded so it is on the
+  table, not a scope commitment.
+
 ## Phase Definition of Done
 
 - Proposals are generated, validated and diffed; none is applied.
