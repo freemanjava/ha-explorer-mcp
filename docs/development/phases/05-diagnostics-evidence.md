@@ -294,7 +294,7 @@ reduced to the end-to-end test. Decided as **D-05-8** and **D-05-9** below.
   host `NextAction` names no tool; neither row lowers or removes a hypothesis
   by itself (missing evidence informs, it does not refute).
 
-- [ ] **`P5-08` · Investigation 2 — doc §13.2, end to end** —
+- [x] **`P5-08` · Investigation 2 — doc §13.2, end to end** —
   (unblocked: `P5-14`…`P5-16` closed)
   An integration-level test in `investigation_test.go` walking
   `find_unavailable_entities` → `analyze_integration_health` (clusters with

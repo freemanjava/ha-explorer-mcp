@@ -1,9 +1,11 @@
 package mcp
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -190,5 +192,206 @@ func TestInvestigation1_NonAdmin_NamesBothGatedSourcesAndInventsNoHypothesis(t *
 	}
 	if !out.Partial {
 		t.Error("a non-admin answer must be marked partial")
+	}
+}
+
+// layout is how the fixture installation's devices hang off a parent.
+type layout int
+
+const (
+	// partialParent: a hub parents two of the entry's three leaf devices; the
+	// third is attached directly, so sharing the hub distinguishes (F-27).
+	partialParent layout = iota
+	// noParent: leaf devices with no via_device at all.
+	noParent
+	// coordinatorStar: every other device of the entry names the coordinator,
+	// so sharing it says no more than sharing the config entry (F-27).
+	coordinatorStar
+)
+
+// meshShape is how the entry exposes its mesh metrics. It is a property of
+// the registry, never of a platform name (D-05-5, rule 6).
+type meshShape int
+
+const (
+	// metricExposed: an enabled link-quality sensor per device (Zigbee2MQTT-shaped).
+	metricExposed meshShape = iota
+	// metricDisabled: the link-quality sensor exists but is disabled (ZHA-shaped).
+	metricDisabled
+)
+
+// outageHistory serves the shared outage window to the entities in outage,
+// a numeric link quality to metric sensors, and a steady "on" to the rest.
+type outageHistory struct{ outage map[string]bool }
+
+func (h outageHistory) History(_ context.Context, id model.EntityID, _, _ time.Time, _ bool) ([]model.HistoryPoint, error) {
+	switch {
+	case h.outage[string(id)]:
+		return dependencyOutage(), nil
+	case strings.HasSuffix(string(id), "_linkquality") || strings.HasSuffix(string(id), "_lqi"):
+		return []model.HistoryPoint{{Timestamp: time.Now().Add(-6 * 24 * time.Hour), State: "87"}}, nil
+	}
+	return []model.HistoryPoint{{Timestamp: time.Now().Add(-6 * 24 * time.Hour), State: "on"}}, nil
+}
+
+// meshInstallation builds one config entry "entry-1" of three leaf devices
+// whose first two lights are unavailable together, wired per layout and shape.
+func meshInstallation(l layout, shape meshShape) (*fakeInventoryReader, []string) {
+	inv := &fakeInventoryReader{integrations: []model.Integration{{ID: "entry-1", Domain: "mesh", State: "loaded"}}}
+	parent := model.DeviceID("")
+	switch l {
+	case partialParent, coordinatorStar:
+		parent = "hub"
+		inv.devices = append(inv.devices, model.DeviceRef{ID: parent, ConfigEntryID: "entry-1"})
+	}
+	var down []string
+	for i := range 3 {
+		dev := model.DeviceID(fmt.Sprintf("dev%d", i))
+		via := parent
+		if l == partialParent && i == 2 {
+			via = ""
+		}
+		inv.devices = append(inv.devices, model.DeviceRef{ID: dev, ConfigEntryID: "entry-1", ViaDeviceID: via})
+		light := fmt.Sprintf("light.leaf_%d", i)
+		sensor := model.Entity{ID: model.EntityID(fmt.Sprintf("sensor.leaf_%d_linkquality", i)), Domain: "sensor", ConfigEntryID: "entry-1", DeviceID: dev}
+		if shape == metricDisabled {
+			sensor.DisabledBy = "integration"
+		}
+		inv.entities = append(inv.entities,
+			model.Entity{ID: model.EntityID(light), Domain: "light", ConfigEntryID: "entry-1", DeviceID: dev}, sensor)
+		if i < 2 {
+			down = append(down, light)
+		}
+	}
+	return inv, down
+}
+
+type investigation2 struct {
+	unavailable model.UnavailableEntityList
+	integration HealthResponse
+	entity      HealthResponse
+}
+
+// walkInvestigation2 follows doc §13.2 over one server session: find the
+// unavailable entities, analyze their integration, then a clustered member.
+// The "restart evidence" step is deliberately absent: no producer exists
+// (F-31), and P5-09 owns it.
+func walkInvestigation2(t *testing.T, l layout, shape meshShape) investigation2 {
+	t.Helper()
+	inv, down := meshInstallation(l, shape)
+	opts := integrationHealthOptions(outageHistory{outage: map[string]bool{down[0]: true, down[1]: true}}, inv, downReader(down...), &fakeRepairReader{}, nil)
+	client := connect(t, newServer(opts, Catalog()))
+	call := func(name string, args map[string]any, into any) {
+		t.Helper()
+		res, err := client.CallTool(t.Context(), &sdkmcp.CallToolParams{Name: name, Arguments: args})
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if res.IsError {
+			t.Fatalf("%s answered with an error: %s", name, resultText(res))
+		}
+		raw, _ := json.Marshal(res.StructuredContent)
+		if err := json.Unmarshal(raw, into); err != nil {
+			t.Fatalf("%s: unmarshal: %v", name, err)
+		}
+	}
+	var out investigation2
+	call("find_unavailable_entities", map[string]any{}, &out.unavailable)
+	call("analyze_integration_health", map[string]any{"config_entry_id": "entry-1"}, &out.integration)
+	if len(out.integration.Clusters) == 0 || len(out.integration.Clusters[0].Members) == 0 {
+		t.Fatalf("step 2 found no cluster to take a member from: %+v", out.integration.Clusters)
+	}
+	member := out.integration.Clusters[0].Members[0]
+	call("analyze_entity_health", map[string]any{"entity_id": string(member)}, &out.entity)
+	return out
+}
+
+func hasTrait(traits []model.ClusterTrait, kind model.TraitKind) bool {
+	return slices.ContainsFunc(traits, func(tr model.ClusterTrait) bool { return tr.Kind == kind })
+}
+
+func assertHypothesesCiteEnvelope(t *testing.T, name string, out HealthResponse) {
+	t.Helper()
+	for _, h := range out.Hypotheses {
+		if len(h.Cites) == 0 {
+			t.Errorf("%s: hypothesis %q cites no evidence", name, h.Statement)
+		}
+		for _, id := range h.Cites {
+			if evidenceByID(out.Evidence, id) == nil {
+				t.Errorf("%s: hypothesis %q cites %q, which is not in its envelope", name, h.Statement, id)
+			}
+		}
+	}
+}
+
+func TestInvestigation2_PartialParent_ClusterCarriesTopologyClaim(t *testing.T) {
+	out := walkInvestigation2(t, partialParent, metricExposed)
+
+	if len(out.unavailable.Items) != 2 {
+		t.Errorf("step 1 listed %d unavailable entities, want the two in outage", len(out.unavailable.Items))
+	}
+	c := out.integration.Clusters[0]
+	if i := slices.IndexFunc(c.Shared, func(tr model.ClusterTrait) bool { return tr.Kind == model.TraitViaDevice }); i < 0 || c.Shared[i].Value != "hub" {
+		t.Errorf("shared = %+v, want via_device hub", c.Shared)
+	}
+	if hasTrait(c.Withheld, model.TraitViaDevice) {
+		t.Errorf("a parent of part of its entry is withheld: %+v", c.Withheld)
+	}
+	if evidenceByID(out.integration.Evidence, c.Evidence) == nil {
+		t.Errorf("cluster names %q, which is not in the evidence", c.Evidence)
+	}
+	assertHypothesesCiteEnvelope(t, "integration", out.integration)
+	assertHypothesesCiteEnvelope(t, "entity", out.entity)
+}
+
+func TestInvestigation2_NoParent_SameTimeClusterWithoutTopologyClaim(t *testing.T) {
+	out := walkInvestigation2(t, noParent, metricExposed)
+
+	c := out.integration.Clusters[0]
+	if len(c.Members) != 2 {
+		t.Fatalf("members = %v, want the same two-entity time cluster", c.Members)
+	}
+	if hasTrait(c.Shared, model.TraitViaDevice) || hasTrait(c.Withheld, model.TraitViaDevice) {
+		t.Errorf("topology claimed with no parent: shared %+v withheld %+v", c.Shared, c.Withheld)
+	}
+}
+
+func TestInvestigation2_CoordinatorStar_ViaDeviceWithheldNotShared(t *testing.T) {
+	out := walkInvestigation2(t, coordinatorStar, metricExposed)
+
+	c := out.integration.Clusters[0]
+	if hasTrait(c.Shared, model.TraitViaDevice) {
+		t.Errorf("the coordinator star is presented as a finding: %+v", c.Shared)
+	}
+	if !hasTrait(c.Withheld, model.TraitViaDevice) {
+		t.Errorf("withheld = %+v, want via_device named there", c.Withheld)
+	}
+}
+
+func TestInvestigation2_Mesh_ExposedHasEvidenceDisabledNamesReason(t *testing.T) {
+	exposed := walkInvestigation2(t, partialParent, metricExposed)
+	if !slices.ContainsFunc(exposed.integration.Evidence, func(e model.Evidence) bool { return strings.HasPrefix(string(e.ID), "mesh_link_quality_") }) {
+		t.Errorf("no mesh evidence for the exposed metric: %+v", exposed.integration.Evidence)
+	}
+
+	disabled := walkInvestigation2(t, partialParent, metricDisabled)
+	if slices.ContainsFunc(disabled.integration.Evidence, func(e model.Evidence) bool { return strings.HasPrefix(string(e.ID), "mesh_") }) {
+		t.Errorf("mesh evidence invented for a disabled metric: %+v", disabled.integration.Evidence)
+	}
+	if !slices.ContainsFunc(disabled.integration.MissingEvidence, func(m model.MissingEvidence) bool { return m.Reason == model.MissingEntityDisabled }) {
+		t.Errorf("the disabled metric is not named with its reason: %+v", disabled.integration.MissingEvidence)
+	}
+}
+
+func TestInvestigation2_Cluster_NamesHostEvidenceAsPrivileged(t *testing.T) {
+	out := walkInvestigation2(t, partialParent, metricExposed)
+
+	if !slices.ContainsFunc(out.integration.MissingEvidence, func(m model.MissingEvidence) bool {
+		return m.Source == "host" && m.Reason == model.MissingPrivileged
+	}) {
+		t.Errorf("host evidence is not named as privileged: %+v", out.integration.MissingEvidence)
+	}
+	if !slices.ContainsFunc(out.integration.MissingEvidence, func(m model.MissingEvidence) bool { return m.Reason == model.MissingNotExposed }) {
+		t.Errorf("the neighbour table is not named as not exposed: %+v", out.integration.MissingEvidence)
 	}
 }

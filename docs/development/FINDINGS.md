@@ -966,7 +966,7 @@ arriving through the annotation instead. `P5-08`'s DoD as written is
 satisfiable by a fixture while being unreachable in reality, so the test would
 pass and the tool would still mislead.
 
-**Triage:** `queue-next`
+**Triage:** `done`
 
 **Outcome:** (1) settled by `P5-04`, 2026-10-03: a star parent is withheld
 from `Shared` and named in `Withheld` (rule in the phase file under `P5-04`).
@@ -987,7 +987,7 @@ routers.
 (2) planned 2026-10-03: the neighbour table is outside the gateway
 allow-list (D-05-5 rejected `zha/devices`; Zigbee2MQTT's topology is MQTT, not
 an HA API), so it ships as a `not_exposed` `missing_evidence` row in `P5-16`.
-F-27 closes with `P5-08`.
+F-27 closes with `P5-08`. Resolved by `P5-08` (2026-10-03): the e2e test asserts a partial-parent topology claim, none without a parent, and the coordinator star in `withheld`.
 
 ### F-28 · Long outages can chain unrelated ones into one cluster · 2026-10-03
 
@@ -1093,5 +1093,6 @@ is a change to D-05-3 and wants its own decision.
 
 **What:** The box is written as an end-to-end test (like `P5-07`), but its chain has gaps no test can walk. (1) `OutageCluster.Shared`/`Withheld` (the topology annotation, F-27) are read only by `correlation_test.go`; `clusterEvidence` (`internal/analysis/correlation.go:205`) emits measurements only, so neither `analyze_integration_health` nor any tool response carries "these members share parent X". (2) Nothing outside `cmd/spike/mesh.go` reads LQI/RSSI: D-05-5's flat analyzer and hint table are not implemented in `internal/`, so "mesh-metric evidence read the way `P5-01` established" has no code to exercise. (3) Nothing emits the host-evidence (USB resets, dmesg — ADR-012) `MissingEvidence` row; only the model's doc comment mentions it. Same shape as F-30 for `P5-07`.
 **Impact:** Closing `P5-08` as a test-only box would assert the cluster-level facts already covered in `correlation_test.go` and tick a DoD ("topology-annotated cluster", mesh evidence) the tool output cannot show. Real work: surface topology in cluster evidence (a model/shape decision under D-05-1), implement the D-05-5 analyzer, add the host-evidence missing row.
-**Triage:** `queue-next`
+**Triage:** `done`
 **Outcome:** Planned 2026-10-03 → `P5-14` (cluster topology, D-05-8), `P5-15` (mesh-metric evidence, D-05-9), `P5-16` (privileged-host and neighbour-table rows), then `P5-08` reduced to the e2e test. Closes with `P5-08`.
+ Resolved by `P5-08` (2026-10-03): `P5-14`…`P5-16` and the e2e test all closed.
