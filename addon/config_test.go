@@ -156,3 +156,24 @@ func TestAddonLocalBuildPathRemoved(t *testing.T) {
 		}
 	}
 }
+
+// TestAddonManifestDeclaresSettingsAsClosedLists guards D-08-12: the privacy
+// profile and log level are App options whose schema is a closed list, so the
+// UI cannot offer, and Supervisor cannot accept, a value start-up would refuse.
+func TestAddonManifestDeclaresSettingsAsClosedLists(t *testing.T) {
+	raw, err := os.ReadFile("config.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(raw)
+	for _, want := range []string{
+		"  privacy_profile: mask\n",
+		"  log_level: info\n",
+		"  privacy_profile: list(mask|allow|deny)\n",
+		"  log_level: list(debug|info|warn|error)\n",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("config.yaml lacks %q", strings.TrimSpace(want))
+		}
+	}
+}

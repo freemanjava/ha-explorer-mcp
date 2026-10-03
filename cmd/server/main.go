@@ -10,15 +10,12 @@ package main
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 
 	"github.com/freemanjava/ha-explorer-mcp/internal/ha"
 	"github.com/freemanjava/ha-explorer-mcp/internal/mcp"
-	"github.com/freemanjava/ha-explorer-mcp/internal/policy"
 )
 
 // version is overridden at build time via -ldflags.
@@ -57,11 +54,7 @@ func main() {
 }
 
 func run() error {
-	level, err := logLevel(os.Getenv(envLogLevel))
-	if err != nil {
-		return err
-	}
-	profile, err := policy.NewProfile(os.Getenv(envPrivacyProfile))
+	cfg, err := loadSettings(os.Getenv, optionsPath)
 	if err != nil {
 		return err
 	}
@@ -80,7 +73,7 @@ func run() error {
 		secrets = append(secrets, transport.httpSecret)
 	}
 
-	log := mcp.NewLogger(level, secrets...)
+	log := mcp.NewLogger(cfg.level, secrets...)
 
 	// An interrupt cancels the context, which closes the stdio session or the
 	// HTTP listener; the Supervisor stopping the App is a normal shutdown, not
@@ -88,7 +81,7 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	log.InfoContext(ctx, "starting", "version", version, "transport", transport.transport, "privacy_profile", os.Getenv(envPrivacyProfile))
+	log.InfoContext(ctx, "starting", "version", version, "transport", transport.transport, "privacy_profile", cfg.profileName)
 
 	manager := ha.NewManager(coreWebSocketURL, token, log)
 	manager.Start(ctx)
@@ -103,7 +96,7 @@ func run() error {
 		Transport:    transport.transport,
 		HTTPSecret:   transport.httpSecret,
 		Logger:       log,
-		Profile:      profile,
+		Profile:      cfg.profile,
 		Secrets:      secrets,
 		Core:         core,
 		Inventory:    registry,
@@ -124,19 +117,4 @@ func run() error {
 	// shutdown (P3-08, F-21); a non-nil error here means the session never
 	// started, a real failure to propagate.
 	return err
-}
-
-func logLevel(name string) (slog.Level, error) {
-	switch strings.ToLower(strings.TrimSpace(name)) {
-	case "", "info":
-		return slog.LevelInfo, nil
-	case "debug":
-		return slog.LevelDebug, nil
-	case "warn", "warning":
-		return slog.LevelWarn, nil
-	case "error":
-		return slog.LevelError, nil
-	default:
-		return 0, fmt.Errorf("unknown %s %q: want debug, info, warn or error", envLogLevel, name)
-	}
 }

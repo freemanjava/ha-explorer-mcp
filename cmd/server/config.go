@@ -5,10 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"os"
 	"strings"
 
 	"github.com/freemanjava/ha-explorer-mcp/internal/mcp"
+	"github.com/freemanjava/ha-explorer-mcp/internal/policy"
 )
 
 const (
@@ -26,6 +28,10 @@ const (
 	// optionHTTPSecret is the options-file key, declared a password in the
 	// App schema so the UI masks it.
 	optionHTTPSecret = "http_secret"
+	// optionPrivacyProfile and optionLogLevel are closed lists in the App
+	// schema (D-08-12), so the UI offers only valid values.
+	optionPrivacyProfile = "privacy_profile"
+	optionLogLevel       = "log_level"
 
 	// Secret rules (D-08-4): 32 is the floor of `openssl rand -hex 16`; the
 	// ceiling and printable-ASCII-without-spaces keep it header-safe.
@@ -63,26 +69,110 @@ func loadTransport(getenv func(string) string, optionsFile string) (transportCon
 	return transportConfig{transport: mcp.TransportHTTP, httpSecret: secret}, nil
 }
 
-func readSecret(getenv func(string) string, optionsFile string) (string, error) {
+// readOptions returns the App options file's keys, or nil when the file does
+// not exist (the development case: environment only). Errors never quote the
+// file, which can hold the secret.
+func readOptions(optionsFile string) (map[string]json.RawMessage, error) {
 	raw, err := os.ReadFile(optionsFile)
 	if errors.Is(err, fs.ErrNotExist) {
-		return getenv(envHTTPSecret), nil
+		return nil, nil
 	}
 	if err != nil {
-		return "", errors.New("cannot read the App options file")
+		return nil, errors.New("cannot read the App options file")
 	}
 	var opts map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &opts); err != nil {
 		// Not wrapped: a decode error can quote the offending bytes.
-		return "", errors.New("the App options file is not valid JSON")
+		return nil, errors.New("the App options file is not valid JSON")
 	}
-	var secret string
-	if v, ok := opts[optionHTTPSecret]; ok {
-		if err := json.Unmarshal(v, &secret); err != nil {
-			return "", fmt.Errorf("option %s must be a string", optionHTTPSecret)
+	if opts == nil {
+		opts = map[string]json.RawMessage{}
+	}
+	return opts, nil
+}
+
+// stringOption reads one string key; absent is "", a non-string is an error
+// naming the key.
+func stringOption(opts map[string]json.RawMessage, key string) (string, error) {
+	v, ok := opts[key]
+	if !ok {
+		return "", nil
+	}
+	var s string
+	if err := json.Unmarshal(v, &s); err != nil {
+		return "", fmt.Errorf("option %s must be a string", key)
+	}
+	return s, nil
+}
+
+func readSecret(getenv func(string) string, optionsFile string) (string, error) {
+	opts, err := readOptions(optionsFile)
+	if err != nil {
+		return "", err
+	}
+	if opts == nil {
+		return getenv(envHTTPSecret), nil
+	}
+	return stringOption(opts, optionHTTPSecret)
+}
+
+// settings are the operator's two App options (D-08-12). Budget limits are
+// deliberately not here: they are the measured constants in internal/policy.
+type settings struct {
+	profile     policy.Profile
+	profileName string // effective, normalized — what the startup log reports
+	level       slog.Level
+}
+
+// loadSettings reads the privacy profile and log level under D-08-9's
+// one-source rule: the options file when it exists (its absent keys take the
+// defaults, the environment is ignored), else the environment. An unknown
+// value refuses start-up, naming the key.
+func loadSettings(getenv func(string) string, optionsFile string) (settings, error) {
+	opts, err := readOptions(optionsFile)
+	if err != nil {
+		return settings{}, err
+	}
+	profileKey, levelKey := envPrivacyProfile, envLogLevel
+	profileRaw, levelRaw := getenv(envPrivacyProfile), getenv(envLogLevel)
+	if opts != nil {
+		profileKey, levelKey = optionPrivacyProfile, optionLogLevel
+		if profileRaw, err = stringOption(opts, profileKey); err != nil {
+			return settings{}, err
+		}
+		if levelRaw, err = stringOption(opts, levelKey); err != nil {
+			return settings{}, err
 		}
 	}
-	return secret, nil
+
+	profile, err := policy.NewProfile(profileRaw)
+	if err != nil {
+		return settings{}, fmt.Errorf("unknown %s: want mask, allow or deny", profileKey)
+	}
+	level, err := logLevel(levelRaw)
+	if err != nil {
+		return settings{}, fmt.Errorf("unknown %s: want debug, info, warn or error", levelKey)
+	}
+	name := strings.ToLower(strings.TrimSpace(profileRaw))
+	if name == "" {
+		name = "mask"
+	}
+	return settings{profile: profile, profileName: name, level: level}, nil
+}
+
+func logLevel(name string) (slog.Level, error) {
+	switch strings.ToLower(strings.TrimSpace(name)) {
+	case "", "info":
+		return slog.LevelInfo, nil
+	case "debug":
+		return slog.LevelDebug, nil
+	case "warn", "warning":
+		return slog.LevelWarn, nil
+	case "error":
+		return slog.LevelError, nil
+	default:
+		return 0, fmt.Errorf("unknown log level %q", name)
+	}
 }
 
 func validateSecret(secret string) error {
