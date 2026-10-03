@@ -101,11 +101,17 @@ func AnalyzeEntityHealth(in EntityHealthInput) (model.HealthAnalysis, error) {
 	return out, nil
 }
 
-type analysisBuilder struct {
-	in         EntityHealthInput
+// ledger holds the evidence an analysis has produced and the hypotheses citing
+// it, shared by the entity and integration analyses.
+type ledger struct {
 	evidence   []model.Evidence
 	hypotheses []model.Hypothesis
-	missing    []model.MissingEvidence
+}
+
+type analysisBuilder struct {
+	ledger
+	in      EntityHealthInput
+	missing []model.MissingEvidence
 
 	avail   AvailabilityReport
 	cadence CadenceReport
@@ -218,26 +224,9 @@ func (a *analysisBuilder) addIntegrationEvidence() {
 	if entry == nil {
 		return
 	}
-	loaded := 0.0
-	observation := "config entry setup state is unrecognized"
-	if slices.Contains(knownSetupStates, entry.State) {
-		observation = "config entry setup state is " + entry.State
-		if entry.State == setupStateLoaded {
-			loaded = 1
-		}
-	}
-	a.evidence = append(a.evidence, model.Evidence{
-		ID:           EvidenceIntegrationState,
-		Observation:  observation,
-		Source:       coreSource,
-		From:         a.in.ObservedAt,
-		To:           a.in.ObservedAt,
-		Measurements: map[string]float64{"loaded": loaded},
-		// One reading of the current state; the ladder reads that as thin
-		// support for a claim about a whole period, which is accurate.
-		SampleSize: 1,
-		Coverage:   1,
-	})
+	ev := setupStateEvidence(entry, a.in.ObservedAt)
+	a.evidence = append(a.evidence, ev)
+	loaded := ev.Measurements["loaded"]
 	if loaded == 1 || !a.showsProblem() {
 		return
 	}
@@ -315,7 +304,7 @@ func (a *analysisBuilder) addStaleHypothesis() {
 // cite records a hypothesis resting on the named evidence, dropping any
 // that was not produced: a hypothesis with no surviving evidence is absent,
 // not present with low confidence (D-05-1).
-func (a *analysisBuilder) cite(statement string, ids ...model.EvidenceID) {
+func (a *ledger) cite(statement string, ids ...model.EvidenceID) {
 	var cited []model.Evidence
 	var citedIDs []model.EvidenceID
 	for _, id := range ids {
@@ -331,7 +320,7 @@ func (a *analysisBuilder) cite(statement string, ids ...model.EvidenceID) {
 	a.hypotheses = append(a.hypotheses, h)
 }
 
-func (a *analysisBuilder) evidenceByID(id model.EvidenceID) (model.Evidence, bool) {
+func (a *ledger) evidenceByID(id model.EvidenceID) (model.Evidence, bool) {
 	for _, ev := range a.evidence {
 		if ev.ID == id {
 			return ev, true
@@ -342,7 +331,7 @@ func (a *analysisBuilder) evidenceByID(id model.EvidenceID) (model.Evidence, boo
 
 // rankHypotheses orders most supported first: higher confidence, then more
 // independent citations, then statement text so the order is deterministic.
-func (a *analysisBuilder) rankHypotheses() {
+func (a *ledger) rankHypotheses() {
 	sort.SliceStable(a.hypotheses, func(i, j int) bool {
 		hi, hj := a.hypotheses[i], a.hypotheses[j]
 		if ri, rj := confidenceRank(hi.Confidence()), confidenceRank(hj.Confidence()); ri != rj {
@@ -378,4 +367,29 @@ func (a *analysisBuilder) nextActions() []model.NextAction {
 		})
 	}
 	return actions
+}
+
+// setupStateEvidence is one reading of a config entry's setup state, shared by
+// the entity and integration analyses so both phrase and weigh it identically.
+func setupStateEvidence(entry *model.Integration, at time.Time) model.Evidence {
+	loaded := 0.0
+	observation := "config entry setup state is unrecognized"
+	if slices.Contains(knownSetupStates, entry.State) {
+		observation = "config entry setup state is " + entry.State
+		if entry.State == setupStateLoaded {
+			loaded = 1
+		}
+	}
+	return model.Evidence{
+		ID:           EvidenceIntegrationState,
+		Observation:  observation,
+		Source:       coreSource,
+		From:         at,
+		To:           at,
+		Measurements: map[string]float64{"loaded": loaded},
+		// One reading of the current state; the ladder reads that as thin
+		// support for a claim about a whole period, which is accurate.
+		SampleSize: 1,
+		Coverage:   1,
+	}
 }

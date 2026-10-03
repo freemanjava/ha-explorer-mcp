@@ -120,6 +120,7 @@ func newServer(opts Options, tools []Tool) *sdkmcp.Server {
 	tools = withStatisticsTools(tools, opts)
 	tools = withFindTools(tools, opts)
 	tools = withEntityHealthTools(tools, opts)
+	tools = withIntegrationHealthTools(tools, opts)
 	for _, t := range tools {
 		register(srv, t)
 	}

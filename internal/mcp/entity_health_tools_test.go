@@ -45,7 +45,7 @@ func flapping(n int) []model.HistoryPoint {
 	return pts
 }
 
-func callAnalyzeEntityHealth(t *testing.T, opts Options, args map[string]any) (*sdkmcp.CallToolResult, EntityHealthResponse) {
+func callAnalyzeEntityHealth(t *testing.T, opts Options, args map[string]any) (*sdkmcp.CallToolResult, HealthResponse) {
 	t.Helper()
 	client := connect(t, newServer(opts, Catalog()))
 	res, err := client.CallTool(t.Context(), &sdkmcp.CallToolParams{Name: "analyze_entity_health", Arguments: args})
@@ -53,9 +53,9 @@ func callAnalyzeEntityHealth(t *testing.T, opts Options, args map[string]any) (*
 		t.Fatalf("CallTool: %v", err)
 	}
 	if res.IsError {
-		return res, EntityHealthResponse{}
+		return res, HealthResponse{}
 	}
-	var out EntityHealthResponse
+	var out HealthResponse
 	raw, _ := json.Marshal(res.StructuredContent)
 	if err := json.Unmarshal(raw, &out); err != nil {
 		t.Fatalf("unmarshal: %v", err)

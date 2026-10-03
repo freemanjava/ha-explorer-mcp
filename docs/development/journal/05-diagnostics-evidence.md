@@ -47,3 +47,8 @@ live ZHA installation exists to confirm the source-read half.
 **Surprise:** `cmd/server/main.go` never set `Options.History`, so `get_entity_history`, `get_entity_statistics` and `find_stale_entities` all answered "not implemented" in the shipped binary (F-29); wired here because this tool needs it. Snapshot evidence (setup state, repairs) has one sample, so the ladder caps any hypothesis citing it at low — accurate, not a bug.
 **Left open:** `golangci-lint` not installed locally, so `make check` skipped lint; not observed against a live HA.
 
+
+### 2026-10-03 · P5-06
+`analysis.AnalyzeIntegrationHealth` + `internal/mcp/integration_health_tools.go`: setup state, inventory/unavailable ratio, domain repairs, outage clusters over the entry's entities, Supervisor resolution counts; Supervisor absent/refused/down is a named gap and the call still answers. Shared `ledger`, `healthWindow`, `HealthResponse` with P5-05.
+**Surprise:** one integration can own hundreds of entities and history is one HA request each against a budget of 50, so clustering reads at most 25 (down-now first) and names the rest in `missing_evidence` — P5-10 must measure whether 25 is right.
+**Left open:** `golangci-lint` still not installed; not observed against a live HA.

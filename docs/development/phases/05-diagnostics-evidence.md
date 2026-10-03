@@ -142,7 +142,7 @@ structural decision gets made on an unverified premise.
   in `get_entity_statistics`, with a PRIVATE entity under deny refused rather
   than partially analyzed.
 
-- [ ] **`P5-06` · `analyze_integration_health`** — `blocked:P5-04,P5-05`
+- [x] **`P5-06` · `analyze_integration_health`**
   Config-entry setup state, entity/device counts and unavailable ratio, open
   repairs for the integration, and the P5-04 outage clusters restricted to its
   entities.
@@ -163,7 +163,7 @@ structural decision gets made on an unverified premise.
   confidence than the same scenario with traces present — asserted as a
   comparison, not as a fixed level.
 
-- [ ] **`P5-08` · Investigation 2 — doc §13.2, end to end** — `blocked:P5-06`
+- [ ] **`P5-08` · Investigation 2 — doc §13.2, end to end**
   Overview/health → integration health → `find_unavailable_entities` → P5-04
   clustering by time and parent topology → coordinator/parent evidence →
   ranked hypotheses, with the privileged host evidence (USB resets, dmesg —
@@ -175,8 +175,7 @@ structural decision gets made on an unverified premise.
   fixture must be a parent of *part* of its config entry; a coordinator star
   must yield the time cluster with `via_device` in `Withheld`, not `Shared`.
 
-- [ ] **`P5-09` · Investigation 3 — correlated mass unavailability** —
-  `blocked:P5-06`
+- [ ] **`P5-09` · Investigation 3 — correlated mass unavailability**
   The third of doc §21's three: a batch of entities goes unavailable together;
   the chain is `find_unavailable_entities` → clustering → shared config entry →
   `analyze_integration_health` → repairs, ending in ranked hypotheses that
@@ -187,7 +186,7 @@ structural decision gets made on an unverified premise.
   three, so the criterion cannot silently regress.
 
 - [ ] **`P5-10` · Measure the composite budget and re-class `find_stale_entities`
-  (F-26)** — `needs-verify` `blocked:P5-06`
+  (F-26)** — `needs-verify`
   One measurement session on a real installation covering both unmeasured
   request budgets at once: `find_stale_entities` at `ClassNormalRead`, and the
   two `analyze_*` tools at `ClassComposite`. Record actual HA requests, bytes
