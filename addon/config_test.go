@@ -288,3 +288,25 @@ func TestAppArmor_NetworkIsStreamOnly(t *testing.T) {
 		t.Errorf("network rules = %q, want exactly %q", rules, want)
 	}
 }
+
+// TestAppArmor_AllowsReadingOnlyTheOptionsFile guards the P8-09 live finding:
+// the profile denies everything unlisted, so without this rule the binary
+// cannot read /data/options.json and refuses to start. Exactly that one file,
+// read-only — not /data/**, and never /config (ADR-004).
+func TestAppArmor_AllowsReadingOnlyTheOptionsFile(t *testing.T) {
+	raw, err := os.ReadFile("apparmor.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var dataRules []string
+	for _, line := range strings.Split(string(raw), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "/data") {
+			dataRules = append(dataRules, line)
+		}
+	}
+	want := "/data/options.json r,"
+	if len(dataRules) != 1 || dataRules[0] != want {
+		t.Errorf("/data rules = %q, want exactly [%q]", dataRules, want)
+	}
+}
