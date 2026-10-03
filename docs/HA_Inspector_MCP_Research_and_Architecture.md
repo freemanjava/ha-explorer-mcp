@@ -137,6 +137,17 @@ Trust boundary: MCP instructions/schema/code are trusted; Home Assistant entity 
 | T3 Secret exfiltration         | Token/password/secrets.yaml reaches cloud LLM.                       | No /config; server-side redaction; deny known secret fields; never return SUPERVISOR_TOKEN.                   |
 | T4 Privacy leakage             | person/device_tracker/lock history reveals occupancy patterns.       | Data classification, privacy policy, optional masking/denial of private domains, bounded history.             |
 | T5 Network exposure            | MCP endpoint exposed directly to Internet/LAN without adequate auth. | Private/controlled transport, authenticated client path, do not expose random unauthenticated port.           |
+
+**T5 as built (ADR-013, phase 08 D-08-4…D-08-11, 2026-10-03).** The App serves Streamable HTTP, stateless, on
+`POST /mcp` at container port 8790, LAN only. The host port is closed by default (`ports: 8790/tcp: null`) — but
+other Apps and Core share Supervisor's `hassio` Docker network and reach the container port without any mapping, so
+the **bearer secret is the gate, not the port**: an owner-set `http_secret` (32–256 printable ASCII, constant-time
+SHA-256 compare), whose absence refuses start; `Authorization` is stripped before the SDK hands headers to server
+code. Any `Origin` header is refused (no browser clients), which closes DNS rebinding. Body ≤128 KiB, 4 requests in
+flight, `http.Server` timeouts bounded by the composite tool deadline; the query budget and the process-wide
+invocation rate limiter apply unchanged. Plain HTTP: the secret crosses the LAN in clear and sits in HA backups —
+accepted because a stolen secret reaches only the read-only tools under the privacy profile (rule 1, ADR-008);
+TLS belongs with remote access, which is out of v1 (F-43).
 | T6 Compromised App             | RCE in MCP container escalates to host.                              | No host network, Docker socket, full_access, privileged caps; AppArmor; protection mode; minimal API role.    |
 | T7 Compromised MCP client      | Client intentionally calls unexpected HA operation.                  | Typed tool registry + HA Gateway allow-list; no arbitrary API proxy; v1 build lacks writer implementation.    |
 | T8 Sensitive audit logs        | Operational logs become secondary data leak.                         | Store tool names/metadata only; redact params; never log token or full response by default.                   |
@@ -487,7 +498,19 @@ hassio_api: true \# default role (hassio_role unset) — decided 2026-08-25, see
 \# no full_access  
 \# protection enabled  
 \# AppArmor profile  
-\# no /config mapping
+\# no /config mapping  
+\# ports: 8790/tcp: null   — published, closed by default (ADR-013)  
+\# options: http_secret (password)
+
+**The published port (ADR-013).** The App's MCP endpoint is Streamable HTTP on
+container port 8790, mapped to `null` so Supervisor publishes nothing until the
+owner opens it on the App's Network tab — and then only to the LAN; no
+`host_network`, no Ingress, no remote access in v1. "Closed" bounds the LAN,
+not the `hassio` Docker network: other Apps and Core reach the container port
+regardless, so the process refuses to start without a valid `http_secret`
+rather than relying on the port being shut. The transport is fixed to HTTP by
+the image's `run.sh`; stdio remains in the binary for development and
+`cmd/measure`.
 
 The default role is designed around info calls: it grants every Supervisor
 path ending in `/info` (`/supervisor/info`, `/os/info`, `/host/info`,
@@ -649,6 +672,7 @@ Home Assistant’s built-in MCP integration currently supports Tools but not all
 | ADR-010 | Evidence model is first-class.                 | Prevent overconfident root-cause claims.                                 |
 | ADR-011 | Observer/Admin separation for future writes.   | Security boundary stronger than a single all-powerful server.            |
 | ADR-012 | Optional privileged Host Probe stays separate. | Do not weaken main MCP for rare low-level diagnostics.                   |
+| ADR-013 | App serves MCP over stateless Streamable HTTP, LAN only, behind an owner-set bearer secret; any `Origin` refused; port closed by default. | The only client path where a leaked credential reaches no write right (phase 08 D-08-1); bounds in D-08-4…D-08-11, SDK facts in docs/research/2026-10-03-go-sdk-streamable-http.md. |
 
 # 25. Primary References (verified 2026-08-23)
 
