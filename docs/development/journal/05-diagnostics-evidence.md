@@ -26,3 +26,8 @@ concluded the opposite of both by grepping HA core's `zha/sensor.py`, which no
 longer holds the entity classes at all — they moved to the `zha` library.
 **Left open:** F-27 (vacuous shared-parent annotation) for `P5-04`/`P5-08`; no
 live ZHA installation exists to confirm the source-read half.
+
+### 2026-10-03 · P5-02
+`internal/model/evidence.go`: `Evidence`, `Hypothesis` (unexported fields, `NewHypothesis` refuses zero citations), `MissingEvidence` with a typed `MissingReason` (incl. D-05-5's `entity_disabled` vs `not_exposed`), `NextAction`, `HealthAnalysis`; a source scan over `internal/` forbids any `cause`/`root_cause` field or json tag.
+**Surprise:** "assert by reflection over the package" is not possible in Go — reflection cannot enumerate a package's types — so the no-cause check is a `go/parser` scan, which also catches json tags reflection on names alone would miss.
+**Left open:** `Confidence` levels (low/medium/high) defined here so `Hypothesis` can hold one; the ladder mapping evidence onto them is `P5-03`'s. Citations are not checked to resolve within a `HealthAnalysis` — `P5-05`/`P5-06` own that.
