@@ -19,7 +19,7 @@ import (
 
 // TestServer_Initialize_ListsTheReadOnlyCatalog is the P3-01 DoD's client
 // round trip: a client completes initialize and tools/list over the SDK
-// transport and sees exactly doc §9's twenty tools, every one annotated
+// transport and sees exactly doc §9's twenty-one tools, every one annotated
 // read-only (doc §11's first enforcement point).
 func TestServer_Initialize_ListsTheReadOnlyCatalog(t *testing.T) {
 	client := connect(t, NewServer(testOptions()))

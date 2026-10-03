@@ -10,9 +10,8 @@ import (
 )
 
 // expectedTools is doc §9's catalog, written out independently of the
-// implementation. The 2026-08-25 decision is that all twenty ship; this list
-// is what keeps that a fact — a tool quietly dropped or a twenty-first quietly
-// added fails here.
+// implementation. The 2026-08-25 decision is that all ship, amended to twenty-one by D-05-6;
+// this list is what keeps that a fact — a tool quietly dropped or added fails here.
 var expectedTools = []string{
 	"get_system_overview",
 	"get_system_health",
@@ -34,6 +33,7 @@ var expectedTools = []string{
 	"list_apps",
 	"analyze_entity_health",
 	"analyze_integration_health",
+	"analyze_automation_health",
 }
 
 func TestCatalog_Names_MatchDocCatalogExactly(t *testing.T) {
@@ -44,8 +44,8 @@ func TestCatalog_Names_MatchDocCatalogExactly(t *testing.T) {
 	if !slices.Equal(got, expectedTools) {
 		t.Fatalf("catalog names = %v, want %v", got, expectedTools)
 	}
-	if len(got) != 20 {
-		t.Fatalf("catalog holds %d tools, want the full twenty (phase 03 decision, 2026-08-25)", len(got))
+	if len(got) != 21 {
+		t.Fatalf("catalog holds %d tools, want twenty-one (phase 03 decision, 2026-08-25, amended by D-05-6)", len(got))
 	}
 }
 

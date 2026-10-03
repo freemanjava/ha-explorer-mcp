@@ -38,14 +38,14 @@ type Tool struct {
 // handler, which is where a later task's typed sdkmcp.AddTool[In, Out] goes.
 type binder func(srv *sdkmcp.Server, def *sdkmcp.Tool)
 
-// catalog is doc §9's twenty tools, in doc order. The 2026-08-25 decision
-// (phase 03) is that all twenty ship: a tool the evidence rules out answers
-// with a reason, it is never dropped from this table. The registry test
-// asserting these exact names is what keeps "twenty" a fact rather than a
-// claim.
+// catalog is doc §9's twenty-one tools, in doc order. The 2026-08-25 decision
+// (phase 03) is that the full catalog ships, amended to twenty-one by D-05-6:
+// a tool the evidence rules out answers with a reason, it is never dropped
+// from this table. The registry test asserting these exact names is what keeps
+// the count a fact rather than a claim.
 //
-// Budget class: only the two tools doc §9 itself calls composite carry
-// ClassComposite. Everything else takes the tighter normal-read budget —
+// Budget class: only the three analyze_* tools (doc §9's two, and D-05-6's)
+// carry ClassComposite. Everything else takes the tighter normal-read budget —
 // failing closed on spend, the way rule 3 fails closed on access. A tool that
 // turns out to genuinely fan out (the find_* pair is the likely candidate)
 // gets re-classed by the task that implements it, with the measurement that
@@ -91,6 +91,8 @@ var catalog = []Tool{
 		Description: "Composite deterministic health analysis for one entity: observed facts, inferences and recommendations kept separate."},
 	{Name: "analyze_integration_health", Class: policy.ClassComposite,
 		Description: "Composite health and outage-correlation analysis for one integration."},
+	{Name: "analyze_automation_health", Class: policy.ClassComposite,
+		Description: "Composite analysis of one automation: run outcomes overlaid on its dependencies' unavailable and stale windows, with observed facts, inferences and recommendations kept separate."},
 }
 
 // Catalog returns the static tool table. The slice is a copy so a caller
