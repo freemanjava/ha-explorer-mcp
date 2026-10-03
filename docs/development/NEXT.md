@@ -3,10 +3,11 @@
 <!-- BOUNDED FILE — rewritten in place, never appended to. Keep under ~100 lines.
      Anything that grows goes to journal/. This file is read by every session. -->
 
-**▶ Active:** `P5-12` — `AnalyzeAutomationHealth` — runs × dependency windows ·
-phase 05 · stronger model 🧠. The third analyzer, same shape as
-`entity_health.go`/`integration_health.go`; reads `model.Automation.DependsOn`
-(landed in `P5-11`) and the trace list.
+**▶ Active:** `P5-13` — `analyze_automation_health` tool, the twenty-first ·
+phase 05 · default model. Wires `analysis.AnalyzeAutomationHealth` (landed in
+`P5-12`): resolves device/area deps to entities, caps history reads at the
+`P5-06` limit, and renders `AutomationHealth.DependencyEvidence` (evidence id →
+entity) in the response.
 
 > Advancing this pointer is part of finishing a task, together with ticking the
 > box, recomputing status and appending a journal entry. All four, or none.
@@ -23,12 +24,11 @@ cycle. Remove a row when its task closes.
 
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
-| 1 | `P5-12` | `AnalyzeAutomationHealth` — runs × dependency windows | 05 | stronger | 🧠 |
-| 2 | `P5-13` | `analyze_automation_health` tool — the twenty-first | 05 | default | |
-| 3 | `P5-07` | investigation 1 — doc §13.1 e2e + degraded branch | 05 | default | |
-| 4 | `P5-08` | investigation 2 — doc §13.2 e2e (F-27's rule in its DoD) | 05 | default | |
-| 5 | `P5-10` | measure composite budget (F-26); observe F-28, F-31 | 05 | default | `needs-verify` |
-| 6 | `P5-09` | investigation 3 — mass unavailability vs. HA restart | 05 | default | |
+| 1 | `P5-13` | `analyze_automation_health` tool — the twenty-first | 05 | default | |
+| 2 | `P5-07` | investigation 1 — doc §13.1 e2e + degraded branch | 05 | default | |
+| 3 | `P5-08` | investigation 2 — doc §13.2 e2e (F-27's rule in its DoD) | 05 | default | |
+| 4 | `P5-10` | measure composite budget (F-26); observe F-28, F-31 | 05 | default | `needs-verify` |
+| 5 | `P5-09` | investigation 3 — mass unavailability vs. HA restart | 05 | default | |
 
 **Ordering rationale (2026-10-03 `plan`).** Dependencies → analysis → tool →
 the §13.1 e2e that walks them. `P5-10` now runs **before** `P5-09`: one
@@ -96,13 +96,13 @@ done
 | 02 | Policy, Privacy, Budget & Audit | 8 / 8 |
 | 03 | MCP Server & Inventory Tools | 11 / 11 |
 | 04 | History, Statistics & Detection | 6 / 6 |
-| 05 | Diagnostics & Evidence Engine | 14 / 20 |
+| 05 | Diagnostics & Evidence Engine | 15 / 20 |
 | 06 | Proposal Mode — gated | 0 / 1 |
 | 07 | Controlled Change (Admin) — gated | 0 / 1 |
 
 Counts include each phase's decision entries, which are boxes too. Phase 05's
-14 ticked are D-05-1…7 and the `P5-01`…`P5-06`, `P5-11` task boxes; its six remaining
-are task boxes (`P5-07`…`P5-10`, `P5-12`, `P5-13`), and no decision entry in the phase is open. Phase 02 is
+15 ticked are D-05-1…7 and the `P5-01`…`P5-06`, `P5-11`, `P5-12` task boxes; its five remaining
+are task boxes (`P5-07`…`P5-10`, `P5-13`), and no decision entry in the phase is open. Phase 02 is
 complete: its last box, the Q10 persistence decision, closed 2026-10-03.
 
 Phases 00–04 are milestone M1 (v1 observer) and are **fully implemented**.
@@ -110,7 +110,7 @@ Phase 05 is M2, and is where the last two catalog rows
 (`analyze_entity_health`, `analyze_integration_health`) became real. Phases 06–07 are gated: they open only on an
 explicit owner decision plus a fresh security review, and carry no task boxes.
 
-Last refreshed: 2026-10-03 (`P5-11` closed)
+Last refreshed: 2026-10-03 (`P5-12` closed)
 
 ## Open findings
 
@@ -130,7 +130,7 @@ Last refreshed: 2026-10-03 (`P5-11` closed)
 Five `queue-next`, all attached to queued boxes and closing with them:
 **F-26** → `P5-10`; **F-27** → `P5-08`; **F-28** (`unknown`) and **F-31**
 (`unknown`, no evidence for "HA restarted") → observed in `P5-10`'s live run,
-before `P5-09`; **F-30** → `P5-12`, `P5-13` (`P5-11` closed), closes with `P5-07`. Four
+before `P5-09`; **F-30** → `P5-13` (`P5-11`, `P5-12` closed), closes with `P5-07`. Four
 `defer`s: **F-17** and **F-25** wait on the first production
 `Preflight(policy.SourceStatistics, …)` call site — **if Phase 05 closes with
 still none, F-17 becomes `wont-fix` and F-25 a deletion task, at that
@@ -143,6 +143,10 @@ open `unknown`s are F-17, F-28 and F-31.
 
 Last 5 closed tasks, one line each. Older entries live in `journal/`.
 
+- 2026-10-03 · `P5-12` — `AnalyzeAutomationHealth`: run outcomes from traces
+  (or degraded logbook runs) × each dependency's outage/stale windows, overlap
+  within the cluster tolerance; fallback strictly lower via `Degraded` alone.
+  Returns `AutomationHealth` (envelope + dependency evidence → entity map).
 - 2026-10-03 · `P5-11` — `MapAutomation` extracts entity/device/area ids from
   the config body by grammar (cap 200, templates and junk counted in
   `UnextractedRefs`, never echoed); `get_automation` withholds PRIVATE
