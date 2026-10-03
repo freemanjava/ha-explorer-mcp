@@ -77,3 +77,8 @@ live ZHA installation exists to confirm the source-read half.
 `model.ClusterAnnotation`/`ClusterTrait`/`TraitKind` (moved out of `analysis`); `HealthAnalysis.Clusters` filled by `AnalyzeIntegrationHealth`, rendered as `Clusters` in `HealthResponse` with `[]` for empty member/trait lists. `Evidence` untouched.
 **Surprise:** responses carry no JSON tags, so the key is `Clusters` (PascalCase like `Evidence`), not the DoD's lowercase `clusters`; I kept the existing convention. `analyze_entity_health` now also emits `Clusters: []`.
 **Left open:** `golangci-lint` still not installed.
+
+### 2026-10-03 · P5-15
+`analysis/mesh.go` (`ResolveMeshMetrics`, `MeshEvidence`, `IsMeshEntity`); `IntegrationHealthInput.MeshEvidence`; `readMesh` in the tool reads metric history for devices with an outage or a down entity, capped at `maxMeshMetricEntities` (10).
+**Surprise:** `policy` classifies privacy by entity domain only, and mesh metrics are `sensor.*`, so the deny-profile path in `readMesh` cannot fire today; it is routed through `permittedEntities` so a future classifier change is honoured, but no test can trigger it.
+**Left open:** a metric with no numeric reading is reported as `out_of_retention`, the nearest reason; `golangci-lint` still not installed.
