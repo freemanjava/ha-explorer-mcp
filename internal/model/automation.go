@@ -29,7 +29,27 @@ type Automation struct {
 	ConditionCount int
 	ActionCount    int
 
+	// DependsOn lists the ids the automation's body names, extracted by
+	// grammar and never by reading the body's text (D-05-7). DependsTruncated
+	// means the extraction cap was hit. UnextractedRefs counts references that
+	// were seen but not extracted — a template, or a value under a dependency
+	// key that is not a valid id — as a number, never the text. DependsWithheld
+	// counts dependencies the privacy profile removed from the response.
+	DependsOn        AutomationDependencies
+	DependsTruncated bool
+	UnextractedRefs  int
+	DependsWithheld  int
+
 	Provenance
+}
+
+// AutomationDependencies are the ids an automation's config references, each
+// kind de-duplicated and sorted. They are lookup keys only: resolving a device
+// or an area to its entities happens where the registry is read.
+type AutomationDependencies struct {
+	Entities []EntityID
+	Devices  []DeviceID
+	Areas    []AreaID
 }
 
 // AutomationSummary is one list_automations row, derived from get_states —

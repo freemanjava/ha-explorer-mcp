@@ -3,8 +3,11 @@ package ha
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -819,5 +822,99 @@ func TestMapHistoryDuringPeriod_MalformedElement_Skipped(t *testing.T) {
 	}
 	if len(points) != 1 || points[0].State != "1" {
 		t.Fatalf("points = %+v, want one well-formed point", points)
+	}
+}
+
+func decodeAutomationFixture(t *testing.T, name string) map[string]any {
+	t.Helper()
+	var decoded map[string]any
+	if err := json.Unmarshal(readFixture(t, name), &decoded); err != nil {
+		t.Fatalf("decoding fixture %s: %v", name, err)
+	}
+	return decoded
+}
+
+func TestMapAutomation_Dependencies_PlainSyntax_ExtractsTarget(t *testing.T) {
+	a := MapAutomation("automation.porch_light_at_sunset", decodeAutomationFixture(t, "automation_config.json"))
+
+	if got := a.DependsOn.Entities; len(got) != 1 || got[0] != "light.porch" {
+		t.Errorf("Entities = %v, want [light.porch]", got)
+	}
+	if a.UnextractedRefs != 0 || a.DependsTruncated {
+		t.Errorf("UnextractedRefs = %d, DependsTruncated = %v, want 0/false", a.UnextractedRefs, a.DependsTruncated)
+	}
+}
+
+func TestMapAutomation_Dependencies_NestedSyntax_ExtractsAllKinds(t *testing.T) {
+	a := MapAutomation("automation.nested", decodeAutomationFixture(t, "automation_config_nested.json"))
+
+	wantEntities := []model.EntityID{
+		"binary_sensor.door", "binary_sensor.window", "input_boolean.guest_mode",
+		"light.hall", "light.porch", "scene.movie", "switch.fan",
+	}
+	if !slices.Equal(a.DependsOn.Entities, wantEntities) {
+		t.Errorf("Entities = %v, want %v", a.DependsOn.Entities, wantEntities)
+	}
+	wantDevices := []model.DeviceID{"0123456789abcdef0123456789abcdef", "fedcba9876543210fedcba9876543210"}
+	if !slices.Equal(a.DependsOn.Devices, wantDevices) {
+		t.Errorf("Devices = %v, want %v", a.DependsOn.Devices, wantDevices)
+	}
+	if want := []model.AreaID{"hallway"}; !slices.Equal(a.DependsOn.Areas, want) {
+		t.Errorf("Areas = %v, want %v", a.DependsOn.Areas, want)
+	}
+}
+
+// A template, a registry-uuid entity_id (device triggers) and prompt-like text
+// are all counted and none is extracted: the value_template, the templated
+// target, the uuid and the sentence under entity_id.
+func TestMapAutomation_Dependencies_TemplatesAndJunk_CountedNeverExtracted(t *testing.T) {
+	a := MapAutomation("automation.nested", decodeAutomationFixture(t, "automation_config_nested.json"))
+
+	if a.UnextractedRefs != 4 {
+		t.Errorf("UnextractedRefs = %d, want 4", a.UnextractedRefs)
+	}
+	serialized, err := json.Marshal(a)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	for _, leaked := range []string{"ignore previous", "is_state", "states('sensor.pick')", "7c1b2e0f"} {
+		if strings.Contains(string(serialized), leaked) {
+			t.Errorf("serialized automation contains %q", leaked)
+		}
+	}
+}
+
+func TestMapAutomation_Dependencies_CommaSeparatedEntityID_Split(t *testing.T) {
+	a := MapAutomation("automation.x", map[string]any{
+		"action": map[string]any{"service": "light.turn_on", "entity_id": "light.a, light.b"},
+	})
+	if want := []model.EntityID{"light.a", "light.b"}; !slices.Equal(a.DependsOn.Entities, want) {
+		t.Errorf("Entities = %v, want %v", a.DependsOn.Entities, want)
+	}
+}
+
+func TestMapAutomation_Dependencies_OverCap_Truncated(t *testing.T) {
+	ids := make([]any, 0, maxAutomationDependencies+10)
+	for i := 0; i < maxAutomationDependencies+10; i++ {
+		ids = append(ids, fmt.Sprintf("sensor.s%03d", i))
+	}
+	a := MapAutomation("automation.x", map[string]any{
+		"trigger": map[string]any{"platform": "state", "entity_id": ids},
+	})
+	if !a.DependsTruncated {
+		t.Error("DependsTruncated = false over the cap")
+	}
+	if got := len(a.DependsOn.Entities); got != maxAutomationDependencies {
+		t.Errorf("len(Entities) = %d, want %d", got, maxAutomationDependencies)
+	}
+}
+
+func TestMapAutomation_Dependencies_Duplicates_Collapsed(t *testing.T) {
+	a := MapAutomation("automation.x", map[string]any{
+		"trigger":   []any{map[string]any{"platform": "state", "entity_id": "light.a"}},
+		"condition": []any{map[string]any{"condition": "state", "entity_id": "light.a"}},
+	})
+	if want := []model.EntityID{"light.a"}; !slices.Equal(a.DependsOn.Entities, want) {
+		t.Errorf("Entities = %v, want %v", a.DependsOn.Entities, want)
 	}
 }
