@@ -66,3 +66,9 @@ live ZHA installation exists to confirm the source-read half.
 `analyze_automation_health` (`internal/mcp/automation_health_tools.go`): config → traces → logbook fallback only when traces are unread; device/area deps resolved through the cached registries; history capped at `maxClusterEntities`, with private (deny) and over-cap dependencies passed to the analysis as unread-with-reason so they are counted, never named. Catalog, doc §9 and phase 03 moved to twenty-one.
 **Surprise:** a fallback-vs-traces confidence comparison is vacuous on a small fixture (both `low`); it needs ≥5 runs, a trace older than the period (trace coverage) and a period the 24h logbook window covers.
 **Left open:** F-26 (composite cost) still unmeasured — `P5-10`; `golangci-lint` still not installed.
+
+### 2026-10-03 · P5-07
+`internal/mcp/investigation_test.go`: one server session walks `get_automation` → traces → history → `list_repairs` → `analyze_automation_health`; happy path cites existing evidence, traces-refused branch ranks strictly below it, fully non-admin names both gated sources and yields no hypothesis.
+**Surprise:** config and traces are gated together, so the F-11 fallback can't produce hypotheses for a real non-admin principal (F-34).
+**Left open:** F-34 (`defer`); `golangci-lint` still not installed.
+
