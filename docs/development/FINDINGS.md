@@ -1122,6 +1122,8 @@ is a change to D-05-3 and wants its own decision.
 
 **Outcome:** Planned 2026-10-03 into `P8-01` (observe), `D-08-1` (owner chooses the client path on that evidence) and `P8-02` (implement it). Closes when `P8-02` closes.
 
+**Verification (2026-10-03, off-box half):** confirmed — with no stdin the process exits 0 ~60 ms after start; with stdin held it serves `initialize`/`tools/list` correctly. Pi half (Supervisor state, watchdog, `stdin: true`, `docker exec -i`) still open. Evidence: `docs/research/2026-10-03-app-under-supervisor.md`.
+
 ### F-38 · The Core REST adapter is linked in but never constructed · 2026-10-03
 
 **Kind:** `inconsistency`
