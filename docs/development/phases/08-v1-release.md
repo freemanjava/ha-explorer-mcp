@@ -50,7 +50,7 @@ Ordered by dependency. `P8-01` comes first because its answer may change what
 every later box has to do; `P8-03`, `P8-07` and `P8-04` are independent of the Pi
 and run while the owner is busy there.
 
-- [ ] **`P8-01` · Observe the App under Supervisor — does it stay up, can a
+- [x] **`P8-01` · Observe the App under Supervisor — does it stay up, can a
   client reach it (F-37)** — `needs-verify`
   Cheap half first, off-box: run the published-image build locally with stdin
   **not** attached (`docker run` without `-i`) and record what the process does
@@ -63,6 +63,10 @@ and run while the owner is busy there.
   **DoD:** a dated report in `docs/research/` stating, for each observation,
   what was run and what happened, and listing the candidate client paths with
   what each one was observed to require. No code change.
+  **Done 2026-10-03:** exits 0 ~65 ms after start and stays stopped (F-37 confirmed
+  on the Pi); stdio works with stdin held (off-box); `docker exec -i` unavailable
+  from the SSH App as shipped; `stdin: true` untried (needs an image change).
+  Report: `docs/research/2026-10-03-app-under-supervisor.md`.
 
 - [ ] **`P8-03` · The allow-list matches the reachable surface (F-25)**
   Delete `recorder/list_statistic_ids`, `recorder/get_statistics_metadata` and
@@ -141,7 +145,7 @@ and run while the owner is busy there.
   justify code. Owner may overturn at review; the box is cheap to drop.
 
 - [ ] **D-08-1 — How an MCP client reaches the App-hosted server** —
-  `needs-decision`, `blocked:P8-01`
+  `needs-decision`
   The owner's to decide, on `P8-01`'s evidence. Options known before
   observation, none chosen: *(a)* stdio through `docker exec -i` (from the SSH
   App or a host shell) — keeps phase 01's no-listener decision, but its
@@ -150,7 +154,13 @@ and run while the owner is busy there.
   then the App packaging is not what v1 ships, and token handling (rule 4)
   moves to the client's machine; *(c)* reopen phase 01's transport decision
   (HTTP behind Ingress) — explicitly "a new decision plus a fresh security
-  review, not a configuration change". `P8-01` may add or remove options.
+  review, not a configuration change".
+  **Evidence from `P8-01`:** (a) needs `docker` in the SSH App, which is absent
+  as shipped — it takes lowering that App's protection mode, a weaker posture
+  than this App keeps; (b) untouched by the observations; (c) unchanged. New
+  option *(d)*: `stdin: true` in `config.yaml` with Supervisor holding stdin —
+  keeps stdio and the no-listener decision, but nothing observed says a client
+  can then reach it; untried (needs a new image).
 
 ## Phase Definition of Done
 

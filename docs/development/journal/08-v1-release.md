@@ -10,3 +10,8 @@ changed is already in the diff and the commit message; why it is designed that
 way belongs in the phase file's decision record. Only the surprise is
 unrecoverable anywhere else — so if there was none, the entry is one line and
 that is correct.
+
+### 2026-10-03 · P8-01
+Observed the App off-box and on the Pi: exits 0 ~65 ms after start, stays stopped; stdio serves when stdin is held. F-37 confirmed; D-08-1 unblocked.
+**Surprise:** I first read the log as a restart loop — wrong (7 min apart, watchdog off); the SSH App has no `docker` as shipped; the binary reports `0.0.0-dev` (F-39).
+**Left open:** `stdin: true` untried on the Pi; Core reachability seen only as "connection manager ready".

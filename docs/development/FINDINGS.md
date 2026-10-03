@@ -1112,17 +1112,17 @@ is a change to D-05-3 and wants its own decision.
 
 ### F-37 · No MCP client can reach the server once it runs as an App · 2026-10-03
 
-**Kind:** `unknown`
+**Kind:** `defect` (was `unknown` until verified 2026-10-03)
 
 **What:** Found at the 2026-10-03 `plan` while scoping v1.0. Phase 01 decided stdio only, "connected to the process's stdin/stdout by whoever starts it"; `cmd/server/main.go` only knows the Supervisor proxy URL, so it runs nowhere but inside the App. Under Supervisor the starter is Supervisor: `addon/config.yaml` declares no `stdin:`, and `docs/INSTALL.md` ends at "Install" with no connection step. Expected, unverified: the process reads EOF at once and exits 0, leaving the App stopped. Every phase 05 journal entry says "not observed against a live HA"; `cmd/measure` ran the tools in-process, off-box.
 
-**Impact:** Unknown pending verification. If the expectation holds, v1 as packaged is installable but unusable by any client, and phase 06's "v1 usage data" cannot exist.
+**Impact:** Confirmed: v1 as packaged is installable but unusable by any client, and phase 06's "v1 usage data" cannot exist.
 
 **Triage:** `queue-next`
 
 **Outcome:** Planned 2026-10-03 into `P8-01` (observe), `D-08-1` (owner chooses the client path on that evidence) and `P8-02` (implement it). Closes when `P8-02` closes.
 
-**Verification (2026-10-03, off-box half):** confirmed — with no stdin the process exits 0 ~60 ms after start; with stdin held it serves `initialize`/`tools/list` correctly. Pi half (Supervisor state, watchdog, `stdin: true`, `docker exec -i`) still open. Evidence: `docs/research/2026-10-03-app-under-supervisor.md`.
+**Verification (2026-10-03, `P8-01`):** confirmed. With no stdin the process exits 0 ~65 ms after start, off-box and on the Pi, and stays stopped (watchdog off; no restart loop). With stdin held it serves `initialize`/`tools/list` correctly (off-box). `docker exec -i` from the SSH App is unavailable as shipped (`docker: command not found`). Not tried on the Pi: `stdin: true`. Evidence: `docs/research/2026-10-03-app-under-supervisor.md`.
 
 ### F-38 · The Core REST adapter is linked in but never constructed · 2026-10-03
 
@@ -1135,3 +1135,12 @@ is a change to D-05-3 and wants its own decision.
 **Triage:** `queue-next`
 
 **Outcome:** D-08-2 (delete, not keep as a fallback); planned into `P8-07`. Closes when `P8-07` closes.
+
+### F-39 · The released binary reports `0.0.0-dev`, whatever the image tag · 2026-10-03
+
+**Kind:** `defect`
+**What:** `Dockerfile` builds with `-ldflags="-s -w"` and no `-X main.version=…`; `cmd/server/main.go` keeps `var version = "0.0.0-dev"`. Observed on the Pi: the 0.9.0 image logs `"version":"0.0.0-dev"` (docs/research/2026-10-03-app-under-supervisor.md).
+**Impact:** the version in the startup log and the MCP `serverInfo` never matches `addon/config.yaml`, so a support report cannot say which build ran. Small; matters from v1.0.
+
+**Triage:** `queue-next`
+**Outcome:** to be planned; the version must come from `addon/config.yaml` (single source of truth), not a second literal.
