@@ -17,8 +17,11 @@ RUN go mod download
 COPY cmd/ cmd/
 COPY internal/ internal/
 ARG TARGETARCH
+# The App's version, from addon/config.yaml via release.yml — the binary logs
+# and reports it (F-39). Never a literal here.
+ARG VERSION=0.0.0-dev
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} \
-    go build -trimpath -ldflags="-s -w" -o /out/ha-inspector-mcp ./cmd/server
+    go build -trimpath -ldflags="-s -w -X main.version=${VERSION}" -o /out/ha-inspector-mcp ./cmd/server
 
 FROM alpine:3.20
 RUN apk add --no-cache ca-certificates

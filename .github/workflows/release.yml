@@ -49,6 +49,7 @@ jobs:
           context: .
           platforms: linux/arm64
           push: true
+          build-args: VERSION=${{ steps.version.outputs.version }}
           tags: ghcr.io/freemanjava/ha-explorer-mcp/aarch64-ha-inspector-mcp:${{ steps.version.outputs.version }}
 
       - name: Build and push amd64
@@ -57,4 +58,5 @@ jobs:
           context: .
           platforms: linux/amd64
           push: true
+          build-args: VERSION=${{ steps.version.outputs.version }}
           tags: ghcr.io/freemanjava/ha-explorer-mcp/amd64-ha-inspector-mcp:${{ steps.version.outputs.version }}

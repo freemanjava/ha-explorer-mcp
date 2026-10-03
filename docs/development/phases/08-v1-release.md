@@ -198,7 +198,7 @@ and run while the owner is busy there.
   way (D-08-6 expects it can). Observations in
   `docs/research/<date>-http-transport-on-pi.md`.
 
-- [ ] **`P8-10` · The binary reports the image's version (F-39)**
+- [x] **`P8-10` · The binary reports the image's version (F-39)**
   `addon/config.yaml`'s `version:` stays the single source: `release.yml`
   already reads it; pass it as a Docker build arg into `-ldflags "-X
   main.version=…"`. No second literal anywhere.
@@ -206,6 +206,7 @@ and run while the owner is busy there.
   fails if the Dockerfile stops setting `-X main.version`; a local `docker
   build --build-arg` run logs that version at start (observed, pasted in the
   journal). `make check` green.
+  **Done 2026-10-03:** two `addon/config_test.go` tests written red first (Dockerfile `ARG VERSION` + `-X`; `release.yml` passes it for both images).
 
 - [x] **`P8-11` · Drop the six uncalled allow-list entries (F-40, D-08-3)**
   Remove `CommandAuthCurrentUser`, `CommandEntityRegistryListForDisplay`,
