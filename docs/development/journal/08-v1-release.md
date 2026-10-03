@@ -58,3 +58,8 @@ Dropped six uncalled allow-list entries from `gateway.go`, deleted `uncalledAllo
 `Dockerfile` takes `ARG VERSION` into `-X main.version`; `release.yml` passes config.yaml's version to both image builds. Observed: `docker build --build-arg VERSION=9.9.9-test` then run logs `"version":"9.9.9-test"`. Closes F-39.
 **Surprise:** none.
 **Left open:** `make release` still builds with the dev version (not the image path).
+
+### 2026-10-03 · P8-09
+App packaged for HTTP: `http_secret` password option, `8790/tcp: null`, `run.sh` sets the transport, INSTALL §3–4. Observed on the Pi with `0.9.2`: Started, 401 without secret, `initialize` and Claude Code work, port closed refuses, Terminal & SSH App reaches `:8790` (401). Closes F-37.
+**Surprise:** `0.9.1` died on `cannot read the App options file` — AppArmor had no `/data/options.json r,`; no unit test can see that.
+**Left open:** `mcp-proxy` flags for stdio-only clients.

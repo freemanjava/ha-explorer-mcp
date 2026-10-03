@@ -178,7 +178,7 @@ and run while the owner is busy there.
   and `info` in `options`; the startup log's `privacy_profile` is the effective
   value, not the raw environment variable. `make check` green.
 
-- [ ] **`P8-09` · Package and connect: the App on the Pi with a real client**
+- [x] **`P8-09` · Package and connect: the App on the Pi with a real client**
   — `blocked:P8-02`, `blocked:P8-12`, `live-verify`
   `addon/config.yaml`: `http_secret` as a `password` option (D-08-9), `ports:`
   mapping `8790/tcp` to `null` (closed by default, D-08-6); `run.sh` sets
@@ -197,6 +197,9 @@ and run while the owner is busy there.
   the `hassio` network still reaches `:8790` is observed and recorded either
   way (D-08-6 expects it can). Observations in
   `docs/research/<date>-http-transport-on-pi.md`.
+  **Done 2026-10-03:** four addon tests written red first; `0.9.1` failed live (AppArmor denied `/data/options.json`),
+  `0.9.2` passed every DoD observation incl. `hassio`-network reachability (401). Evidence:
+  `docs/research/2026-10-03-http-transport-on-pi.md`. **Left open:** `mcp-proxy` flags in INSTALL.md §4 unverified.
 
 - [x] **`P8-10` · The binary reports the image's version (F-39)**
   `addon/config.yaml`'s `version:` stays the single source: `release.yml`
@@ -218,7 +221,7 @@ and run while the owner is busy there.
   unknown-command test pattern, one case per command); `make check` green.
   **Done 2026-10-03:** `TestGateway_UncalledCommands_Denied` (six cases) written red first.
 
-- [ ] **`P8-05` · §21 acceptance walk on the Pi** — `blocked:P8-09`, `live-verify`
+- [ ] **`P8-05` · §21 acceptance walk on the Pi** — `live-verify`
   For each of the twelve doc §21 criteria: the test(s) that assert it, by name,
   or a live observation on the Pi — at least: App running under protection mode
   on aarch64 with the §15.2 flags (`addon/config.yaml` as installed); Core

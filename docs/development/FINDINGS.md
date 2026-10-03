@@ -1118,9 +1118,9 @@ is a change to D-05-3 and wants its own decision.
 
 **Impact:** Confirmed: v1 as packaged is installable but unusable by any client, and phase 06's "v1 usage data" cannot exist.
 
-**Triage:** `queue-next`
+**Triage:** `done`
 
-**Outcome:** Planned 2026-10-03 into `P8-01` (observe), `D-08-1` (owner chooses the client path on that evidence) and `P8-02` (implement it). D-08-1 decided 2026-10-03: HTTP inside the App; re-planned into `P8-08` (security review), `P8-02` (transport), `P8-09` (packaging + client on the Pi). Closes when `P8-09` closes.
+**Outcome:** Planned 2026-10-03 into `P8-01` (observe), `D-08-1` (owner chooses the client path on that evidence) and `P8-02` (implement it). D-08-1 decided 2026-10-03: HTTP inside the App; re-planned into `P8-08` (security review), `P8-02` (transport), `P8-09` (packaging + client on the Pi). Closes when `P8-09` closes. Closed `done` by `P8-09` (2026-10-03): App stays up, real client works over the LAN.
 
 **Verification (2026-10-03, `P8-01`):** confirmed. With no stdin the process exits 0 ~65 ms after start, off-box and on the Pi, and stays stopped (watchdog off; no restart loop). With stdin held it serves `initialize`/`tools/list` correctly (off-box). `docker exec -i` from the SSH App is unavailable as shipped (`docker: command not found`). Not tried on the Pi: `stdin: true`. Evidence: `docs/research/2026-10-03-app-under-supervisor.md`.
 
