@@ -33,7 +33,7 @@ func TestConnectWithBackoff_TransientFailure_RetriesThenSucceeds(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ConnectWithBackoff: unexpected error: %v", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	if got := attempts.Load(); got != 3 {
 		t.Fatalf("server saw %d connection attempts, want exactly 3 (2 failures + 1 success)", got)

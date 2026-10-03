@@ -74,7 +74,7 @@ func (l *Logger) WithBody() *Logger {
 func (l *Logger) Emit(ctx context.Context, redactor *redact.Redactor, rec Record) {
 	defer func() {
 		if r := recover(); r != nil {
-			defer func() { recover() }() // the recovery log call must not itself escape
+			defer func() { _ = recover() }() // the recovery log call must not itself escape
 			l.log.ErrorContext(ctx, "audit: emit failed", "recovered", true)
 		}
 	}()

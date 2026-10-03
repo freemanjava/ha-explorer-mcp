@@ -3,8 +3,8 @@
 <!-- BOUNDED FILE — rewritten in place, never appended to. Keep under ~100 lines.
      Anything that grows goes to journal/. This file is read by every session. -->
 
-**▶ Active:** `P8-04` — `golangci-lint` clean ·
-[phase 08](phases/08-v1-release.md) · model: default · run `devflow next`. Owner's open decision meanwhile: D-08-1 (client path).
+**▶ Active:** `D-08-1` — owner: how a client reaches the App (`needs-decision`) ·
+[phase 08](phases/08-v1-release.md) · ask the owner; nothing else in the queue is unblocked.
 
 > Advancing this pointer is part of finishing a task, together with ticking the
 > box, recomputing status and appending a journal entry. All four, or none.
@@ -20,11 +20,10 @@ cycle. Remove a row when its task closes.
 
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
-| 1 | `P8-04` | `golangci-lint` clean | 08 | default | |
-| 2 | `D-08-1` | owner: how a client reaches the App | 08 | — | `needs-decision` |
-| 3 | `P8-02` | implement D-08-1's path (box written after the decision) | 08 | default | `blocked:D-08-1`, `live-verify` |
-| 4 | `P8-05` | §21 acceptance walk on the Pi | 08 | default | `blocked:P8-02`, `live-verify` |
-| 5 | `P8-06` | cut v1.0 (version bump; owner tags) | 08 | default | `blocked:P8-05` |
+| 1 | `D-08-1` | owner: how a client reaches the App | 08 | — | `needs-decision` |
+| 2 | `P8-02` | implement D-08-1's path (box written after the decision) | 08 | default | `blocked:D-08-1`, `live-verify` |
+| 3 | `P8-05` | §21 acceptance walk on the Pi | 08 | default | `blocked:P8-02`, `live-verify` |
+| 4 | `P8-06` | cut v1.0 (version bump; owner tags) | 08 | default | `blocked:P8-05` |
 
 **Ordering rationale (2026-10-03 third `plan`, phase 08 opened by the owner).**
 `P8-01` first: it is the open `unknown`, and if the App exits at start (F-37)
@@ -70,16 +69,16 @@ done
 | 05 | Diagnostics & Evidence Engine | 26 / 26 |
 | 06 | Proposal Mode — gated | 0 / 1 |
 | 07 | Controlled Change (Admin) — gated | 0 / 1 |
-| 08 | v1.0 Release | 4 / 9 |
+| 08 | v1.0 Release | 5 / 9 |
 
 Counts include each phase's decision entries, which are boxes too. Phase 08's
-ticks are D-08-2, P8-01, P8-03 and P8-07; its open boxes are four tasks plus D-08-1.
+ticks are D-08-2, P8-01, P8-03, P8-04 and P8-07; its open boxes are three tasks plus D-08-1.
 
 Phases 00–04 are milestone M1 (v1 observer); phase 05 (M2) is complete. Phase 08
 ships them as v1.0 and runs before 06–07, which stay gated: they open only on an
 explicit owner decision plus a fresh security review, and need v1 usage data.
 
-Last refreshed: 2026-10-03 (`P8-07` closed)
+Last refreshed: 2026-10-03 (`P8-04` closed)
 
 ## Open findings
 
@@ -106,6 +105,8 @@ usage data). No open `unknown`: F-37 was verified 2026-10-03 and is now a confir
 
 Last 5 closed tasks, one line each. Older entries live in `journal/`.
 
+- 2026-10-03 · `P8-04` — golangci-lint 2.14.0 clean: 13 issues fixed (errcheck in tests, one
+  tagged switch); no design-level findings.
 - 2026-10-03 · `P8-07` — Core REST adapter deleted (`rest.go`, five routes, `validateEntityID`);
   Supervisor client keeps its own size cap/deadline tests. Closes F-38.
 - 2026-10-03 · `P8-03` — three statistics commands dropped from the allow-list; reachability
@@ -115,6 +116,3 @@ Last 5 closed tasks, one line each. Older entries live in `journal/`.
   F-37 confirmed, D-08-1 unblocked; `0.0.0-dev` version filed as F-39.
 - 2026-10-03 · `P5-10` — `cmd/measure` (real tools in-process) + logbook probe; owner ran both. D-05-10:
   classes stand (`find_stale_entities` 20 req/page, `analyze_*` max 36/50). Closes F-26, F-28.
-- 2026-10-03 · `P5-08` — §13.2 end to end in `investigation_test.go`: partial parent ⇒
-  topology claim, none without a parent, star ⇒ `withheld`; mesh evidence vs
-  `entity_disabled`; host row `privileged`. Closes F-27, F-35.

@@ -102,13 +102,15 @@ and run while the owner is busy there.
   (renamed `maxSupervisorResponseBytes`, `defaultSupervisorTimeout`) and the three
   tests that asserted them. The recorded-HA integration test lost its REST half.
 
-- [ ] **`P8-04` · `golangci-lint` clean**
+- [x] **`P8-04` · `golangci-lint` clean**
   The linter has never run on this codebase — every phase 05 journal entry
   notes it skipped. Install it locally, run `golangci-lint run`, fix what it
   reports. A finding that would need a design change is filed, not fixed here.
   **DoD:** `golangci-lint run` exits 0 on the branch; the journal entry names
   the linter version and how many issues were fixed. CI is unchanged — it stays
   lint-free by design (`ci.yml`, CLAUDE.md "Commands").
+  **Done 2026-10-03:** golangci-lint 2.14.0; 13 issues fixed (12 `errcheck`, 1
+  `staticcheck` QF1002), none needing a design change.
 
 - [ ] **`P8-02` · Implement the client path D-08-1 chooses** — `blocked:D-08-1`,
   `live-verify`
