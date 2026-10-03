@@ -3,6 +3,8 @@ package ha
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -346,6 +348,10 @@ func MapAutomation(entityID model.EntityID, raw map[string]any) model.Automation
 		ConditionCount: sequenceLen(raw, "condition", "conditions"),
 		ActionCount:    sequenceLen(raw, "action", "actions"),
 	}
+	deps := extractAutomationDependencies(raw)
+	a.DependsOn = deps.refs
+	a.DependsTruncated = deps.truncated
+	a.UnextractedRefs = deps.unextracted
 	if len(reasons) > 0 {
 		a.Partial = true
 		a.PartialReason = strings.Join(reasons, "; ")
@@ -1017,4 +1023,142 @@ func MapLogbookEvents(raw json.RawMessage) ([]model.LogbookEvent, error) {
 		out = append(out, ev)
 	}
 	return out, nil
+}
+
+// maxAutomationDependencies caps the ids one automation's DependsOn carries
+// across all kinds (D-05-7). Generous for a real automation, small enough that
+// a pathological or hostile body cannot inflate a response.
+const maxAutomationDependencies = 200
+
+// maxDependencyWalkDepth bounds the recursion over a config body. Real
+// automations nest a handful of levels; anything deeper is counted unextracted
+// rather than followed.
+const maxDependencyWalkDepth = 32
+
+// dependencyIDPattern is the shape of a device or area id: HA's registries
+// issue short slugs or 32-hex ids. It admits no whitespace, so a sentence under
+// a dependency key fails it (threat T2), as does a Jinja template, whose result
+// is only known at run time: both are counted, never extracted.
+var dependencyIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
+
+// automationDependencies is the extractor's result, internal to this file.
+type automationDependencies struct {
+	refs        model.AutomationDependencies
+	truncated   bool
+	unextracted int
+}
+
+// dependencyWalker collects ids while walking a decoded config body.
+type dependencyWalker struct {
+	entities, devices, areas map[string]struct{}
+	truncated                bool
+	unextracted              int
+}
+
+// extractAutomationDependencies collects the entity, device and area ids named
+// anywhere in an automation/config body. Only values under the keys entity_id,
+// device_id and area_id are read, each checked against an id grammar; the body
+// is walked structurally and no string is interpreted, so this never branches
+// on HA-controlled text (CLAUDE.md rule 6). A device trigger's entity_id is a
+// registry uuid, not an entity id: it fails the grammar and is counted.
+func extractAutomationDependencies(body map[string]any) automationDependencies {
+	w := &dependencyWalker{
+		entities: map[string]struct{}{},
+		devices:  map[string]struct{}{},
+		areas:    map[string]struct{}{},
+	}
+	w.walk(body, 0)
+
+	refs := model.AutomationDependencies{
+		Entities: make([]model.EntityID, 0, len(w.entities)),
+		Devices:  make([]model.DeviceID, 0, len(w.devices)),
+		Areas:    make([]model.AreaID, 0, len(w.areas)),
+	}
+	for id := range w.entities {
+		refs.Entities = append(refs.Entities, model.EntityID(id))
+	}
+	for id := range w.devices {
+		refs.Devices = append(refs.Devices, model.DeviceID(id))
+	}
+	for id := range w.areas {
+		refs.Areas = append(refs.Areas, model.AreaID(id))
+	}
+	slices.Sort(refs.Entities)
+	slices.Sort(refs.Devices)
+	slices.Sort(refs.Areas)
+	return automationDependencies{refs: refs, truncated: w.truncated, unextracted: w.unextracted}
+}
+
+// walk visits maps in sorted key order so that, when the cap is hit, which ids
+// survive is deterministic.
+func (w *dependencyWalker) walk(node any, depth int) {
+	if depth > maxDependencyWalkDepth {
+		w.unextracted++
+		return
+	}
+	switch v := node.(type) {
+	case map[string]any:
+		keys := make([]string, 0, len(v))
+		for k := range v {
+			keys = append(keys, k)
+		}
+		slices.Sort(keys)
+		for _, k := range keys {
+			switch k {
+			case "entity_id":
+				w.collect(v[k], w.entities, entityIDPattern)
+			case "device_id":
+				w.collect(v[k], w.devices, dependencyIDPattern)
+			case "area_id":
+				w.collect(v[k], w.areas, dependencyIDPattern)
+			case "value_template":
+				if _, ok := v[k].(string); ok {
+					w.unextracted++
+				}
+			default:
+				w.walk(v[k], depth+1)
+			}
+		}
+	case []any:
+		for _, item := range v {
+			w.walk(item, depth+1)
+		}
+	}
+}
+
+// collect reads one dependency key's value: a string (HA also accepts a
+// comma-separated list in one string) or a list of strings.
+func (w *dependencyWalker) collect(value any, into map[string]struct{}, grammar *regexp.Regexp) {
+	switch v := value.(type) {
+	case string:
+		for _, part := range strings.Split(v, ",") {
+			w.add(strings.TrimSpace(part), into, grammar)
+		}
+	case []any:
+		for _, item := range v {
+			s, ok := item.(string)
+			if !ok {
+				w.unextracted++
+				continue
+			}
+			w.add(strings.TrimSpace(s), into, grammar)
+		}
+	default:
+		w.unextracted++
+	}
+}
+
+func (w *dependencyWalker) add(id string, into map[string]struct{}, grammar *regexp.Regexp) {
+	if !grammar.MatchString(id) {
+		w.unextracted++
+		return
+	}
+	if _, seen := into[id]; seen {
+		return
+	}
+	if len(w.entities)+len(w.devices)+len(w.areas) >= maxAutomationDependencies {
+		w.truncated = true
+		return
+	}
+	into[id] = struct{}{}
 }

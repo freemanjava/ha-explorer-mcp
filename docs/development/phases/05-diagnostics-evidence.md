@@ -158,7 +158,7 @@ now three building boxes — `P5-11` (dependencies), `P5-12` (analysis),
 `P5-13` (tool) — plus `P5-07` reduced to the end-to-end test it always named.
 Decided as **D-05-6** and **D-05-7** below.
 
-- [ ] **`P5-11` · Automation dependency extraction** — per D-05-7
+- [x] **`P5-11` · Automation dependency extraction** — per D-05-7
   Home: `internal/ha/mapping.go`, beside `MapAutomation` — the only unit that
   sees the raw `automation/config` body, so the body never crosses into
   `internal/model`. `model.Automation` gains, additively, `DependsOn` (typed
@@ -179,7 +179,7 @@ Decided as **D-05-6** and **D-05-7** below.
   trigger/condition/action body text; under the deny profile a PRIVATE
   dependency is withheld and counted, as `P4-05` does for `find_*`.
 
-- [ ] **`P5-12` · Automation run analysis** — 🧠 · `blocked:P5-11`
+- [ ] **`P5-12` · Automation run analysis** — 🧠
   Home: new `internal/analysis/automation_health.go`,
   `AnalyzeAutomationHealth(AutomationHealthInput)` — the third analyzer,
   same shape as `entity_health.go`/`integration_health.go` (reuses the P5-06

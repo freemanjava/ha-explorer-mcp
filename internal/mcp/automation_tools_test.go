@@ -458,3 +458,91 @@ func TestGetAutomationTraces_NormalFallbackEvent_TextKeptSecretStripped(t *testi
 		t.Errorf("a configured secret crossed the response boundary: %q", list.FallbackEvents[1].Message)
 	}
 }
+
+// TestGetAutomation_Dependencies_IdsOnlyNoBodyText pins D-05-7's boundary:
+// the response carries the extracted ids and a count, and no trigger,
+// condition or action body text.
+func TestGetAutomation_Dependencies_IdsOnlyNoBodyText(t *testing.T) {
+	detail := &fakeAutomationDetailReader{automation: model.Automation{
+		EntityID: "automation.evening_lights", Alias: "Evening lights",
+		DependsOn:       model.AutomationDependencies{Entities: []model.EntityID{"light.hall"}},
+		UnextractedRefs: 1,
+	}}
+	client := connect(t, newServer(automationDetailOptions(detail, nil, nil, nil), Catalog()))
+
+	res, err := client.CallTool(t.Context(), &sdkmcp.CallToolParams{Name: "get_automation", Arguments: map[string]any{"entity_id": "automation.evening_lights"}})
+	if err != nil {
+		t.Fatalf("CallTool: %v", err)
+	}
+	raw, _ := json.Marshal(res.StructuredContent)
+	var a model.Automation
+	if err := json.Unmarshal(raw, &a); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(a.DependsOn.Entities) != 1 || a.DependsOn.Entities[0] != "light.hall" || a.UnextractedRefs != 1 {
+		t.Fatalf("Automation = %+v, want light.hall and 1 unextracted ref", a)
+	}
+	for _, body := range []string{"value_template", "service", "platform", "{{"} {
+		if strings.Contains(string(raw), body) {
+			t.Errorf("response contains config body text %q: %s", body, raw)
+		}
+	}
+}
+
+// TestGetAutomation_PrivateDependency_DenyProfile_WithheldAndCounted is
+// P4-05's rule applied to dependencies: a PRIVATE entity is removed outright,
+// never masked, and the count says something was withheld.
+func TestGetAutomation_PrivateDependency_DenyProfile_WithheldAndCounted(t *testing.T) {
+	detail := &fakeAutomationDetailReader{automation: model.Automation{
+		EntityID: "automation.arrive",
+		DependsOn: model.AutomationDependencies{
+			Entities: []model.EntityID{"device_tracker.phone", "light.hall"},
+			Devices:  []model.DeviceID{"abc"},
+		},
+	}}
+	opts := automationDetailOptions(detail, nil, nil, nil)
+	opts.Profile = policy.Profile{Private: policy.HandlingDeny}
+	client := connect(t, newServer(opts, Catalog()))
+
+	res, err := client.CallTool(t.Context(), &sdkmcp.CallToolParams{Name: "get_automation", Arguments: map[string]any{"entity_id": "automation.arrive"}})
+	if err != nil {
+		t.Fatalf("CallTool: %v", err)
+	}
+	raw, _ := json.Marshal(res.StructuredContent)
+	var a model.Automation
+	if err := json.Unmarshal(raw, &a); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(a.DependsOn.Entities) != 1 || a.DependsOn.Entities[0] != "light.hall" {
+		t.Errorf("Entities = %v, want [light.hall]", a.DependsOn.Entities)
+	}
+	if a.DependsWithheld != 1 {
+		t.Errorf("DependsWithheld = %d, want 1", a.DependsWithheld)
+	}
+	if strings.Contains(string(raw), "device_tracker.phone") {
+		t.Errorf("withheld id leaked: %s", raw)
+	}
+}
+
+// TestGetAutomation_PrivateDependency_MaskProfile_Kept pins that the default
+// profile keeps the id: an entity id is a name, not a value to mask.
+func TestGetAutomation_PrivateDependency_MaskProfile_Kept(t *testing.T) {
+	detail := &fakeAutomationDetailReader{automation: model.Automation{
+		EntityID:  "automation.arrive",
+		DependsOn: model.AutomationDependencies{Entities: []model.EntityID{"device_tracker.phone"}},
+	}}
+	client := connect(t, newServer(automationDetailOptions(detail, nil, nil, nil), Catalog()))
+
+	res, err := client.CallTool(t.Context(), &sdkmcp.CallToolParams{Name: "get_automation", Arguments: map[string]any{"entity_id": "automation.arrive"}})
+	if err != nil {
+		t.Fatalf("CallTool: %v", err)
+	}
+	raw, _ := json.Marshal(res.StructuredContent)
+	var a model.Automation
+	if err := json.Unmarshal(raw, &a); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(a.DependsOn.Entities) != 1 || a.DependsWithheld != 0 {
+		t.Errorf("Entities = %v, DependsWithheld = %d, want kept/0", a.DependsOn.Entities, a.DependsWithheld)
+	}
+}

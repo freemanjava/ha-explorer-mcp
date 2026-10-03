@@ -81,7 +81,7 @@ func withAutomationTools(tools []Tool, opts Options) []Tool {
 			}
 		case "get_automation":
 			if opts.AutomationDetail != nil {
-				out[i].bind = bindGetAutomation(opts.AutomationDetail, opts.Core)
+				out[i].bind = bindGetAutomation(opts.AutomationDetail, opts.Core, opts.Profile)
 			}
 		case "get_automation_traces":
 			if opts.AutomationDetail != nil {
@@ -218,10 +218,10 @@ func detectedVersion(ctx context.Context, versions automationVersionReader) stri
 }
 
 // bindGetAutomation registers get_automation's typed handler.
-func bindGetAutomation(detail automationDetailReader, versions automationVersionReader) binder {
+func bindGetAutomation(detail automationDetailReader, versions automationVersionReader, profile policy.Profile) binder {
 	return func(srv *sdkmcp.Server, def *sdkmcp.Tool) {
 		sdkmcp.AddTool(srv, def, func(ctx context.Context, _ *sdkmcp.CallToolRequest, in GetAutomationInput) (*sdkmcp.CallToolResult, model.Automation, error) {
-			out, err := getAutomation(ctx, detail, versions, in)
+			out, err := getAutomation(ctx, detail, versions, profile, in)
 			return nil, out, err
 		})
 	}
@@ -232,7 +232,7 @@ func bindGetAutomation(detail automationDetailReader, versions automationVersion
 // version, the response degrades to Unsupported with a reason naming which
 // and pointing at list_automations (P3-07 DoD) rather than returning a Go
 // tool error for an expected, nameable state (CLAUDE.md rule 7).
-func getAutomation(ctx context.Context, detail automationDetailReader, versions automationVersionReader, in GetAutomationInput) (model.Automation, error) {
+func getAutomation(ctx context.Context, detail automationDetailReader, versions automationVersionReader, profile policy.Profile, in GetAutomationInput) (model.Automation, error) {
 	if err := validateAutomationEntityID(in.EntityID); err != nil {
 		return model.Automation{}, fmt.Errorf("get_automation: %w", err)
 	}
@@ -254,7 +254,25 @@ func getAutomation(ctx context.Context, detail automationDetailReader, versions 
 
 	a.Source = "home_assistant_core"
 	a.ObservedAt = time.Now().UTC()
+	withholdPrivateDependencies(&a, profile)
 	return a, nil
+}
+
+// withholdPrivateDependencies removes the entities the privacy profile denies
+// from a.DependsOn and counts them, as P4-05 does for find_*: an id is a name,
+// so under the deny profile the only meaningful action is exclusion, and the
+// count keeps "withheld" distinguishable from "none". Devices and areas carry
+// no entity domain to classify and pass through.
+func withholdPrivateDependencies(a *model.Automation, profile policy.Profile) {
+	kept := make([]model.EntityID, 0, len(a.DependsOn.Entities))
+	for _, id := range a.DependsOn.Entities {
+		if profile.Decide(policy.ClassifyEntityWithClass(id, "")) == policy.ActionDeny {
+			a.DependsWithheld++
+			continue
+		}
+		kept = append(kept, id)
+	}
+	a.DependsOn.Entities = kept
 }
 
 // bindGetAutomationTraces registers get_automation_traces' typed handler.

@@ -52,3 +52,7 @@ live ZHA installation exists to confirm the source-read half.
 `analysis.AnalyzeIntegrationHealth` + `internal/mcp/integration_health_tools.go`: setup state, inventory/unavailable ratio, domain repairs, outage clusters over the entry's entities, Supervisor resolution counts; Supervisor absent/refused/down is a named gap and the call still answers. Shared `ledger`, `healthWindow`, `HealthResponse` with P5-05.
 **Surprise:** one integration can own hundreds of entities and history is one HA request each against a budget of 50, so clustering reads at most 25 (down-now first) and names the rest in `missing_evidence` — P5-10 must measure whether 25 is right.
 **Left open:** `golangci-lint` still not installed; not observed against a live HA.
+
+### 2026-10-03 · P5-11
+`MapAutomation` walks the config body structurally (sorted keys, depth cap 32) and collects `entity_id`/`device_id`/`area_id` values by grammar; `get_automation` applies the deny profile to entities.
+**Surprise:** a device trigger/condition's `entity_id` is a registry uuid, not an entity id — it fails the grammar and is counted unextracted, so such automations under-report dependencies (F-32's trigger evidence).
