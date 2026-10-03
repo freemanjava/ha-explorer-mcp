@@ -28,7 +28,7 @@ func newFakeHAServer(t *testing.T, handler fakeConnHandler) *httptest.Server {
 		if err != nil {
 			return
 		}
-		defer conn.CloseNow()
+		defer func() { _ = conn.CloseNow() }()
 		handler(r.Context(), conn)
 	})
 	srv := httptest.NewServer(mux)

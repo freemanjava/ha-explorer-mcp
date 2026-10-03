@@ -26,3 +26,7 @@ Deleted `rest.go`/`rest_test.go`, the five `Core` routes, `allowedRoutes`, `chec
 **Surprise:** `SupervisorClient` depended on `rest.go` for its size cap, timeout backstop and test helpers; ported those tests to it rather than losing the coverage.
 **Left open:** `golangci-lint` still not installed (P8-04).
 
+
+### 2026-10-03 · P8-04
+golangci-lint 2.14.0, 13 issues fixed (12 errcheck — mostly deferred test `Close`/`CloseNow` — and one tagged-switch in `supervisorStatusError`). `make check` and `-race` green.
+**Surprise:** the linter prints issues in capped batches: 11 on the first run, 2 more only after fixing those.

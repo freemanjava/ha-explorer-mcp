@@ -29,7 +29,7 @@ func TestConnect_ValidToken_HandshakeSucceedsAndPingRoundTrips(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Connect: unexpected error: %v", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	if err := client.Ping(ctx); err != nil {
 		t.Fatalf("Ping: unexpected error: %v", err)
@@ -79,7 +79,7 @@ func TestHandshakeDoesNotLogToken(t *testing.T) {
 
 			client, err := Connect(ctx, wsURL(srv), tt.dialToken, logger)
 			if client != nil {
-				defer client.Close()
+				defer func() { _ = client.Close() }()
 			}
 			_ = err
 

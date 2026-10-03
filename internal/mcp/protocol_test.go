@@ -25,13 +25,13 @@ func TestSDKProtocolVersion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("server.Connect: %v", err)
 	}
-	defer serverSession.Close()
+	defer func() { _ = serverSession.Close() }()
 
 	clientSession, err := client.Connect(ctx, clientTransport, nil)
 	if err != nil {
 		t.Fatalf("client.Connect: %v", err)
 	}
-	defer clientSession.Close()
+	defer func() { _ = clientSession.Close() }()
 
 	got := clientSession.InitializeResult().ProtocolVersion
 	if got != mcp.SupportedProtocolVersion {

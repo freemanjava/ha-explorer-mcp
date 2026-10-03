@@ -249,12 +249,12 @@ func (c *SupervisorClient) get(ctx context.Context, route string) (json.RawMessa
 // ErrAuthFailed, since that is a configuration problem, not a Supervisor
 // outage.
 func supervisorStatusError(status int, route string) error {
-	switch {
-	case status == http.StatusOK:
+	switch status {
+	case http.StatusOK:
 		return nil
-	case status == http.StatusUnauthorized, status == http.StatusForbidden:
+	case http.StatusUnauthorized, http.StatusForbidden:
 		return fmt.Errorf("%w: GET %s", ErrAuthFailed, route)
-	case status == http.StatusNotFound:
+	case http.StatusNotFound:
 		return fmt.Errorf("%w: GET %s", ErrNotFound, route)
 	default:
 		return fmt.Errorf("%w: Supervisor GET %s: status %d", ErrUnsupported, route, status)

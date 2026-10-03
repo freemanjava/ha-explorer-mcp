@@ -236,7 +236,7 @@ func TestSession_Write_DeniedCommand_NeverReachesSocket(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	defer conn.CloseNow()
+	defer func() { _ = conn.CloseNow() }()
 	if err := authenticate(ctx, conn, testToken); err != nil {
 		t.Fatalf("authenticate: %v", err)
 	}

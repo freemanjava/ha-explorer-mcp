@@ -26,7 +26,7 @@ func parseManifest(t *testing.T, path string) manifest {
 	if err != nil {
 		t.Fatalf("open %s: %v", path, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	m := manifest{scalars: map[string]string{}}
 	inMapBlock := false

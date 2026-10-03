@@ -198,7 +198,7 @@ func TestManager_SocketClosesInFlight_ReturnsTypedErrorNotHang(t *testing.T) {
 		serveCommands(ctx, conn, func(cmd commandFrame) {
 			// Drop the connection with the request in flight, as an HA
 			// restart does — never send a reply.
-			conn.CloseNow()
+			_ = conn.CloseNow()
 		})
 	})
 
@@ -233,7 +233,7 @@ func TestManager_HARestart_ReconnectsReauthenticatesAndServesNextRequest(t *test
 		serveCommands(ctx, conn, func(cmd commandFrame) {
 			if generation == 1 {
 				// First connection dies mid-request: the HA restart.
-				conn.CloseNow()
+				_ = conn.CloseNow()
 				return
 			}
 			_ = writeResult(ctx, conn, cmd.ID, map[string]any{"generation": generation})
@@ -418,7 +418,7 @@ func TestManager_TokenNeverLogged(t *testing.T) {
 		if !serveAuthHandshake(ctx, conn, testToken) {
 			return
 		}
-		serveCommands(ctx, conn, func(cmd commandFrame) { conn.CloseNow() })
+		serveCommands(ctx, conn, func(cmd commandFrame) { _ = conn.CloseNow() })
 	})
 
 	var logBuf syncBuffer
