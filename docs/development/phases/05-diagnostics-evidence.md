@@ -76,7 +76,8 @@ structural decision gets made on an unverified premise.
   that makes the flat-vs-plugin call contested, stop and recommend a fresh
   session on the stronger model rather than deciding mid-flight.
 
-- [ ] **`P5-02` · Evidence, hypothesis and missing-evidence model** — 🧠
+- [x] **`P5-02` · Evidence, hypothesis and missing-evidence model** — 🧠 ·
+  **done 2026-10-03**
   Replace the unused `internal/model/evidence.go` stub with the full doc §12.2
   / Appendix A.3 shape as **distinct types**, per D-05-1: `Evidence` (a
   measured observation with source and period), `Hypothesis` (an inference

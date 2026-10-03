@@ -3,11 +3,11 @@
 <!-- BOUNDED FILE — rewritten in place, never appended to. Keep under ~100 lines.
      Anything that grows goes to journal/. This file is read by every session. -->
 
-**▶ Active:** `P5-02` — evidence / hypothesis / missing-evidence model · phase
-05 · stronger model · 🧠. Replace the unused `internal/model/evidence.go` stub
-with D-05-1's four distinct types plus the `HealthAnalysis` envelope. Note
-D-05-5 (new): `MissingEvidence` is what carries an unreadable mesh metric, so
-it needs to name *why* a source was unreadable, not merely that it was.
+**▶ Active:** `P5-03` — derived confidence (`ConfidenceFor`) · phase 05 ·
+stronger model · 🧠. `internal/analysis/confidence.go` maps an `Evidence`'s
+`SampleSize`, `Coverage` and `Degraded` (fields `P5-02` added for exactly this)
+onto `model.ConfidenceLow/Medium/High`. The levels exist; the ladder is this
+box's to design and document.
 
 > Advancing this pointer is part of finishing a task, together with ticking the
 > box, recomputing status and appending a journal entry. All four, or none.
@@ -19,15 +19,14 @@ cycle. Remove a row when its task closes.
 
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
-| 1 | `P5-02` | evidence / hypothesis / missing-evidence model | 05 | stronger | 🧠 |
-| 2 | `P5-03` | derived confidence (`ConfidenceFor`) | 05 | stronger | 🧠 `blocked:P5-02` |
-| 3 | `P5-04` | cross-entity outage clustering (**must settle F-27**) | 05 | stronger | 🧠 `blocked:P5-02,P5-03` |
-| 4 | `P5-05` | `analyze_entity_health` | 05 | default | `blocked:P5-02,P5-03` |
-| 5 | `P5-06` | `analyze_integration_health` | 05 | default | `blocked:P5-04,P5-05` |
-| 6 | `P5-07` | investigation 1 — doc §13.1 e2e + degraded branch | 05 | default | `blocked:P5-05` |
-| 7 | `P5-08` | investigation 2 — doc §13.2 e2e (**F-27 changes its DoD**) | 05 | default | `blocked:P5-06` |
-| 8 | `P5-09` | investigation 3 — correlated mass unavailability | 05 | default | `blocked:P5-06` |
-| 9 | `P5-10` | measure composite budget, re-class `find_stale_entities` (F-26) | 05 | default | `needs-verify` `blocked:P5-06` |
+| 1 | `P5-03` | derived confidence (`ConfidenceFor`) | 05 | stronger | 🧠 |
+| 2 | `P5-04` | cross-entity outage clustering (**must settle F-27**) | 05 | stronger | 🧠 `blocked:P5-03` |
+| 3 | `P5-05` | `analyze_entity_health` | 05 | default | `blocked:P5-03` |
+| 4 | `P5-06` | `analyze_integration_health` | 05 | default | `blocked:P5-04,P5-05` |
+| 5 | `P5-07` | investigation 1 — doc §13.1 e2e + degraded branch | 05 | default | `blocked:P5-05` |
+| 6 | `P5-08` | investigation 2 — doc §13.2 e2e (**F-27 changes its DoD**) | 05 | default | `blocked:P5-06` |
+| 7 | `P5-09` | investigation 3 — correlated mass unavailability | 05 | default | `blocked:P5-06` |
+| 8 | `P5-10` | measure composite budget, re-class `find_stale_entities` (F-26) | 05 | default | `needs-verify` `blocked:P5-06` |
 
 **Ordering rationale (2026-09-05 `plan`).** Verify → model → analysis
 primitives → tools → workflows → measurement. `P5-01` went first because its
@@ -88,12 +87,12 @@ done
 | 02 | Policy, Privacy, Budget & Audit | 7 / 8 |
 | 03 | MCP Server & Inventory Tools | 11 / 11 |
 | 04 | History, Statistics & Detection | 6 / 6 |
-| 05 | Diagnostics & Evidence Engine | 6 / 15 |
+| 05 | Diagnostics & Evidence Engine | 7 / 15 |
 | 06 | Proposal Mode — gated | 0 / 1 |
 | 07 | Controlled Change (Admin) — gated | 0 / 1 |
 
 Counts include each phase's decision entries, which are boxes too. Phase 05's
-6 ticked are D-05-1…5 and the `P5-01` task box; its nine remaining task boxes
+7 ticked are D-05-1…5 and the `P5-01`/`P5-02` task boxes; its eight remaining task boxes
 are open, and no decision entry in the phase is open any more. Phase 02's one
 open box is the Q10 persistence decision.
 
@@ -103,7 +102,7 @@ Phase 05 is M2, and is where the last two catalog rows
 `bindNotImplemented`) become real. Phases 06–07 are gated: they open only on an
 explicit owner decision plus a fresh security review, and carry no task boxes.
 
-Last refreshed: 2026-09-05 (`P5-01` closed — Q9 answered, D-05-5 written)
+Last refreshed: 2026-10-03 (`P5-02` closed — evidence model types)
 
 ## Open findings
 
@@ -136,6 +135,10 @@ call site, F-17 becomes `wont-fix` and F-25 becomes a deletion task, at that
 
 Last 5 closed tasks, one line each. Older entries live in `journal/`.
 
+- 2026-10-03 · `P5-02` — D-05-1's four types plus `HealthAnalysis` in
+  `internal/model/evidence.go`; `NewHypothesis` refuses zero citations;
+  `MissingReason` separates `entity_disabled` from `not_exposed` (D-05-5). The
+  no-`cause` rule is a `go/parser` scan over `internal/`, json tags included.
 - 2026-09-05 · `P5-01` — Q9/F-6 answered: mesh metrics get a flat analyzer plus
   a name/`device_class` hint table, not a per-integration plugin seam
   (D-05-5). Both integrations expose LQI/RSSI as ordinary entities; they differ
@@ -156,7 +159,3 @@ Last 5 closed tasks, one line each. Older entries live in `journal/`.
 - 2026-09-05 · `P4-04` — `get_entity_statistics` joins `P4-02`/`P4-03` into one
   tool over `model.Health` (Phase 00's unused stub, extended); one range cap
   reused from `P4-01`; `Source` names the recorder endpoint, not the subsystem.
-- 2026-09-05 · `P4-06` — doc §12.1 made self-consistent (F-24 resolved):
-  `availability_ratio` → `0.98095`, `median_update_interval_s` → `1376.5`,
-  `p95_update_interval_s` → `2578.8`, matching the fixture through the real
-  mapper. Doc-only; `test/fixtures/entity_history_7d.json` untouched.
