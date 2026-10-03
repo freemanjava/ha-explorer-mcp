@@ -91,3 +91,8 @@ live ZHA installation exists to confirm the source-read half.
 ### 2026-10-03 · P5-08
 `investigation_test.go`: `walkInvestigation2` drives `find_unavailable_entities` → `analyze_integration_health` → `analyze_entity_health` over `layout`/`meshShape` fixtures; asserts partial-parent topology, no-parent, coordinator star (F-27), mesh evidence vs `entity_disabled`, host `privileged` row, hypotheses cite their own envelope. No production code changed.
 **Left open:** the restart-evidence step (F-31, `P5-09`); `golangci-lint` still not installed.
+
+### 2026-10-03 · P5-10
+New `cmd/measure` drives the real tools in-process and reads cost from the audit record; `cmd/spike` gained a logbook restart probe. Owner ran both on HA 2026.9.4 (521 entities). D-05-10: classes stand (`find_stale_entities` 20, `analyze_*` composite, max 36/50). Closes F-26, F-28.
+**Surprise:** `find_stale_entities` at `limit=200` examines only 20 entities per call (one recorder read each); and an unfiltered 7d logbook is 10.8 MB, so F-31's restart rows need a bounded window.
+**Left open:** F-31 (closes with `P5-09`); F-36 (statistics-based staleness); Supervisor requests not in the `analyze_integration_health` numbers.
