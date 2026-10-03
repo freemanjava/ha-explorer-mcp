@@ -1151,8 +1151,8 @@ is a change to D-05-3 and wants its own decision.
 **What:** `TestGateway_AllowList_EveryEntryHasACaller` (P8-03) found `CommandAuthCurrentUser`, `CommandEntityRegistryListForDisplay`, `CommandEntityRegistryGet`, `CommandCategoryRegistryList`, `CommandTraceGet` and `CommandTraceContexts` referenced by no production file outside `gateway.go`. They are exempted by name in `uncalledAllowListEntries` (shrink-only: the test fails when an exempt entry gains a caller).
 **Impact:** the same overstated-surface gap as F-25, six entries. All read-only. Whether each is dropped or is waiting for a planned reader (`trace/get`, `auth/current_user` for admin detection) needs a per-entry call.
 
-**Triage:** `queue-next`
-**Outcome:** D-08-3 (drop all six; a future reader re-adds its entry with its caller); planned 2026-10-03 into `P8-11`.
+**Triage:** `done`
+**Outcome:** D-08-3 (drop all six; a future reader re-adds its entry with its caller); planned into `P8-11`, closed 2026-10-03: six entries dropped, exemption set deleted.
 
 ### F-41 · Which client paths to the App actually work is unverified · 2026-10-03
 

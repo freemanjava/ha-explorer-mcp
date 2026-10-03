@@ -313,6 +313,35 @@ func TestGateway_StatisticsCommands_Denied(t *testing.T) {
 	}
 }
 
+// TestGateway_UncalledCommands_Denied pins D-08-3 / F-40: six commands left
+// the allow-list because no reader calls them, and must now be refused by the
+// ordinary not-allow-listed path, before any bytes are sent.
+func TestGateway_UncalledCommands_Denied(t *testing.T) {
+	m, rec := startGatewayFixture(t)
+	waitConnected(t, m)
+
+	for _, name := range []string{
+		"auth/current_user",
+		"config/entity_registry/list_for_display",
+		"config/entity_registry/get",
+		"config/category_registry/list",
+		"trace/get",
+		"trace/contexts",
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := checkCommand(name); !errors.Is(err, ErrPolicyDenied) || !strings.Contains(err.Error(), "not allow-listed") {
+				t.Fatalf("checkCommand(%q) = %v, want ErrPolicyDenied via the allow-list", name, err)
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if _, err := m.Call(ctx, BareCommand(name)); !errors.Is(err, ErrPolicyDenied) {
+				t.Fatalf("Call(%q) returned %v, want ErrPolicyDenied", name, err)
+			}
+			assertNotTransmitted(t, rec, name)
+		})
+	}
+}
+
 // TestGateway_AllowList_EveryEntryHasACaller fails when an allow-listed
 // command or route constant is referenced nowhere outside gateway.go. The
 // allow-list is the security boundary; an entry with no caller widens it for
@@ -325,27 +354,10 @@ func TestGateway_AllowList_EveryEntryHasACaller(t *testing.T) {
 	}
 	used := identifiersOutsideGateway(t)
 	for _, name := range listed {
-		_, exempt := uncalledAllowListEntries[name]
-		switch {
-		case !used[name] && !exempt:
+		if !used[name] {
 			t.Errorf("allow-listed %s is referenced by no production file outside gateway.go", name)
-		case used[name] && exempt:
-			t.Errorf("%s now has a caller; remove it from uncalledAllowListEntries", name)
 		}
 	}
-}
-
-// uncalledAllowListEntries are allow-listed commands the reachability check
-// found uncalled when it was written (P8-03). They are outside P8-03's three
-// statistics commands, so they are tracked by F-40 rather than deleted here;
-// the set may only shrink.
-var uncalledAllowListEntries = map[string]struct{}{
-	"CommandAuthCurrentUser":              {},
-	"CommandEntityRegistryListForDisplay": {},
-	"CommandEntityRegistryGet":            {},
-	"CommandCategoryRegistryList":         {},
-	"CommandTraceGet":                     {},
-	"CommandTraceContexts":                {},
 }
 
 // allowListedConstants returns the constant names used as keys of the

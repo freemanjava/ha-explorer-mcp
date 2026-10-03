@@ -49,3 +49,7 @@ HTTP transport per D-08-4…D-08-11: `internal/mcp/transport_http.go` (gate + `R
 ### 2026-10-03 · P8-12
 `loadSettings` in `cmd/server/config.go`: `privacy_profile` / `log_level` under the one-source rule, shared `readOptions` with the secret; `addon/config.yaml` declares both as closed lists; startup log reports the effective profile; CLAUDE.md "Configuration" corrected (budgets are constants).
 **Surprise:** none.
+
+### 2026-10-03 · P8-11
+Dropped six uncalled allow-list entries from `gateway.go`, deleted `uncalledAllowListEntries`; `TestGateway_UncalledCommands_Denied` asserts each is refused before transmission. Closes F-40.
+**Surprise:** none.
