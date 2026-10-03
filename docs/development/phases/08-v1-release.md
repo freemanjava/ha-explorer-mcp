@@ -86,7 +86,7 @@ and run while the owner is busy there.
   **Done 2026-10-03:** the reachability test also found six more uncalled
   entries (F-40); they sit in a shrink-only exemption set in the test.
 
-- [ ] **`P8-07` · Remove the unwired Core REST adapter (F-38)** — per D-08-2,
+- [x] **`P8-07` · Remove the unwired Core REST adapter (F-38)** — per D-08-2,
   `blocked:P8-03`
   Delete `internal/ha/rest.go` (`RESTClient`, `HistoryOptions`,
   `LogbookOptions`), the five `Route*` constants, `allowedRoutes`, `checkRoute`
@@ -97,6 +97,10 @@ and run while the owner is busy there.
   RESTClient internal cmd` empty); `TestGateway_AllowList_EveryEntryHasACaller`
   still green; mutation-denied-before-transmission still asserted for the
   WebSocket path and the Supervisor adapter; `make check` green.
+  **Done 2026-10-03:** `entityIDPattern` stays (the mapper uses it) and moved to
+  `mapping.go`; the Supervisor client took over the size cap and deadline backstop
+  (renamed `maxSupervisorResponseBytes`, `defaultSupervisorTimeout`) and the three
+  tests that asserted them. The recorded-HA integration test lost its REST half.
 
 - [ ] **`P8-04` · `golangci-lint` clean**
   The linter has never run on this codebase — every phase 05 journal entry

@@ -1132,9 +1132,9 @@ is a change to D-05-3 and wants its own decision.
 
 **Impact:** No rule broken — it is GET-only and unreachable. But it is dead code (CLAUDE.md), and by ADR-008's own reasoning a linked-in HTTP client is surface; the allow-list overstates the reachable surface by five routes, the same gap F-25 names for three commands.
 
-**Triage:** `queue-next`
+**Triage:** `done`
 
-**Outcome:** D-08-2 (delete, not keep as a fallback); planned into `P8-07`. Closes when `P8-07` closes.
+**Outcome:** D-08-2 (delete, not keep as a fallback); planned into `P8-07`. Closed 2026-10-03 by `P8-07`: `rest.go`, the five routes and `validateEntityID` are gone.
 
 ### F-39 · The released binary reports `0.0.0-dev`, whatever the image tag · 2026-10-03
 

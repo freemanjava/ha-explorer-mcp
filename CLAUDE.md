@@ -42,7 +42,7 @@ Read before non-trivial work:
 
 ```text
 cmd/server/        entry point and wiring — the only place that knows every layer
-internal/ha/       HA adapters: websocket, rest, gateway allow-list, typed errors
+internal/ha/       HA adapters: websocket, Supervisor REST, gateway allow-list, typed errors
 internal/model/    normalized domain types (Entity, DeviceRef, Integration, …)
 internal/analysis/ deterministic metrics: availability, staleness, correlation
 internal/policy/   query budget, privacy classification, profiles

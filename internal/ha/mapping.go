@@ -1189,3 +1189,8 @@ func (w *dependencyWalker) add(id string, into map[string]struct{}, grammar *reg
 	}
 	into[id] = struct{}{}
 }
+
+// entityIDPattern is Core's own entity-id shape: a lowercase domain and object
+// id joined by a single dot. The mapper uses it to pick entity ids out of
+// untrusted attribute values, so a malformed string is never collected.
+var entityIDPattern = regexp.MustCompile(`^[a-z0-9_]+\.[a-z0-9_]+$`)

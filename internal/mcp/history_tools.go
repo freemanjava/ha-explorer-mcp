@@ -31,8 +31,8 @@ type historyReader interface {
 // nothing wider has evidence behind it, so nothing wider is allowed.
 const maxHistoryWindow = 7 * 24 * time.Hour
 
-// historyEntityIDPattern mirrors internal/ha's own entity-id shape check
-// (gateway.go's entityIDPattern, unexported to that package). Validating here
+// historyEntityIDPattern mirrors internal/ha's own entity-id shape
+// (mapping.go's entityIDPattern, unexported to that package). Validating here
 // too means a malformed id is refused before it is spent as a policy
 // classification lookup or an upstream round trip (CLAUDE.md rule 6: HA data,
 // and caller-supplied ids that will be echoed through HA data, are

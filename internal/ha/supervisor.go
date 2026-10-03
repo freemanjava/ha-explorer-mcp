@@ -8,18 +8,32 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/freemanjava/ha-explorer-mcp/internal/model"
 )
+
+// maxSupervisorResponseBytes bounds a single Supervisor response. It is a process safety
+// limit, not a budget — response-size budgeting per doc §10 is Phase 02 policy
+// work. 8 MiB matches maxCommandFrame and sits above the largest Supervisor
+// body observed while staying far below what would threaten a Raspberry Pi running
+// Core alongside this binary. A var, not a const, so tests can shorten it;
+// nothing in production writes it.
+var maxSupervisorResponseBytes int64 = 8 << 20
+
+// defaultSupervisorTimeout bounds a request whose caller supplied no deadline,
+// mirroring defaultCallTimeout on the WebSocket side. Every upstream call
+// carries a deadline (CLAUDE.md, Error Handling) — this is the backstop, not a
+// licence to omit one.
+var defaultSupervisorTimeout = 30 * time.Second
 
 // defaultSupervisorBaseURL is where the Supervisor API is reachable from
 // inside an App container (docs/research/2026-08-23-supervisor-permissions.md).
 const defaultSupervisorBaseURL = "http://supervisor"
 
-// SupervisorClient reads Supervisor's own REST API — distinct from RESTClient,
-// which reads Core through the Supervisor proxy. It issues GET only, exactly
-// like RESTClient, for the same reason (CLAUDE.md rule 1, ADR-008): there is
-// no method parameter anywhere in this file.
+// SupervisorClient reads Supervisor's own REST API. It issues GET only
+// (CLAUDE.md rule 1, ADR-008): there is no method parameter anywhere in this
+// file. Core is reached over the WebSocket only; no Core REST client exists.
 //
 // Every request is matched against allowedSupervisorRoutes before it is
 // built. Supervisor being unreachable is reported as ErrUnsupported, not
@@ -184,7 +198,7 @@ func (c *SupervisorClient) get(ctx context.Context, route string) (json.RawMessa
 
 	if _, ok := ctx.Deadline(); !ok {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, defaultRESTTimeout)
+		ctx, cancel = context.WithTimeout(ctx, defaultSupervisorTimeout)
 		defer cancel()
 	}
 
@@ -213,12 +227,12 @@ func (c *SupervisorClient) get(ctx context.Context, route string) (json.RawMessa
 		return nil, err
 	}
 
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxRESTResponseBytes+1))
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxSupervisorResponseBytes+1))
 	if err != nil {
 		return nil, fmt.Errorf("%w: GET %s: reading response body", ErrUpstreamUnavailable, route)
 	}
-	if int64(len(body)) > maxRESTResponseBytes {
-		return nil, fmt.Errorf("%w: GET %s: response exceeds %d bytes", ErrResponseTooLarge, route, maxRESTResponseBytes)
+	if int64(len(body)) > maxSupervisorResponseBytes {
+		return nil, fmt.Errorf("%w: GET %s: response exceeds %d bytes", ErrResponseTooLarge, route, maxSupervisorResponseBytes)
 	}
 	if !json.Valid(body) {
 		return nil, fmt.Errorf("%w: GET %s: response is not valid JSON", ErrUnexpectedMessage, route)
@@ -227,7 +241,7 @@ func (c *SupervisorClient) get(ctx context.Context, route string) (json.RawMessa
 }
 
 // supervisorStatusError maps Supervisor's HTTP status onto this project's
-// sentinels. Unlike statusError (Core), a non-2xx status here is reported as
+// sentinels. A non-2xx status is reported as
 // ErrUnsupported rather than ErrUpstreamUnavailable: Supervisor refusing or
 // erroring on a role-permitted route is "this cannot be answered by this
 // connection" for a diagnostic tool, not "Core reads are broken too"

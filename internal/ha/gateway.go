@@ -3,7 +3,6 @@ package ha
 import (
 	"fmt"
 	"net/http"
-	"regexp"
 )
 
 // The WebSocket commands this binary is permitted to send. Every entry was
@@ -122,56 +121,9 @@ func checkCommand(name string) error {
 	return nil
 }
 
-// The REST routes this binary is permitted to request, as exact templates.
-// Core's REST API is the documented fallback for the two reads the WebSocket
-// API cannot serve as well, plus the identity and state reads a diagnostic
-// starts from; nothing here is listed for convenience.
-//
-// Sources: docs/research/2026-08-23-ha-history-statistics.md (P0-07) for the
-// history and logbook periods, docs/research/2026-08-23-ha-registry-apis.md
-// (P0-04) for config and states.
-const (
-	RouteConfig        = "/api/config"
-	RouteStates        = "/api/states"
-	RouteStateByID     = "/api/states/{entity_id}"
-	RouteHistoryPeriod = "/api/history/period/{timestamp}"
-	RouteLogbookPeriod = "/api/logbook/{timestamp}"
-)
-
-// allowedRoutes is an exact-match set of route *templates*, never of concrete
-// paths and never a prefix rule. A prefix that admits /api/states also admits
-// /api/states/{entity_id} with a POST body — the same erosion the command
-// allow-list's exact-match rule exists to prevent (phase 01 Design Notes).
-//
-// The template is matched, not the expanded path, so a parameter can never
-// widen the surface: the value of {entity_id} is validated separately by
-// validateEntityID and cannot introduce a path segment.
-var allowedRoutes = map[string]struct{}{
-	RouteConfig:        {},
-	RouteStates:        {},
-	RouteStateByID:     {},
-	RouteHistoryPeriod: {},
-	RouteLogbookPeriod: {},
-}
-
-// checkRoute decides whether a REST request may be issued at all. Method is
-// checked before the route: this binary has no write path (CLAUDE.md rule 1),
-// so a non-GET method is refused whatever it is aimed at, and the refusal does
-// not depend on the route table's contents. Both checks fail closed, before
-// any bytes leave the process.
-func checkRoute(method, template string) error {
-	if method != http.MethodGet {
-		return fmt.Errorf("%w: REST method %q is not permitted; this binary issues GET only", ErrPolicyDenied, method)
-	}
-	if _, ok := allowedRoutes[template]; !ok {
-		return fmt.Errorf("%w: REST route %q is not allow-listed", ErrPolicyDenied, template)
-	}
-	return nil
-}
-
 // The Supervisor REST endpoints this binary is permitted to request, as exact
 // paths — never a prefix or pattern rule, for the same reason as
-// allowedRoutes above. Every entry is granted by hassio_api: true at the
+// the command allow-list. Every entry is granted by hassio_api: true at the
 // **default** role and nothing above it (phase 00 "Supervisor permission
 // level" decision, 2026-08-25): each is commented with the evidence row in
 // docs/research/2026-08-23-supervisor-permissions.md that established it.
@@ -192,10 +144,9 @@ const (
 	SupervisorRoutePing           = "/supervisor/ping"   // no_security_check — liveness only
 )
 
-// allowedSupervisorRoutes is an exact-match set of concrete paths. Unlike
-// allowedRoutes above, none of these carry a path parameter — every one names
-// a fixed Supervisor resource — so there is no template-vs-expansion
-// distinction to preserve here.
+// allowedSupervisorRoutes is an exact-match set of concrete paths. None of
+// these carries a path parameter — every one names a fixed Supervisor
+// resource — so a parameter can never widen the surface.
 var allowedSupervisorRoutes = map[string]struct{}{
 	SupervisorRouteInfo:           {},
 	SupervisorRouteSupervisorInfo: {},
@@ -211,32 +162,15 @@ var allowedSupervisorRoutes = map[string]struct{}{
 }
 
 // checkSupervisorRoute decides whether a Supervisor REST request may be
-// issued at all, mirroring checkRoute's method-then-table order and its
-// fail-closed guarantee: both checks happen before any bytes leave the
-// process.
+// issued at all. Method is checked before the route: this binary has no write
+// path (CLAUDE.md rule 1), so a non-GET method is refused whatever it is aimed
+// at. Both checks fail closed, before any bytes leave the process.
 func checkSupervisorRoute(method, route string) error {
 	if method != http.MethodGet {
 		return fmt.Errorf("%w: Supervisor method %q is not permitted; this binary issues GET only", ErrPolicyDenied, method)
 	}
 	if _, ok := allowedSupervisorRoutes[route]; !ok {
 		return fmt.Errorf("%w: Supervisor route %q is not allow-listed", ErrPolicyDenied, route)
-	}
-	return nil
-}
-
-// entityIDPattern is Core's own entity-id shape: a lowercase domain and object
-// id joined by a single dot. It is deliberately narrower than "whatever URL
-// escaping survives" — a value that cannot contain a slash, a dot segment or a
-// percent escape cannot become a different route once expanded into
-// RouteStateByID, so traversal is refused at validation rather than defused by
-// escaping (P1-03 DoD).
-var entityIDPattern = regexp.MustCompile(`^[a-z0-9_]+\.[a-z0-9_]+$`)
-
-// validateEntityID refuses any entity id that is not exactly Core's shape.
-// The rejection is ErrPolicyDenied and happens before a request is built.
-func validateEntityID(entityID string) error {
-	if !entityIDPattern.MatchString(entityID) {
-		return fmt.Errorf("%w: %q is not a valid entity id", ErrPolicyDenied, entityID)
 	}
 	return nil
 }
