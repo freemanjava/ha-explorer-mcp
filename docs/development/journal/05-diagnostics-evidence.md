@@ -72,3 +72,8 @@ live ZHA installation exists to confirm the source-read half.
 **Surprise:** config and traces are gated together, so the F-11 fallback can't produce hypotheses for a real non-admin principal (F-34).
 **Left open:** F-34 (`defer`); `golangci-lint` still not installed.
 
+
+### 2026-10-03 · P5-14
+`model.ClusterAnnotation`/`ClusterTrait`/`TraitKind` (moved out of `analysis`); `HealthAnalysis.Clusters` filled by `AnalyzeIntegrationHealth`, rendered as `Clusters` in `HealthResponse` with `[]` for empty member/trait lists. `Evidence` untouched.
+**Surprise:** responses carry no JSON tags, so the key is `Clusters` (PascalCase like `Evidence`), not the DoD's lowercase `clusters`; I kept the existing convention. `analyze_entity_health` now also emits `Clusters: []`.
+**Left open:** `golangci-lint` still not installed.

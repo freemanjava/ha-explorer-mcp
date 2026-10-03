@@ -313,3 +313,44 @@ func (c *countingHistoryReader) History(_ context.Context, id model.EntityID, _,
 	c.read = append(c.read, string(id))
 	return c.points, nil
 }
+
+func TestAnalyzeIntegrationHealth_Clusters_AtTheBoundaryCiteEvidenceInTheEnvelope(t *testing.T) {
+	opts := integrationHealthOptions(&fakeHistoryReader{points: flapping(40)}, integrationHealthInventory("loaded", 3),
+		downReader(), &fakeRepairReader{}, nil)
+	res, out := callAnalyzeIntegrationHealth(t, opts, map[string]any{"config_entry_id": "entry-hue"})
+	if res.IsError {
+		t.Fatalf("error result: %s", resultText(res))
+	}
+	if len(out.Clusters) == 0 {
+		t.Fatalf("no clusters in the response: %+v", out)
+	}
+	for _, c := range out.Clusters {
+		if !slices.ContainsFunc(out.Evidence, func(e model.Evidence) bool { return e.ID == c.Evidence }) {
+			t.Errorf("cluster names %q, which is not in the evidence", c.Evidence)
+		}
+		if tr := slices.IndexFunc(c.Shared, func(t model.ClusterTrait) bool { return t.Kind == model.TraitConfigEntry }); tr < 0 {
+			t.Errorf("shared = %+v, want the config entry", c.Shared)
+		}
+	}
+	raw, _ := json.Marshal(res.StructuredContent)
+	if !strings.Contains(string(raw), `"Clusters"`) {
+		t.Errorf("response carries no clusters list: %s", raw)
+	}
+}
+
+func TestAnalyzeIntegrationHealth_Clusters_PrivateMemberUnderDeny_NeverListed(t *testing.T) {
+	inv := integrationHealthInventory("loaded", 2)
+	inv.entities = append(inv.entities, model.Entity{ID: "lock.front_door", ConfigEntryID: "entry-hue", Platform: "hue", DeviceID: "dev1"})
+	opts := integrationHealthOptions(&fakeHistoryReader{points: flapping(40)}, inv, downReader(), &fakeRepairReader{}, nil)
+	opts.Profile = policy.Profile{Private: policy.HandlingDeny}
+
+	_, out := callAnalyzeIntegrationHealth(t, opts, map[string]any{"config_entry_id": "entry-hue"})
+	if len(out.Clusters) == 0 {
+		t.Fatal("no clusters to check")
+	}
+	for _, c := range out.Clusters {
+		if slices.Contains(c.Members, "lock.front_door") {
+			t.Errorf("a withheld entity is listed as a member: %+v", c.Members)
+		}
+	}
+}

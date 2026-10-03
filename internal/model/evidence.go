@@ -187,6 +187,38 @@ type NextAction struct {
 	Tool string
 }
 
+// TraitKind names a registry property cluster members can share.
+type TraitKind string
+
+const (
+	TraitDevice      TraitKind = "device"
+	TraitViaDevice   TraitKind = "via_device"
+	TraitConfigEntry TraitKind = "config_entry"
+	TraitArea        TraitKind = "area"
+)
+
+// ClusterTrait is a registry value every member of a cluster has in common.
+// The value is a registry id used as a lookup key, never HA-authored text
+// (D-05-8). It is evidence about the cluster, never a claim that the shared
+// thing made the members go down (D-05-3).
+type ClusterTrait struct {
+	Kind  TraitKind
+	Value string
+}
+
+// ClusterAnnotation is the topology of one outage cluster: who is in it and
+// what they share. It points at the cluster's Evidence by id instead of
+// widening Evidence, which stays measurement-only (D-05-8). Shared lists what
+// every member has in common; Withheld lists traits that are shared but true
+// of so much of the installation that naming them would distinguish nothing
+// (F-27). A trait in neither list is not shared or not known.
+type ClusterAnnotation struct {
+	Evidence EvidenceID
+	Members  []EntityID
+	Shared   []ClusterTrait
+	Withheld []ClusterTrait
+}
+
 // HealthAnalysis is the envelope analyze_entity_health and
 // analyze_integration_health return (Appendix A.3). Hypotheses are ranked,
 // most supported first. There is no score field (D-05-4).
@@ -197,6 +229,7 @@ type HealthAnalysis struct {
 	To         time.Time
 
 	Evidence        []Evidence
+	Clusters        []ClusterAnnotation
 	Hypotheses      []Hypothesis
 	MissingEvidence []MissingEvidence
 	NextActions     []NextAction

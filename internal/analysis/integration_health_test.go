@@ -272,3 +272,69 @@ func TestAnalyzeIntegrationHealth_InvalidWindow_Error(t *testing.T) {
 		t.Fatalf("err = %v, want ErrInvalidWindow", err)
 	}
 }
+
+func TestAnalyzeIntegrationHealth_Clusters_EachNamesPresentEvidence(t *testing.T) {
+	in := integrationInput()
+	in.Outages = twoEntityCluster()
+	got, _ := AnalyzeIntegrationHealth(in)
+
+	if len(got.Clusters) != 1 {
+		t.Fatalf("clusters = %d, want 1", len(got.Clusters))
+	}
+	for _, c := range got.Clusters {
+		ev, ok := evidenceByID(got, c.Evidence)
+		if !ok {
+			t.Fatalf("annotation names %q, which is not in the evidence (orphan)", c.Evidence)
+		}
+		if int(ev.Measurements["entities"]) != len(c.Members) {
+			t.Errorf("members = %v, evidence says %v entities", c.Members, ev.Measurements["entities"])
+		}
+	}
+}
+
+func TestAnalyzeIntegrationHealth_ClusterWithoutSharedTrait_StillListedWithEmptyTraits(t *testing.T) {
+	in := integrationInput()
+	in.Outages = []EntityOutages{
+		outageInput("light.a", "dev1", "entry-a", "", [2]int{100, 160}),
+		outageInput("light.b", "dev2", "entry-b", "", [2]int{101, 158}),
+	}
+	got, _ := AnalyzeIntegrationHealth(in)
+
+	if len(got.Clusters) != 1 {
+		t.Fatalf("clusters = %d, want the cluster kept despite sharing nothing", len(got.Clusters))
+	}
+	if c := got.Clusters[0]; len(c.Shared) != 0 || len(c.Withheld) != 0 || len(c.Members) != 2 {
+		t.Errorf("annotation = %+v, want two members and no traits", c)
+	}
+}
+
+func TestAnalyzeIntegrationHealth_Clusters_ParentOfPartShared_StarWithheld(t *testing.T) {
+	star := integrationInput()
+	star.Devices = zigbeeStar()
+	star.Outages = []EntityOutages{
+		outageInput("switch.plug", "plug", "zigbee", "", [2]int{100, 130}),
+		outageInput("light.bulb", "bulb", "zigbee", "", [2]int{101, 129}),
+	}
+	got, _ := AnalyzeIntegrationHealth(star)
+	c := got.Clusters[0]
+	if tr, ok := hasTrait(c.Withheld, model.TraitViaDevice); !ok || tr.Value != "coordinator" {
+		t.Errorf("withheld = %+v, want the coordinator star", c.Withheld)
+	}
+	if _, ok := hasTrait(c.Shared, model.TraitViaDevice); ok {
+		t.Error("star parent serialized as shared (F-27)")
+	}
+
+	partial := star
+	partial.Devices = append(zigbeeStar(), model.DeviceRef{ID: "direct", ConfigEntryID: "zigbee"})
+	got, _ = AnalyzeIntegrationHealth(partial)
+	if tr, ok := hasTrait(got.Clusters[0].Shared, model.TraitViaDevice); !ok || tr.Value != "coordinator" {
+		t.Errorf("shared = %+v, want the parent of part of the entry", got.Clusters[0].Shared)
+	}
+}
+
+func TestAnalyzeIntegrationHealth_NoCluster_ClustersNil(t *testing.T) {
+	got, _ := AnalyzeIntegrationHealth(integrationInput())
+	if len(got.Clusters) != 0 {
+		t.Errorf("clusters = %+v, want none", got.Clusters)
+	}
+}

@@ -82,6 +82,7 @@ func AnalyzeIntegrationHealth(in IntegrationHealthInput) (model.HealthAnalysis, 
 		From:            in.From,
 		To:              in.To,
 		Evidence:        b.evidence,
+		Clusters:        b.annotations,
 		Hypotheses:      b.hypotheses,
 		MissingEvidence: b.missing,
 		NextActions:     b.nextActions(),
@@ -98,8 +99,9 @@ type integrationBuilder struct {
 	in      IntegrationHealthInput
 	missing []model.MissingEvidence
 
-	clusters []model.EvidenceID
-	loaded   bool
+	clusters    []model.EvidenceID
+	annotations []model.ClusterAnnotation
+	loaded      bool
 }
 
 func (b *integrationBuilder) addClusterEvidence() error {
@@ -113,6 +115,12 @@ func (b *integrationBuilder) addClusterEvidence() error {
 	for _, c := range res.Clusters {
 		b.evidence = append(b.evidence, c.Evidence)
 		b.clusters = append(b.clusters, c.Evidence.ID)
+		b.annotations = append(b.annotations, model.ClusterAnnotation{
+			Evidence: c.Evidence.ID,
+			Members:  c.Members,
+			Shared:   c.Shared,
+			Withheld: c.Withheld,
+		})
 	}
 	if n := len(res.UnavailableThroughout); n > 0 {
 		b.evidence = append(b.evidence, model.Evidence{
