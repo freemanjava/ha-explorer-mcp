@@ -60,6 +60,11 @@ func TestHypothesis_HasNoFactField(t *testing.T) {
 	assertNoField(t, reflect.TypeOf(Hypothesis{}), factFieldNames)
 }
 
+func TestClusterAnnotation_HasNoInferenceField(t *testing.T) {
+	assertNoField(t, reflect.TypeOf(ClusterAnnotation{}), inferenceFieldNames)
+	assertNoField(t, reflect.TypeOf(ClusterTrait{}), inferenceFieldNames)
+}
+
 func TestMissingEvidenceAndNextAction_HaveNoInferenceField(t *testing.T) {
 	assertNoField(t, reflect.TypeOf(MissingEvidence{}), inferenceFieldNames)
 	assertNoField(t, reflect.TypeOf(NextAction{}), []string{"inference", "hypothesis", "confidence", "cause", "rootcause"})

@@ -3,10 +3,10 @@
 <!-- BOUNDED FILE — rewritten in place, never appended to. Keep under ~100 lines.
      Anything that grows goes to journal/. This file is read by every session. -->
 
-**▶ Active:** `P5-14` — cluster topology in the response (D-05-8) · phase 05 ·
-default model. `HealthAnalysis.Clusters` beside `evidence`: per cluster its
-evidence id, members, `shared`/`withheld` traits; `Evidence` unchanged. Trait
-types move into `model`. Branch `feat/P5-14` from `main`.
+**▶ Active:** `P5-15` — mesh-metric evidence, flat analyzer (D-05-5, D-05-9) ·
+phase 05 · default model. New `internal/analysis/mesh.go`: `ResolveMeshMetrics`
+picks link-quality/signal entities by `device_class` then a hint table; evidence
+only, no threshold hypothesis. Branch `feat/P5-15` from `main`.
 
 > Advancing this pointer is part of finishing a task, together with ticking the
 > box, recomputing status and appending a journal entry. All four, or none.
@@ -24,12 +24,11 @@ cycle. Remove a row when its task closes.
 
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
-| 1 | `P5-14` | cluster topology in the response (D-05-8) | 05 | default | |
-| 2 | `P5-15` | mesh-metric evidence, flat analyzer (D-05-5, D-05-9) | 05 | default | |
-| 3 | `P5-16` | privileged-host + neighbour-table `missing_evidence` rows | 05 | default | |
-| 4 | `P5-08` | investigation 2 — doc §13.2 e2e (closes F-27, F-35) | 05 | default | `blocked:P5-14,P5-15,P5-16` |
-| 5 | `P5-10` | measure composite budget (F-26); observe F-28, F-31 | 05 | default | `needs-verify` |
-| 6 | `P5-09` | investigation 3 — mass unavailability vs. HA restart | 05 | default | |
+| 1 | `P5-15` | mesh-metric evidence, flat analyzer (D-05-5, D-05-9) | 05 | default | |
+| 2 | `P5-16` | privileged-host + neighbour-table `missing_evidence` rows | 05 | default | |
+| 3 | `P5-08` | investigation 2 — doc §13.2 e2e (closes F-27, F-35) | 05 | default | `blocked:P5-15,P5-16` |
+| 4 | `P5-10` | measure composite budget (F-26); observe F-28, F-31 | 05 | default | `needs-verify` |
+| 5 | `P5-09` | investigation 3 — mass unavailability vs. HA restart | 05 | default | |
 
 **Ordering rationale (2026-10-03 second `plan`, F-35).** Producers before the
 e2e that walks them, as for `P5-07`. `P5-14` goes first because `P5-16`'s host
@@ -102,13 +101,13 @@ done
 | 02 | Policy, Privacy, Budget & Audit | 8 / 8 |
 | 03 | MCP Server & Inventory Tools | 11 / 11 |
 | 04 | History, Statistics & Detection | 6 / 6 |
-| 05 | Diagnostics & Evidence Engine | 19 / 25 |
+| 05 | Diagnostics & Evidence Engine | 20 / 25 |
 | 06 | Proposal Mode — gated | 0 / 1 |
 | 07 | Controlled Change (Admin) — gated | 0 / 1 |
 
 Counts include each phase's decision entries, which are boxes too. Phase 05's
-19 ticked are D-05-1…9 and the `P5-01`…`P5-07`, `P5-11`…`P5-13` task boxes; its six remaining
-are task boxes (`P5-08`…`P5-10`, `P5-14`…`P5-16`), and no decision entry in the phase is open. Phase 02 is
+20 ticked are D-05-1…9 and the `P5-01`…`P5-07`, `P5-11`…`P5-14` task boxes; its five remaining
+are task boxes (`P5-08`…`P5-10`, `P5-15`, `P5-16`), and no decision entry in the phase is open. Phase 02 is
 complete: its last box, the Q10 persistence decision, closed 2026-10-03.
 
 Phases 00–04 are milestone M1 (v1 observer) and are **fully implemented**.
@@ -116,7 +115,7 @@ Phase 05 is M2, and is where the last two catalog rows
 (`analyze_entity_health`, `analyze_integration_health`) became real. Phases 06–07 are gated: they open only on an
 explicit owner decision plus a fresh security review, and carry no task boxes.
 
-Last refreshed: 2026-10-03 (`plan`, F-35 split)
+Last refreshed: 2026-10-03 (`P5-14`)
 
 ## Open findings
 
@@ -135,7 +134,7 @@ Last refreshed: 2026-10-03 (`plan`, F-35 split)
 
 Five `queue-next`, all attached to queued boxes and closing with them:
 **F-26** → `P5-10`; **F-27** → `P5-08` (its neighbour-table half → `P5-16`);
-**F-35** → `P5-14`…`P5-16`, closing with `P5-08`; **F-28** (`unknown`) and **F-31**
+**F-35** → `P5-15`, `P5-16`, `P5-08`, closing with `P5-08`; **F-28** (`unknown`) and **F-31**
 (`unknown`, no evidence for "HA restarted") → observed in `P5-10`'s live run,
 before `P5-09`. Five
 `defer`s: **F-17** and **F-25** wait on the first production
@@ -151,6 +150,10 @@ open `unknown`s are F-17, F-28 and F-31.
 
 Last 5 closed tasks, one line each. Older entries live in `journal/`.
 
+- 2026-10-03 · `P5-14` — `HealthAnalysis.Clusters` (`model.ClusterAnnotation`):
+  per cluster its evidence id, members, `Shared`/`Withheld` traits; trait types
+  moved into `model`; `Evidence` unchanged. Star parent withheld, part-of-entry
+  parent shared.
 - 2026-10-03 · `P5-07` — §13.1 end to end in `investigation_test.go`: happy path
   cites existing evidence, traces-refused branch strictly lower, fully non-admin
   names both gated sources with no hypothesis (F-34). Closes F-30.
@@ -168,8 +171,3 @@ Last 5 closed tasks, one line each. Older entries live in `journal/`.
   `UnextractedRefs`, never echoed); `get_automation` withholds PRIVATE
   entities under deny (`DependsWithheld`). Device-trigger `entity_id` uuids
   land in `UnextractedRefs` by design.
-- 2026-10-03 · `P5-06` — `analyze_integration_health`: setup state, inventory
-  ratio, domain repairs, clusters over the entry's entities, Supervisor
-  resolution counts (absence named, call still answers). History read for ≤25
-  entities, down-now first, the rest named in `missing_evidence` (P5-10 to
-  measure).

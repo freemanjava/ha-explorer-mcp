@@ -31,26 +31,8 @@ type EntityOutages struct {
 	Degraded     bool
 }
 
-// TraitKind names a registry property cluster members can share.
-type TraitKind string
-
-const (
-	TraitDevice      TraitKind = "device"
-	TraitViaDevice   TraitKind = "via_device"
-	TraitConfigEntry TraitKind = "config_entry"
-	TraitArea        TraitKind = "area"
-)
-
 // traitOrder fixes the order traits are listed in, so output is deterministic.
-var traitOrder = [...]TraitKind{TraitDevice, TraitViaDevice, TraitConfigEntry, TraitArea}
-
-// SharedTrait is a registry value every member of a cluster has in common. It
-// is evidence about the cluster, never a claim that the shared thing made the
-// members go down (D-05-3).
-type SharedTrait struct {
-	Kind  TraitKind
-	Value string
-}
+var traitOrder = [...]model.TraitKind{model.TraitDevice, model.TraitViaDevice, model.TraitConfigEntry, model.TraitArea}
 
 // OutageCluster is a set of entities whose unavailable windows overlapped
 // within outageClusterTolerance. Shared lists what every member has in
@@ -63,8 +45,8 @@ type OutageCluster struct {
 	To      time.Time
 	Members []model.EntityID
 
-	Shared   []SharedTrait
-	Withheld []SharedTrait
+	Shared   []model.ClusterTrait
+	Withheld []model.ClusterTrait
 
 	// Evidence is the cluster as a citable measurement. Its SampleSize is the
 	// number of outage windows clustered; Coverage and Degraded are the
@@ -231,14 +213,14 @@ func coverageOf(r AvailabilityReport) float64 {
 
 // annotate returns the traits every member shares, split into those worth
 // naming and those withheld as vacuous.
-func annotate(members []EntityOutages, topo topology) (shared, withheld []SharedTrait) {
+func annotate(members []EntityOutages, topo topology) (shared, withheld []model.ClusterTrait) {
 	for _, kind := range traitOrder {
 		value, ok := commonValue(members, func(m EntityOutages) string { return topo.trait(kind, m.Entity) })
 		if !ok {
 			continue
 		}
-		tr := SharedTrait{Kind: kind, Value: value}
-		if kind == TraitViaDevice && topo.vacuousParent(model.DeviceID(value), members) {
+		tr := model.ClusterTrait{Kind: kind, Value: value}
+		if kind == model.TraitViaDevice && topo.vacuousParent(model.DeviceID(value), members) {
 			withheld = append(withheld, tr)
 			continue
 		}
@@ -295,15 +277,15 @@ func newTopology(devices []model.DeviceRef) topology {
 
 // trait resolves one entity's value for kind. An entity's own area overrides
 // its device's, as it does in HA.
-func (t topology) trait(kind TraitKind, e model.Entity) string {
+func (t topology) trait(kind model.TraitKind, e model.Entity) string {
 	switch kind {
-	case TraitDevice:
+	case model.TraitDevice:
 		return string(e.DeviceID)
-	case TraitViaDevice:
+	case model.TraitViaDevice:
 		return string(t.devices[e.DeviceID].ViaDeviceID)
-	case TraitConfigEntry:
+	case model.TraitConfigEntry:
 		return string(e.ConfigEntryID)
-	case TraitArea:
+	case model.TraitArea:
 		if e.AreaID != "" {
 			return string(e.AreaID)
 		}

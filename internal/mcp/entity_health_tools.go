@@ -49,6 +49,7 @@ type HealthResponse struct {
 	To         time.Time
 
 	Evidence        []model.Evidence
+	Clusters        []model.ClusterAnnotation
 	Hypotheses      []HypothesisView
 	MissingEvidence []model.MissingEvidence
 	NextActions     []model.NextAction
@@ -314,11 +315,25 @@ func renderHealth(a model.HealthAnalysis) HealthResponse {
 		From:            a.From,
 		To:              a.To,
 		Evidence:        nonNil(a.Evidence),
+		Clusters:        renderClusters(a.Clusters),
 		Hypotheses:      hypotheses,
 		MissingEvidence: nonNil(a.MissingEvidence),
 		NextActions:     nonNil(a.NextActions),
 		Provenance:      a.Provenance,
 	}
+}
+
+// renderClusters keeps traits serializing as [] rather than null, so a cluster
+// that shares nothing reads as "nothing shared", not "not checked" (rule 7).
+func renderClusters(in []model.ClusterAnnotation) []model.ClusterAnnotation {
+	out := make([]model.ClusterAnnotation, 0, len(in))
+	for _, c := range in {
+		c.Members = nonNil(c.Members)
+		c.Shared = nonNil(c.Shared)
+		c.Withheld = nonNil(c.Withheld)
+		out = append(out, c)
+	}
+	return out
 }
 
 // nonNil keeps an empty list serializing as [] rather than null: "none" and

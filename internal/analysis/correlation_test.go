@@ -77,13 +77,13 @@ func members(c OutageCluster) []string {
 	return out
 }
 
-func hasTrait(traits []SharedTrait, kind TraitKind) (SharedTrait, bool) {
+func hasTrait(traits []model.ClusterTrait, kind model.TraitKind) (model.ClusterTrait, bool) {
 	for _, tr := range traits {
 		if tr.Kind == kind {
 			return tr, true
 		}
 	}
-	return SharedTrait{}, false
+	return model.ClusterTrait{}, false
 }
 
 func TestClusterOutages_InvalidWindow_Error(t *testing.T) {
@@ -128,13 +128,13 @@ func TestClusterOutages_OneCleanCluster_AnnotatedWithSharedHub(t *testing.T) {
 	if !c.From.Equal(minute(100)) || !c.To.Equal(minute(140)) {
 		t.Errorf("span = %s..%s, want 100..140 min", c.From, c.To)
 	}
-	for kind, want := range map[TraitKind]string{TraitViaDevice: "hub_a", TraitConfigEntry: "bridge", TraitArea: "kitchen"} {
+	for kind, want := range map[model.TraitKind]string{model.TraitViaDevice: "hub_a", model.TraitConfigEntry: "bridge", model.TraitArea: "kitchen"} {
 		tr, ok := hasTrait(c.Shared, kind)
 		if !ok || tr.Value != want {
 			t.Errorf("shared %s = %+v (present %v), want %q", kind, tr, ok, want)
 		}
 	}
-	if _, ok := hasTrait(c.Shared, TraitDevice); ok {
+	if _, ok := hasTrait(c.Shared, model.TraitDevice); ok {
 		t.Error("members on two devices must not be annotated as sharing a device")
 	}
 	if len(c.Withheld) != 0 {
@@ -184,7 +184,7 @@ func TestClusterOutages_TwoClusters_OrderedByTime(t *testing.T) {
 	if want := []string{"sensor.late1", "sensor.late2"}; !reflect.DeepEqual(members(got.Clusters[1]), want) {
 		t.Errorf("second = %v, want %v", members(got.Clusters[1]), want)
 	}
-	if tr, ok := hasTrait(got.Clusters[1].Shared, TraitDevice); !ok || tr.Value != "b1" {
+	if tr, ok := hasTrait(got.Clusters[1].Shared, model.TraitDevice); !ok || tr.Value != "b1" {
 		t.Errorf("second cluster shared device = %+v, want b1", tr)
 	}
 	if got.Clusters[0].Evidence.ID == got.Clusters[1].Evidence.ID {
@@ -204,12 +204,12 @@ func TestClusterOutages_CoincidentalOverlap_NoSharedParentClaim(t *testing.T) {
 		t.Fatalf("clusters = %d, want 1 time cluster", len(got.Clusters))
 	}
 	c := got.Clusters[0]
-	for _, kind := range []TraitKind{TraitDevice, TraitViaDevice, TraitArea} {
+	for _, kind := range []model.TraitKind{model.TraitDevice, model.TraitViaDevice, model.TraitArea} {
 		if tr, ok := hasTrait(c.Shared, kind); ok {
 			t.Errorf("coincidental overlap annotated with shared %s %q", kind, tr.Value)
 		}
 	}
-	if _, ok := hasTrait(c.Withheld, TraitViaDevice); ok {
+	if _, ok := hasTrait(c.Withheld, model.TraitViaDevice); ok {
 		t.Error("different parents are not shared at all, so nothing is withheld")
 	}
 }
@@ -229,14 +229,14 @@ func TestClusterOutages_CoordinatorStar_ViaDeviceWithheld(t *testing.T) {
 		t.Fatalf("clusters = %d, want 1", len(got.Clusters))
 	}
 	c := got.Clusters[0]
-	if tr, ok := hasTrait(c.Shared, TraitViaDevice); ok {
+	if tr, ok := hasTrait(c.Shared, model.TraitViaDevice); ok {
 		t.Fatalf("star parent %q annotated as shared — vacuous for a coordinator star (F-27)", tr.Value)
 	}
-	tr, ok := hasTrait(c.Withheld, TraitViaDevice)
+	tr, ok := hasTrait(c.Withheld, model.TraitViaDevice)
 	if !ok || tr.Value != "coordinator" {
 		t.Errorf("withheld = %+v, want via_device coordinator", c.Withheld)
 	}
-	if tr, ok := hasTrait(c.Shared, TraitConfigEntry); !ok || tr.Value != "zigbee" {
+	if tr, ok := hasTrait(c.Shared, model.TraitConfigEntry); !ok || tr.Value != "zigbee" {
 		t.Errorf("shared config entry = %+v, want zigbee", tr)
 	}
 }
@@ -251,7 +251,7 @@ func TestClusterOutages_ParentOfPartOfEntry_Shared(t *testing.T) {
 		outageInput("light.bulb", "bulb", "zigbee", "", [2]int{101, 129}),
 	}, devices)
 	c := got.Clusters[0]
-	if tr, ok := hasTrait(c.Shared, TraitViaDevice); !ok || tr.Value != "coordinator" {
+	if tr, ok := hasTrait(c.Shared, model.TraitViaDevice); !ok || tr.Value != "coordinator" {
 		t.Errorf("shared via = %+v, want coordinator — it no longer parents the whole entry", tr)
 	}
 	if len(c.Withheld) != 0 {
@@ -268,14 +268,14 @@ func TestClusterOutages_EntityAreaOverridesDeviceArea(t *testing.T) {
 		outageInput("sensor.a", "d1", "e", "", [2]int{10, 20}),
 		outageInput("sensor.b", "d2", "e", "attic", [2]int{12, 22}),
 	}, devices)
-	if tr, ok := hasTrait(got.Clusters[0].Shared, TraitArea); ok {
+	if tr, ok := hasTrait(got.Clusters[0].Shared, model.TraitArea); ok {
 		t.Errorf("shared area %q, want none — sensor.b's own area is attic", tr.Value)
 	}
 	got = mustCluster(t, []EntityOutages{
 		outageInput("sensor.a", "d1", "e", "", [2]int{10, 20}),
 		outageInput("sensor.b", "d2", "e", "", [2]int{12, 22}),
 	}, devices)
-	if tr, ok := hasTrait(got.Clusters[0].Shared, TraitArea); !ok || tr.Value != "garage" {
+	if tr, ok := hasTrait(got.Clusters[0].Shared, model.TraitArea); !ok || tr.Value != "garage" {
 		t.Errorf("shared area = %+v, want garage inherited from both devices", tr)
 	}
 }

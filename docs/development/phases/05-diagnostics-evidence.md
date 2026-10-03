@@ -231,7 +231,7 @@ mesh analyzer, and a host-evidence `missing_evidence` row. Same shape as F-30
 for `P5-07`: three building boxes, `P5-14`, `P5-15` and `P5-16`, plus `P5-08`
 reduced to the end-to-end test. Decided as **D-05-8** and **D-05-9** below.
 
-- [ ] **`P5-14` · Cluster topology in the response** — per D-05-8
+- [x] **`P5-14` · Cluster topology in the response** — per D-05-8
   Home: `internal/model/evidence.go` gains, additively, `ClusterAnnotation`
   (`Evidence EvidenceID`, `Members []EntityID`, `Shared`, `Withheld
   []ClusterTrait`) and `HealthAnalysis.Clusters`; `TraitKind`/`SharedTrait`
