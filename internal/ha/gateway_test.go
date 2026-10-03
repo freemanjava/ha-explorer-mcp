@@ -3,6 +3,11 @@ package ha
 import (
 	"context"
 	"errors"
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"io/fs"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -280,4 +285,130 @@ func TestAllowList_PermittedCommandsAreSent(t *testing.T) {
 	if got, want := len(rec.transmitted()), len(allowedCommands); got != want {
 		t.Fatalf("%d commands reached the socket, want %d", got, want)
 	}
+}
+
+// TestGateway_StatisticsCommands_Denied pins F-25: the recorder statistics
+// commands left the allow-list because nothing calls them, and must now be
+// refused by the ordinary not-allow-listed path, before any bytes are sent.
+func TestGateway_StatisticsCommands_Denied(t *testing.T) {
+	m, rec := startGatewayFixture(t)
+	waitConnected(t, m)
+
+	for _, name := range []string{
+		"recorder/list_statistic_ids",
+		"recorder/get_statistics_metadata",
+		"recorder/statistics_during_period",
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := checkCommand(name); !errors.Is(err, ErrPolicyDenied) || !strings.Contains(err.Error(), "not allow-listed") {
+				t.Fatalf("checkCommand(%q) = %v, want ErrPolicyDenied via the allow-list", name, err)
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if _, err := m.Call(ctx, BareCommand(name)); !errors.Is(err, ErrPolicyDenied) {
+				t.Fatalf("Call(%q) returned %v, want ErrPolicyDenied", name, err)
+			}
+			assertNotTransmitted(t, rec, name)
+		})
+	}
+}
+
+// TestGateway_AllowList_EveryEntryHasACaller fails when an allow-listed
+// command or route constant is referenced nowhere outside gateway.go. The
+// allow-list is the security boundary; an entry with no caller widens it for
+// nothing (F-25). Production files only: a test calling a constant is not a
+// reason to ship it.
+func TestGateway_AllowList_EveryEntryHasACaller(t *testing.T) {
+	listed := allowListedConstants(t)
+	if len(listed) == 0 {
+		t.Fatal("found no allow-listed constants in gateway.go; the parser is not proving anything")
+	}
+	used := identifiersOutsideGateway(t)
+	for _, name := range listed {
+		_, exempt := uncalledAllowListEntries[name]
+		switch {
+		case !used[name] && !exempt:
+			t.Errorf("allow-listed %s is referenced by no production file outside gateway.go", name)
+		case used[name] && exempt:
+			t.Errorf("%s now has a caller; remove it from uncalledAllowListEntries", name)
+		}
+	}
+}
+
+// uncalledAllowListEntries are allow-listed commands the reachability check
+// found uncalled when it was written (P8-03). They are outside P8-03's three
+// statistics commands, so they are tracked by F-40 rather than deleted here;
+// the set may only shrink.
+var uncalledAllowListEntries = map[string]struct{}{
+	"CommandAuthCurrentUser":              {},
+	"CommandEntityRegistryListForDisplay": {},
+	"CommandEntityRegistryGet":            {},
+	"CommandCategoryRegistryList":         {},
+	"CommandTraceGet":                     {},
+	"CommandTraceContexts":                {},
+}
+
+// allowListedConstants returns the constant names used as keys of the
+// allowed* maps in gateway.go.
+func allowListedConstants(t *testing.T) []string {
+	t.Helper()
+	file, err := parser.ParseFile(token.NewFileSet(), "gateway.go", nil, 0)
+	if err != nil {
+		t.Fatalf("parse gateway.go: %v", err)
+	}
+	var names []string
+	ast.Inspect(file, func(n ast.Node) bool {
+		spec, ok := n.(*ast.ValueSpec)
+		if !ok || len(spec.Names) != 1 || !strings.HasPrefix(spec.Names[0].Name, "allowed") {
+			return true
+		}
+		for _, v := range spec.Values {
+			lit, ok := v.(*ast.CompositeLit)
+			if !ok {
+				continue
+			}
+			for _, elt := range lit.Elts {
+				if kv, ok := elt.(*ast.KeyValueExpr); ok {
+					if id, ok := kv.Key.(*ast.Ident); ok {
+						names = append(names, id.Name)
+					}
+				}
+			}
+		}
+		return false
+	})
+	return names
+}
+
+// identifiersOutsideGateway collects every identifier (selector members
+// included, so ha.CommandX counts) used in the non-test Go files of internal/
+// other than gateway.go.
+func identifiersOutsideGateway(t *testing.T) map[string]bool {
+	t.Helper()
+	used := map[string]bool{}
+	fset := token.NewFileSet()
+	err := filepath.WalkDir(filepath.Join("..", "..", "internal"), func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		base := filepath.Base(path)
+		if !strings.HasSuffix(base, ".go") || strings.HasSuffix(base, "_test.go") || base == "gateway.go" {
+			return nil
+		}
+		file, err := parser.ParseFile(fset, path, nil, 0)
+		if err != nil {
+			return err
+		}
+		ast.Inspect(file, func(n ast.Node) bool {
+			if id, ok := n.(*ast.Ident); ok {
+				used[id.Name] = true
+			}
+			return true
+		})
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("walk internal/: %v", err)
+	}
+	return used
 }
