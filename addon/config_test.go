@@ -177,3 +177,32 @@ func TestAddonManifestDeclaresSettingsAsClosedLists(t *testing.T) {
 		}
 	}
 }
+
+// TestDockerfile_SetsBinaryVersionFromBuildArg guards F-39: the image's binary
+// must report the version config.yaml names, so the Dockerfile has to pass a
+// build arg into -X main.version rather than leave the 0.0.0-dev default.
+func TestDockerfile_SetsBinaryVersionFromBuildArg(t *testing.T) {
+	raw, err := os.ReadFile("../Dockerfile")
+	if err != nil {
+		t.Fatalf("read Dockerfile: %v", err)
+	}
+	dockerfile := string(raw)
+	if !strings.Contains(dockerfile, "ARG VERSION") {
+		t.Error("Dockerfile declares no ARG VERSION")
+	}
+	if !strings.Contains(dockerfile, "-X main.version=${VERSION}") {
+		t.Error("Dockerfile does not set -X main.version from the VERSION build arg")
+	}
+}
+
+// TestReleaseWorkflow_PassesManifestVersionAsBuildArg keeps the single source
+// of truth: release.yml feeds config.yaml's version into the image build.
+func TestReleaseWorkflow_PassesManifestVersionAsBuildArg(t *testing.T) {
+	raw, err := os.ReadFile("../.github/workflows/release.yml")
+	if err != nil {
+		t.Fatalf("read release.yml: %v", err)
+	}
+	if got := strings.Count(string(raw), "VERSION=${{ steps.version.outputs.version }}"); got != 2 {
+		t.Errorf("release.yml passes the VERSION build arg %d times, want 2 (one per image)", got)
+	}
+}

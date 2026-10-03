@@ -1142,8 +1142,8 @@ is a change to D-05-3 and wants its own decision.
 **What:** `Dockerfile` builds with `-ldflags="-s -w"` and no `-X main.version=…`; `cmd/server/main.go` keeps `var version = "0.0.0-dev"`. Observed on the Pi: the 0.9.0 image logs `"version":"0.0.0-dev"` (docs/research/2026-10-03-app-under-supervisor.md).
 **Impact:** the version in the startup log and the MCP `serverInfo` never matches `addon/config.yaml`, so a support report cannot say which build ran. Small; matters from v1.0.
 
-**Triage:** `queue-next`
-**Outcome:** planned 2026-10-03 into `P8-10`; the version comes from `addon/config.yaml` (single source of truth), not a second literal.
+**Triage:** `done`
+**Outcome:** planned 2026-10-03 into `P8-10`; the version comes from `addon/config.yaml` (single source of truth), not a second literal. **Closed 2026-10-03 by `P8-10`.**
 
 ### F-40 · Six more allow-listed commands have no production caller · 2026-10-03
 

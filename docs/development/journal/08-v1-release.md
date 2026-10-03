@@ -53,3 +53,8 @@ HTTP transport per D-08-4…D-08-11: `internal/mcp/transport_http.go` (gate + `R
 ### 2026-10-03 · P8-11
 Dropped six uncalled allow-list entries from `gateway.go`, deleted `uncalledAllowListEntries`; `TestGateway_UncalledCommands_Denied` asserts each is refused before transmission. Closes F-40.
 **Surprise:** none.
+
+### 2026-10-03 · P8-10
+`Dockerfile` takes `ARG VERSION` into `-X main.version`; `release.yml` passes config.yaml's version to both image builds. Observed: `docker build --build-arg VERSION=9.9.9-test` then run logs `"version":"9.9.9-test"`. Closes F-39.
+**Surprise:** none.
+**Left open:** `make release` still builds with the dev version (not the image path).
