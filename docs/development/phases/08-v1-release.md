@@ -20,7 +20,10 @@ Phase 05 (complete 2026-10-03). Opened by the owner at the 2026-10-03 `plan`.
 ## Add Under
 
 ```text
-addon/                 # version bump; whatever D-08-1 requires of the manifest
+addon/                 # version bump; D-08-1's port (closed by default), secret option, AppArmor
+cmd/server/            # transport selection and config (P8-02)
+internal/mcp/          # transport_http.go — Streamable HTTP beside stdio (P8-02)
+Dockerfile             # -X main.version from addon/config.yaml (P8-10)
 docs/INSTALL.md        # how a client connects — absent today (F-37)
 docs/research/         # the P8-01 observation and the P8-05 acceptance report
 internal/ha/           # gateway_test.go — P8-03's reachability assertion
@@ -112,13 +115,74 @@ and run while the owner is busy there.
   **Done 2026-10-03:** golangci-lint 2.14.0; 13 issues fixed (12 `errcheck`, 1
   `staticcheck` QF1002), none needing a design change.
 
-- [ ] **`P8-02` · Implement the client path D-08-1 chooses** — `blocked:D-08-1`,
-  `live-verify`
-  *Written when D-08-1 is decided — not before.* Its DoD will at least require a
-  real MCP client completing `initialize` and `tools/list` against the App on
-  the Pi, and `docs/INSTALL.md` describing that connection step by step.
+- [ ] **`P8-08` · Security review of the HTTP transport (D-08-1)** — 🧠
+  The fresh review phase 01's decision demanded before any listener. Design
+  only; no code. Settle, as decision records in this file, each with the
+  rejected alternative: the auth check (header form, constant-time compare,
+  minimum secret length, what a missing/short secret does at start); the Origin
+  policy (absent vs present-and-foreign; which origins, if any, are allowed);
+  bind address and port number; request limits (body cap, header/read/idle
+  timeouts, max concurrent requests) and how they meet the existing query
+  budget; stateless vs sessions; how the transport is selected (option vs env)
+  and where config is read; what the audit record carries for an HTTP caller;
+  and what is never logged (the secret, the `Authorization` header). Verify,
+  don't assume, what go-sdk `v1.7.0`'s Streamable HTTP handler already does
+  (stateless mode, Origin/cross-origin checks, body limits) — record it in
+  `docs/research/`. Update the architecture doc: T5 (§4), §15.2 (a published
+  port, closed by default), and a new **ADR-013** in §24.
+  **DoD:** every item above has a decision record or a research entry it links;
+  doc §4/§15.2/§24 updated; the `P8-02` box below is amended where the review
+  changes it; any rule-level conflict filed as a finding, not decided here.
 
-- [ ] **`P8-05` · §21 acceptance walk on the Pi** — `blocked:P8-02`, `live-verify`
+- [ ] **`P8-02` · Streamable HTTP transport, selectable beside stdio** —
+  `blocked:P8-08`
+  Home: `internal/mcp` gains a transport choice behind `Run` (today
+  `server.go:143` hard-wires `StdioTransport`) — a new `transport_http.go`, not
+  a branch inside a tool; config parsing stays in `cmd/server`, the only place
+  that knows every layer. Implements exactly P8-08's records.
+  **DoD (tests first, network-free, `httptest`):** no `Authorization` ⇒ 401 and
+  the MCP server never sees the request; wrong secret ⇒ 401; foreign `Origin` ⇒
+  403; HTTP selected with the secret absent or too short ⇒ start refused with a
+  non-zero exit and a message that does not echo any value; correct secret ⇒
+  `initialize` and `tools/list` succeed and list the same tools as stdio; the
+  stdio path still passes its existing tests; body over the cap ⇒ rejected; the
+  secret appears in no log line, error string, audit record or response
+  (assertion, like token-never-returned); `SUPERVISOR_TOKEN` likewise. `make
+  check` green, `-race` included.
+
+- [ ] **`P8-09` · Package and connect: the App on the Pi with a real client**
+  — `blocked:P8-02`, `live-verify`
+  `addon/config.yaml`: the secret as a `password` option, the transport option,
+  `ports:` mapping P8-08's port to `null` (closed by default); `apparmor.txt`
+  allows accepting on that socket and nothing more; `addon/config_test.go`
+  asserts port-closed-by-default, `host_network: false`, no `ingress`.
+  `docs/INSTALL.md`: set the secret, open the port, connect Claude Code (HTTP
+  with header) and a stdio-only client via `mcp-proxy`, step by step.
+  **DoD:** on the Pi, with an image the owner publishes: App stays **Started**;
+  a real MCP client completes `initialize`, `tools/list` and one tool call over
+  the LAN; the same request without the secret gets 401; with the port left
+  closed the client cannot connect. Observations in
+  `docs/research/<date>-http-transport-on-pi.md`.
+
+- [ ] **`P8-10` · The binary reports the image's version (F-39)**
+  `addon/config.yaml`'s `version:` stays the single source: `release.yml`
+  already reads it; pass it as a Docker build arg into `-ldflags "-X
+  main.version=…"`. No second literal anywhere.
+  **DoD:** a test (beside `addon/config_test.go` or a `Dockerfile` assertion)
+  fails if the Dockerfile stops setting `-X main.version`; a local `docker
+  build --build-arg` run logs that version at start (observed, pasted in the
+  journal). `make check` green.
+
+- [ ] **`P8-11` · Drop the six uncalled allow-list entries (F-40, D-08-3)**
+  Remove `CommandAuthCurrentUser`, `CommandEntityRegistryListForDisplay`,
+  `CommandEntityRegistryGet`, `CommandCategoryRegistryList`, `CommandTraceGet`,
+  `CommandTraceContexts` from `internal/ha/gateway.go` and delete
+  `uncalledAllowListEntries`.
+  **DoD:** `TestGateway_AllowList_EveryEntryHasACaller` passes with no exemption
+  set; each dropped command is denied before transmission (existing
+  unknown-command test pattern, one case per command); `make check` green.
+
+- [ ] **`P8-05` · §21 acceptance walk on the Pi** — `blocked:P8-09`, `live-verify`
   For each of the twelve doc §21 criteria: the test(s) that assert it, by name,
   or a live observation on the Pi — at least: App running under protection mode
   on aarch64 with the §15.2 flags (`addon/config.yaml` as installed); Core
@@ -139,6 +203,17 @@ and run while the owner is busy there.
 
 ## Decisions
 
+- [x] **D-08-3 — The six uncalled allow-list entries are dropped, not kept for
+  later** — decided at the 2026-10-03 second `plan` (F-40)
+  No production reader calls them and no open box plans one. **Why:** the same
+  reasoning as D-08-2 — the allow-list is the reachable surface, and an entry
+  without a caller overstates it; CLAUDE.md "no speculative generality". A
+  future reader (`trace/get` for trace detail, `auth/current_user` for admin
+  detection) re-adds its entry in the same change as its caller. **Rejected:**
+  *keep `trace/get` and `auth/current_user` as "likely soon"* — that is the
+  speculative generality the rule names; *decide per entry later* — leaves the
+  exemption set alive with no owner. Owner may overturn at review.
+
 - [x] **D-08-2 — The Core REST adapter is deleted, not kept as a fallback** —
   decided at the 2026-10-03 `plan` (F-38)
   `P1-03` built it per doc §23 step 4; every reader since went over the
@@ -152,9 +227,30 @@ and run while the owner is busy there.
   exercised; *wire it somewhere so it has a caller* — inventing a consumer to
   justify code. Owner may overturn at review; the box is cheap to drop.
 
-- [ ] **D-08-1 — How an MCP client reaches the App-hosted server** —
-  `needs-decision`
-  The owner's to decide, on `P8-01`'s evidence. Options known before
+- [x] **D-08-1 — How an MCP client reaches the App-hosted server** — decided
+  by the owner 2026-10-03: **option (c), HTTP inside this App**
+  **Decision:** the App serves MCP over **Streamable HTTP** on a published port,
+  **LAN only**. The port is **closed by default** (`ports:` maps it to `null`);
+  the owner opens it on the App's Network tab. Clients authenticate with a
+  **secret the owner sets in the App options** (a `password` field) — never an
+  HA token, never passed on to Core (MCP spec: no token passthrough). Origin is
+  validated; the transport is stateless; no `host_network`, no Ingress. **Both
+  transports stay in the binary**, chosen by configuration: stdio for
+  development and `cmd/measure`, HTTP in the App. **Fail closed:** HTTP selected
+  with no secret set ⇒ the process refuses to start. Remote access (Nabu Casa,
+  reverse proxy) is **out of v1**.
+  **Why:** of the real options this is the only one where a leaked client
+  credential reaches no more than the read-only tools under the privacy
+  profile — (a) is host-root, (b) is an HA token with that user's write rights
+  on the client machine, which hollows out ADR-008 through the credential
+  rather than the code. (d) is void; (e) means leaving the App architecture.
+  **Supersedes** phase 01's "stdio only" decision in part (its rejected
+  "HTTP with a shared secret" is now chosen, with LAN-only and port-closed-by-
+  default as the bound on T5). As that decision required, this is not a
+  configuration change: **`P8-08` is the fresh security review**, and no HTTP
+  code lands before it.
+  **Rejected:** (a), (b), (d), (e) — reasons above and in the evidence below.
+  *Original question:* the owner's to decide, on `P8-01`'s evidence. Options known before
   observation, none chosen: *(a)* stdio through `docker exec -i` (from the SSH
   App or a host shell) — keeps phase 01's no-listener decision, but its
   prerequisites on the SSH side are unverified; *(b)* run the binary off-box
@@ -169,6 +265,16 @@ and run while the owner is busy there.
   option *(d)*: `stdin: true` in `config.yaml` with Supervisor holding stdin —
   keeps stdio and the no-listener decision, but nothing observed says a client
   can then reach it; untried (needs a new image).
+  **Evidence from F-41's verify (2026-10-03):** *(d) is void* — Supervisor's
+  stdin endpoint is write-only, no response channel. *(a)* needs the community
+  SSH App with `docker_api` and protection off (the official one has no Docker
+  at all) — host-root on the client side. *(b)* puts an HA long-lived token,
+  with that user's full write rights, on the client machine. *(c)* needs its
+  own App-issued credential (no HA-token passthrough, MCP spec) and `Origin`
+  validation; a leaked secret reaches only the read-only tools. New *(e)*: HA's
+  own model — a Core integration on `/api/mcp` with HA auth — real only by
+  reopening the architecture. Table and sources:
+  `docs/research/2026-10-03-mcp-client-paths.md`.
 
 ## Phase Definition of Done
 

@@ -245,6 +245,9 @@ internal/model/    # normalized domain types
   to stderr** — a stray write to stdout corrupts the protocol stream. Reopening
   this for a remote client is a new decision plus a fresh security review, not a
   configuration change.
+  **Superseded in part 2026-10-03 by D-08-1** (phase 08): the App serves
+  Streamable HTTP on a LAN port, closed by default, behind an owner-set secret;
+  stdio stays for development. Security review: `P8-08`.
 
 ## Phase Definition of Done
 

@@ -1120,7 +1120,7 @@ is a change to D-05-3 and wants its own decision.
 
 **Triage:** `queue-next`
 
-**Outcome:** Planned 2026-10-03 into `P8-01` (observe), `D-08-1` (owner chooses the client path on that evidence) and `P8-02` (implement it). Closes when `P8-02` closes.
+**Outcome:** Planned 2026-10-03 into `P8-01` (observe), `D-08-1` (owner chooses the client path on that evidence) and `P8-02` (implement it). D-08-1 decided 2026-10-03: HTTP inside the App; re-planned into `P8-08` (security review), `P8-02` (transport), `P8-09` (packaging + client on the Pi). Closes when `P8-09` closes.
 
 **Verification (2026-10-03, `P8-01`):** confirmed. With no stdin the process exits 0 ~65 ms after start, off-box and on the Pi, and stays stopped (watchdog off; no restart loop). With stdin held it serves `initialize`/`tools/list` correctly (off-box). `docker exec -i` from the SSH App is unavailable as shipped (`docker: command not found`). Not tried on the Pi: `stdin: true`. Evidence: `docs/research/2026-10-03-app-under-supervisor.md`.
 
@@ -1143,7 +1143,7 @@ is a change to D-05-3 and wants its own decision.
 **Impact:** the version in the startup log and the MCP `serverInfo` never matches `addon/config.yaml`, so a support report cannot say which build ran. Small; matters from v1.0.
 
 **Triage:** `queue-next`
-**Outcome:** to be planned; the version must come from `addon/config.yaml` (single source of truth), not a second literal.
+**Outcome:** planned 2026-10-03 into `P8-10`; the version comes from `addon/config.yaml` (single source of truth), not a second literal.
 
 ### F-40 · Six more allow-listed commands have no production caller · 2026-10-03
 
@@ -1152,7 +1152,7 @@ is a change to D-05-3 and wants its own decision.
 **Impact:** the same overstated-surface gap as F-25, six entries. All read-only. Whether each is dropped or is waiting for a planned reader (`trace/get`, `auth/current_user` for admin detection) needs a per-entry call.
 
 **Triage:** `queue-next`
-**Outcome:** to be planned: drop each or name its consumer, then delete the exemption set.
+**Outcome:** D-08-3 (drop all six; a future reader re-adds its entry with its caller); planned 2026-10-03 into `P8-11`.
 
 ### F-41 · Which client paths to the App actually work is unverified · 2026-10-03
 
@@ -1160,5 +1160,6 @@ is a change to D-05-3 and wants its own decision.
 **What:** D-08-1 rests on three unobserved facts: (1) whether `docker` is absent in the SSH App only because of its protection mode (Info page not read); (2) whether `stdin: true` plus a Supervisor attach path lets a client reach the App's stdio (never tried, needs a new image); (3) whether the 17:03:28Z start was manual. Owner asked for further checks in a fresh Opus session before deciding.
 **Impact:** unknown pending verification. It decides which of D-08-1 (a)–(d) are real options, and so the shape of `P8-02`…`P8-06`.
 
-**Triage:** `blocks-active`
+**Triage:** `done`
 **Outcome:** run `devflow verify` (evidence on default model, interpretation on Opus); then return to D-08-1 with the findings.
+**Verification (2026-10-03, Opus, from source):** (1) answered — the official SSH App declares no `docker_api` at all; protection mode is irrelevant. Only the community "Advanced SSH" App has Docker, with protection off (host-root). (2) answered, **option (d) void** — Supervisor's `POST /apps/{app}/stdin` writes and closes; stdout returns to no caller, only to the log. (3) moot once (d) is void. Ingress is cookie-session only, not an MCP client path. HA's own `mcp_server` is a Core integration on `/api/mcp` (stateless Streamable HTTP, HA OAuth/LLAT, admin by default). Evidence: `docs/research/2026-10-03-mcp-client-paths.md`. D-08-1 is now a pure owner decision among (a), (b), (c), (e).
