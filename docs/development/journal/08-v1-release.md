@@ -15,3 +15,8 @@ that is correct.
 Observed the App off-box and on the Pi: exits 0 ~65 ms after start, stays stopped; stdio serves when stdin is held. F-37 confirmed; D-08-1 unblocked.
 **Surprise:** I first read the log as a restart loop — wrong (7 min apart, watchdog off); the SSH App has no `docker` as shipped; the binary reports `0.0.0-dev` (F-39).
 **Left open:** `stdin: true` untried on the Pi; Core reachability seen only as "connection manager ready".
+
+### 2026-10-03 · P8-03
+Dropped the three recorder statistics commands from the allow-list; added `TestGateway_AllowList_EveryEntryHasACaller` (go/parser over `internal/`, shown red) and a denial test.
+**Surprise:** six other allow-listed commands are also uncalled (F-40); exempted by name in a shrink-only set rather than widening the box.
+**Left open:** F-40; REST routes still pass the check only because `rest.go` references them (P8-07).

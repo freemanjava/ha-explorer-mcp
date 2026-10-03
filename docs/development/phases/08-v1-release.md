@@ -68,7 +68,7 @@ and run while the owner is busy there.
   from the SSH App as shipped; `stdin: true` untried (needs an image change).
   Report: `docs/research/2026-10-03-app-under-supervisor.md`.
 
-- [ ] **`P8-03` · The allow-list matches the reachable surface (F-25)**
+- [x] **`P8-03` · The allow-list matches the reachable surface (F-25)**
   Delete `recorder/list_statistic_ids`, `recorder/get_statistics_metadata` and
   `recorder/statistics_during_period` from `allowedCommands` and their
   constants from `internal/ha/gateway.go` (no production code sends them; F-17
@@ -83,6 +83,8 @@ and run while the owner is busy there.
   not-allow-listed path, asserted). `policy.SourceStatistics` stays: it is
   policy, not gateway surface, and removing it is not this box. `make check`
   green.
+  **Done 2026-10-03:** the reachability test also found six more uncalled
+  entries (F-40); they sit in a shrink-only exemption set in the test.
 
 - [ ] **`P8-07` · Remove the unwired Core REST adapter (F-38)** — per D-08-2,
   `blocked:P8-03`

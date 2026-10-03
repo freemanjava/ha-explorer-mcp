@@ -52,14 +52,12 @@ const (
 	CommandTraceGet         = "trace/get"
 	CommandTraceContexts    = "trace/contexts"
 
-	// History, logbook and recorder statistics. Statistics are 1–3 orders of
-	// magnitude cheaper than raw history on a real recorder (P0-07), which is
-	// why all three statistics commands are listed and preferred.
-	CommandLogbookGetEvents       = "logbook/get_events"
-	CommandHistoryDuringPeriod    = "history/history_during_period"
-	CommandListStatisticIDs       = "recorder/list_statistic_ids"
-	CommandGetStatisticsMetadata  = "recorder/get_statistics_metadata"
-	CommandStatisticsDuringPeriod = "recorder/statistics_during_period"
+	// History and logbook. The recorder statistics commands are deliberately
+	// absent: no production call site sends them in v1 (F-17 wont-fix, F-36
+	// deferred), and an allow-list entry nobody calls is surface for nothing.
+	// A future statistics reader re-adds its command in the same change.
+	CommandLogbookGetEvents    = "logbook/get_events"
+	CommandHistoryDuringPeriod = "history/history_during_period"
 )
 
 // allowedCommands is an exact-match set — never a prefix or pattern rule. A
@@ -87,9 +85,6 @@ var allowedCommands = map[string]struct{}{
 	CommandTraceContexts:                {},
 	CommandLogbookGetEvents:             {},
 	CommandHistoryDuringPeriod:          {},
-	CommandListStatisticIDs:             {},
-	CommandGetStatisticsMetadata:        {},
-	CommandStatisticsDuringPeriod:       {},
 }
 
 // deniedCommands is a small, explicit deny set of known privileged escape

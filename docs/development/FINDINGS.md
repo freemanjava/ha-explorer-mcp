@@ -880,9 +880,9 @@ can actually reach is the durable fix; deleting the three entries is the
 alternative, and would have to be undone the moment a statistics-API source is
 wired.
 
-**Triage:** `queue-next`
+**Triage:** `done`
 
-**Outcome:** **Planned 2026-10-03 into `P8-03`** (`phases/08-v1-release.md`), by the standing decision below: Phase 05 closed without a statistics-API call site, so the three entries are deleted and `TestGateway_AllowList_EveryEntryHasACaller` asserts the property durably. Closes when `P8-03` closes. The same check exposed a larger case — the whole Core REST adapter — filed as F-38. Re-triaged at the 2026-09-05 Phase 05 `plan` and **left deferred** on the
+**Outcome:** **Planned 2026-10-03 into `P8-03`** (`phases/08-v1-release.md`), by the standing decision below: Phase 05 closed without a statistics-API call site, so the three entries are deleted and `TestGateway_AllowList_EveryEntryHasACaller` asserts the property durably. Closed 2026-10-03 by `P8-03`; the check found six more uncalled entries, filed as F-40. The same check exposed a larger case — the whole Core REST adapter — filed as F-38. Re-triaged at the 2026-09-05 Phase 05 `plan` and **left deferred** on the
 shared F-17 trigger, which Phase 05's boxes do not fire. Standing decision for
 the next `plan`, as this finding's own text anticipated: if Phase 05 closes
 without a statistics-API call site, the question becomes deletion of the three
@@ -1144,3 +1144,12 @@ is a change to D-05-3 and wants its own decision.
 
 **Triage:** `queue-next`
 **Outcome:** to be planned; the version must come from `addon/config.yaml` (single source of truth), not a second literal.
+
+### F-40 · Six more allow-listed commands have no production caller · 2026-10-03
+
+**Kind:** `inconsistency`
+**What:** `TestGateway_AllowList_EveryEntryHasACaller` (P8-03) found `CommandAuthCurrentUser`, `CommandEntityRegistryListForDisplay`, `CommandEntityRegistryGet`, `CommandCategoryRegistryList`, `CommandTraceGet` and `CommandTraceContexts` referenced by no production file outside `gateway.go`. They are exempted by name in `uncalledAllowListEntries` (shrink-only: the test fails when an exempt entry gains a caller).
+**Impact:** the same overstated-surface gap as F-25, six entries. All read-only. Whether each is dropped or is waiting for a planned reader (`trace/get`, `auth/current_user` for admin detection) needs a per-entry call.
+
+**Triage:** `queue-next`
+**Outcome:** to be planned: drop each or name its consumer, then delete the exemption set.
