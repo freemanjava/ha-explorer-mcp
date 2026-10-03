@@ -326,7 +326,7 @@ reduced to the end-to-end test. Decided as **D-05-8** and **D-05-9** below.
   `P5-10`'s live run checks whether the logbook's start/stop events are
   readable and observes F-28; this box's design starts from that report.
 
-- [ ] **`P5-10` · Measure the composite budget and re-class `find_stale_entities`
+- [x] **`P5-10` · Measure the composite budget and re-class `find_stale_entities`
   (F-26)** — `needs-verify`
   One measurement session on a real installation covering both unmeasured
   request budgets at once: `find_stale_entities` at `ClassNormalRead`, and the
@@ -501,6 +501,21 @@ reduced to the end-to-end test. Decided as **D-05-8** and **D-05-9** below.
   objection to an unexplainable number. **Rejected:** a named default
   threshold (a guess presented as a measurement). Reopen only with `P5-10`-style
   measurements behind a threshold, and only as an additive field.
+
+- [x] **D-05-10 — Budget classes stand as shipped: `find_stale_entities` stays at
+  `ClassNormalRead`; the three `analyze_*` tools keep `ClassComposite`**
+  F-26, decided with `P5-10` (owner, 2026-10-03: "keep 20").
+  **Evidence:** `docs/research/2026-10-03-composite-budget-measurement.md`.
+
+  A `find_stale_entities` page spent its full 20 requests and examined 20
+  entities (one recorder read each), at under 2 KB and 0.2–0.5 s; bytes and
+  deadline are nowhere near binding, requests are. Composite's 50 would raise a
+  page to 50 entities and cost the Pi 2.5× the recorder reads per call without
+  changing how many calls full coverage takes. The `analyze_*` tools used at most
+  36 of 50 requests (widest integration, 284 entities) with no refusal.
+  Rejected: re-classing the find tool to composite (more load for a constant
+  factor). Recorded, not built: a statistics-based staleness read (one batched
+  call) is the fix that would change the scaling — F-36.
 
 ## Phase Definition of Done
 

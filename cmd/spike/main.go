@@ -139,7 +139,7 @@ func run() error {
 	out.writef("# spike probe\n\n")
 	out.writef("Run at %s (UTC)\n\n", time.Now().UTC().Format(time.RFC3339))
 	out.writef("Always run: run context (admin?, entity count), `repairs/list_issues` (F-22), "+
-		"mesh/Zigbee metric normalization (P5-01, F-6, Q9). "+
+		"mesh/Zigbee metric normalization (P5-01, F-6, Q9), `logbook/get_events` restart rows (F-31). "+
 		"Set `SPIKE_COST_LADDER=1` to also re-run P0-09's multi-entity history/statistics cost "+
 		"ladder: every query bounded to an explicit window and id list, batched calls measured "+
 		"twice (cold, then warm) against a prefix-summed single-entity baseline. Windows: %s and "+
@@ -167,6 +167,7 @@ func run() error {
 
 	probeRepairs(ctx, out, conn, ids, red)
 	probeMesh(ctx, out, conn, ids, red)
+	probeLogbookRestart(ctx, out, conn, ids)
 	probeArrivalRate(ctx, out, conn, ids, entityIDs)
 
 	// The P0-09 cost ladder answered its own question once

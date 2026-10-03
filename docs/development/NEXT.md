@@ -3,10 +3,10 @@
 <!-- BOUNDED FILE — rewritten in place, never appended to. Keep under ~100 lines.
      Anything that grows goes to journal/. This file is read by every session. -->
 
-**▶ Active:** `P5-10` — measure the composite budget (F-26) and observe F-28, F-31 ·
-phase 05 · default model · `needs-verify`. One `cmd/spike` session on a real
-installation; the owner runs it and pastes the report (no token reaches the agent).
-Branch `feat/P5-10` from `main`.
+**▶ Active:** `P5-09` — investigation 3: mass unavailability vs. HA restart ·
+phase 05 · default model. Restart evidence exists (F-31 observed): the logbook's
+`homeassistant` `started`/`stopped` rows, which the shipped command cannot select
+and which must be read in a bounded window. Branch `feat/P5-09` from `main`.
 
 > Advancing this pointer is part of finishing a task, together with ticking the
 > box, recomputing status and appending a journal entry. All four, or none.
@@ -22,8 +22,7 @@ cycle. Remove a row when its task closes.
 
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
-| 1 | `P5-10` | measure composite budget (F-26); observe F-28, F-31 | 05 | default | `needs-verify` |
-| 2 | `P5-09` | investigation 3 — mass unavailability vs. HA restart | 05 | default | |
+| 1 | `P5-09` | investigation 3 — mass unavailability vs. HA restart | 05 | default | |
 
 **Ordering rationale (2026-10-03 second `plan`, F-35).** Producers before the
 e2e that walks them, as for `P5-07`. `P5-14` goes first because `P5-16`'s host
@@ -96,13 +95,13 @@ done
 | 02 | Policy, Privacy, Budget & Audit | 8 / 8 |
 | 03 | MCP Server & Inventory Tools | 11 / 11 |
 | 04 | History, Statistics & Detection | 6 / 6 |
-| 05 | Diagnostics & Evidence Engine | 23 / 25 |
+| 05 | Diagnostics & Evidence Engine | 25 / 26 |
 | 06 | Proposal Mode — gated | 0 / 1 |
 | 07 | Controlled Change (Admin) — gated | 0 / 1 |
 
 Counts include each phase's decision entries, which are boxes too. Phase 05's
-23 ticked are D-05-1…9 and the `P5-01`…`P5-08`, `P5-11`…`P5-16` task boxes; its two remaining
-are task boxes (`P5-09`, `P5-10`), and no decision entry in the phase is open. Phase 02 is
+25 ticked are D-05-1…10 and the `P5-01`…`P5-08`, `P5-10`…`P5-16` task boxes; its one remaining
+is a task box (`P5-09`), and no decision entry in the phase is open. Phase 02 is
 complete: its last box, the Q10 persistence decision, closed 2026-10-03.
 
 Phases 00–04 are milestone M1 (v1 observer) and are **fully implemented**.
@@ -110,7 +109,7 @@ Phase 05 is M2, and is where the last two catalog rows
 (`analyze_entity_health`, `analyze_integration_health`) became real. Phases 06–07 are gated: they open only on an
 explicit owner decision plus a fresh security review, and carry no task boxes.
 
-Last refreshed: 2026-10-03 (`P5-08`)
+Last refreshed: 2026-10-03 (`P5-10`)
 
 ## Open findings
 
@@ -118,7 +117,7 @@ Last refreshed: 2026-10-03 (`P5-08`)
      grep -c '^\*\*Triage:\*\* `queue-next`' docs/development/FINDINGS.md  (etc.)
      This block exists so captured work cannot quietly rot: every session sees it. -->
 
-`blocks-active` 0 · `queue-next` 3 · `defer` 5 · `unknown` 3 (open)
+`blocks-active` 0 · `queue-next` 1 · `defer` 6 · `unknown` 2 (open)
 
 > Any `blocks-active` is stop-work. If `queue-next` is non-zero and the queue
 > above has fewer than 3 rows, drain it with `devflow plan` before continuing —
@@ -127,23 +126,23 @@ Last refreshed: 2026-10-03 (`P5-08`)
 > An open `unknown` outranks the queue: it is an assumption the plan already
 > rests on. Run `devflow verify` before building further on it.
 
-Three `queue-next`, all attached to queued boxes and closing with them:
-**F-26** → `P5-10`; **F-28** (`unknown`) and **F-31**
-(`unknown`, no evidence for "HA restarted") → observed in `P5-10`'s live run,
-before `P5-09`. F-27 and F-35 closed with `P5-08`. Five
-`defer`s: **F-17** and **F-25** wait on the first production
-`Preflight(policy.SourceStatistics, …)` call site — **if Phase 05 closes with
-still none, F-17 becomes `wont-fix` and F-25 a deletion task, at that
-`plan`**; **F-32** is D-05-7's recorded fallback (`search/related`),
-triggered by evidence the mapper misses dependencies; **F-33** is the owner's
-phase 06 topic (help writing fixes/new automations), noted at that gate; **F-34**
-(non-admin principals get no automation hypotheses) waits on a non-admin deployment mattering. The
-open `unknown`s are F-17, F-28 and F-31.
+One `queue-next`: **F-31** (`unknown`, answered by `P5-10`'s observation; closes
+with `P5-09`, which owns the bounded logbook read). F-26 and F-28 closed with
+`P5-10` (D-05-10: budget classes stand). Six `defer`s: **F-17** and **F-25** wait
+on the first production `Preflight(policy.SourceStatistics, …)` call site — **if
+Phase 05 closes with still none, F-17 becomes `wont-fix` and F-25 a deletion task,
+at that `plan`**; **F-32** is D-05-7's recorded fallback (`search/related`);
+**F-33** is the owner's phase 06 topic; **F-34** (non-admin principals get no
+automation hypotheses) waits on a non-admin deployment mattering; **F-36**
+(statistics-based staleness, one batched call instead of one read per entity)
+re-triages after Phase 05. The open `unknown`s are F-17 and F-31.
 
 ## Recent
 
 Last 5 closed tasks, one line each. Older entries live in `journal/`.
 
+- 2026-10-03 · `P5-10` — `cmd/measure` (real tools in-process) + logbook probe; owner ran both. D-05-10:
+  classes stand (`find_stale_entities` 20 req/page, `analyze_*` max 36/50). Closes F-26, F-28.
 - 2026-10-03 · `P5-08` — §13.2 end to end in `investigation_test.go`: partial parent ⇒
   topology claim, none without a parent, star ⇒ `withheld`; mesh evidence vs
   `entity_disabled`; host row `privileged`. Closes F-27, F-35.
@@ -158,6 +157,3 @@ Last 5 closed tasks, one line each. Older entries live in `journal/`.
   per cluster its evidence id, members, `Shared`/`Withheld` traits; trait types
   moved into `model`; `Evidence` unchanged. Star parent withheld, part-of-entry
   parent shared.
-- 2026-10-03 · `P5-07` — §13.1 end to end in `investigation_test.go`: happy path
-  cites existing evidence, traces-refused branch strictly lower, fully non-admin
-  names both gated sources with no hypothesis (F-34). Closes F-30.

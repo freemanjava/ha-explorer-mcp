@@ -920,7 +920,7 @@ next to every other tool sharing the same invocation-rate limit — is exactly
 the kind of number CLAUDE.md §26 says should come from measurement, not
 guesswork, and no real installation has exercised this tool yet.
 
-**Triage:** `queue-next`
+**Triage:** `done`
 
 **Outcome:** **Queued 2026-09-05 as `P5-10`**, last in Phase 05's queue. Widened by one
 step in the queueing: the same measurement session also covers the two
@@ -931,7 +931,7 @@ halves. `P5-10` may keep the current classes — the DoD requires the report
 either way, and forbids a class changing without one. Closes when `P5-10`
 closes.
 
-Previously: Open.
+**Resolved 2026-10-03 by `P5-10`:** measured ([research](../research/2026-10-03-composite-budget-measurement.md)); D-05-10 keeps both classes. The one-read-per-entity cost is F-36.
 
 ### F-27 · `via_device_id` is a coordinator star, so "shared parent" is vacuous for Zigbee · 2026-09-05
 
@@ -1009,10 +1009,12 @@ a property of real recorder data nobody has looked at. If they do, the fix is
 a bounded rule (e.g. a long window joins but does not extend a cluster), which
 is a change to D-05-3 and wants its own decision.
 
-**Triage:** `queue-next`
+**Triage:** `done`
 
 **Outcome:** Open. Observe alongside `P5-10`'s live measurement (the same
 `cmd/spike` run), before `P5-09` asserts on a mass-outage cluster.
+
+**Observed 2026-10-03** ([research](../research/2026-10-03-composite-budget-measurement.md)): four clusters on one installation, each 4 entities / 4 periods, spans 11–149 s (0% of the period). No long outage was in the window, so chaining was neither seen nor ruled out. D-05-3 stands; this reopens only if a real installation shows a bridged cluster. Closed by `P5-10`.
 
 ### F-29 · `History` was never wired in `cmd/server`, so four tools shipped unimplemented · 2026-10-03
 
@@ -1050,6 +1052,8 @@ is a change to D-05-3 and wants its own decision.
 **Triage:** `queue-next`
 
 **Outcome:** Open. Observed in `P5-10`'s `cmd/spike` session (with F-28), before `P5-09` is built — the queue now orders `P5-10` ahead of `P5-09` for this reason.
+
+**Observed 2026-10-03** ([research](../research/2026-10-03-composite-budget-measurement.md)): the logbook carries `homeassistant`-domain `started`/`stopped` rows, readable with no `entity_ids`. Unfiltered it is 45 672 rows / 10.8 MB for 7d, ~10× the composite byte cap, and the shipped command always sends `entity_ids`. `P5-09` must bound the window and change the command. The unknown is answered; the finding closes with `P5-09`.
 
 ### F-32 · `search/related` as the fallback dependency source for automations · 2026-10-03
 
@@ -1096,3 +1100,10 @@ is a change to D-05-3 and wants its own decision.
 **Triage:** `done`
 **Outcome:** Planned 2026-10-03 → `P5-14` (cluster topology, D-05-8), `P5-15` (mesh-metric evidence, D-05-9), `P5-16` (privileged-host and neighbour-table rows), then `P5-08` reduced to the e2e test. Closes with `P5-08`.
  Resolved by `P5-08` (2026-10-03): `P5-14`…`P5-16` and the e2e test all closed.
+### F-36 · Staleness costs one recorder read per entity; statistics would be one batched call · 2026-10-03
+
+**Kind:** `idea`
+**What:** `P5-10` measured `find_stale_entities` at 20 requests / 20 entities per page ([research](../research/2026-10-03-composite-budget-measurement.md)): the cadence judgment reads history per entity, so covering 521 entities takes 27+ calls whatever the class. `recorder/statistics_during_period` answers many ids in one call and is 1–3 orders of magnitude cheaper (P0-07), but only for entities with compiled statistics, so it is a partial replacement.
+**Impact:** Unknown pending verification: how many of an installation's entities have statistics, and whether hourly buckets can judge cadence at all.
+**Triage:** `defer`
+**Outcome:** Recorded by D-05-10 as the fix that would change the scaling. Re-triage at the next `plan` after Phase 05 closes.
