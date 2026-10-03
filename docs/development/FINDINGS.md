@@ -1022,3 +1022,15 @@ is a change to D-05-3 and wants its own decision.
 
 **Outcome:** Fixed in `P5-05` by setting `History: core`. A wiring test for `cmd/server` was not added; `P5-07`'s end-to-end run is the natural place to catch a recurrence.
 
+
+### F-30 · `P5-07` has no producer for automation hypotheses and no dependency source · 2026-10-03
+
+**Kind:** `scope`
+
+**What:** `P5-07`'s DoD asks for ranked, evidence-citing hypotheses for "why did this automation not run", with a traces-absent branch strictly lower in confidence. Two inputs it presumes do not exist. (1) `model.Automation` (`internal/model/automation.go`) carries only `TriggerCount`/`ConditionCount`/`ActionCount`, so "identify trigger / condition / action dependencies" (doc §13.1) has no entity ids to walk to history/statistics. (2) Nothing in `internal/analysis` analyzes an automation: `AnalyzeEntityHealth`/`AnalyzeIntegrationHealth` never see traces, `last_triggered` or logbook, so no confidence can differ between the traces and fallback branches. A test alone cannot close the box; it needs a new analysis unit (trace/fallback evidence → hypotheses via `ConfidenceFor`) and a dependency extraction from `automation/config`, with a decision on how much config body is exposed (F-12 trace privacy applies).
+
+**Impact:** Box is larger than written and holds an unsettled design choice (dependency extraction vs. raw config exposure; where the hypothesis producer lives). `P5-08`/`P5-09` are unaffected.
+
+**Triage:** `blocks-active`
+
+**Outcome:** Open. Route to `devflow plan` on the stronger model: split `P5-07` into a 🧠 analysis/dependency task and the e2e test.
