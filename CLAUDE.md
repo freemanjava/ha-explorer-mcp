@@ -272,7 +272,8 @@ Deliberately absent. Each needs a decision, not initiative:
   (doc §19).
 - **A privileged Host Probe** (dmesg, USB, kernel) — a separate optional
   component, disabled by default (ADR-012). Never a capability of this binary.
-- **Persistent storage** beyond in-memory cache and audit — open decision in
-  phase 02; memory-only until evidence justifies otherwise (Q10).
+- **Persistent storage** beyond in-memory cache and audit — decided in phase 02
+  on 2026-10-03: memory-only in v1 (Q10). Reopening needs a
+  diagnostic memory-only demonstrably cannot deliver, and a new decision.
 - **A generic `ws_call` / `rest_get` / "advanced mode" tool** — permanently out.
   This one is not a deferral.

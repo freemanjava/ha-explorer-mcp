@@ -72,3 +72,7 @@ refuse — and its severe, still-climbing latency/CPU under load was almost
 mistaken for the answer before the budget mismatch was caught.
 **Left open:** rates above 4/s and bursts (as opposed to sustained rates) at
 the burst size remain unmeasured; not this box's DoD.
+
+### 2026-10-03 · Q10
+Owner decided: memory-only in v1, no embedded store. Recorded in the phase file; CLAUDE.md "Not Yet" updated to match.
+**Surprise:** the diagnostic the decision was waiting on (`P5-04` clustering) needed no persistence at all — the recorder already is the history store.
