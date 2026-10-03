@@ -82,3 +82,8 @@ live ZHA installation exists to confirm the source-read half.
 `analysis/mesh.go` (`ResolveMeshMetrics`, `MeshEvidence`, `IsMeshEntity`); `IntegrationHealthInput.MeshEvidence`; `readMesh` in the tool reads metric history for devices with an outage or a down entity, capped at `maxMeshMetricEntities` (10).
 **Surprise:** `policy` classifies privacy by entity domain only, and mesh metrics are `sensor.*`, so the deny-profile path in `readMesh` cannot fire today; it is routed through `permittedEntities` so a future classifier change is honoured, but no test can trigger it.
 **Left open:** a metric with no numeric reading is reported as `out_of_retention`, the nearest reason; `golangci-lint` still not installed.
+
+### 2026-10-03 · P5-16
+`addUnreachableEvidence` in `integration_health.go`: a `MissingPrivileged` host row plus a tool-less `NextAction` when a cluster exists; a `MissingNotExposed` neighbour-table row when `IntegrationHealthInput.MeshResolved` (set by `readMesh` when any metric entity resolved).
+**Surprise:** "mesh metrics resolved" is not "mesh evidence exists" — a ZHA shape with both metrics disabled resolves entities but yields no evidence, so a new input flag was needed rather than `len(MeshEvidence)`.
+**Left open:** `golangci-lint` still not installed.

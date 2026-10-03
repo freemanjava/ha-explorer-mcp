@@ -3,10 +3,11 @@
 <!-- BOUNDED FILE — rewritten in place, never appended to. Keep under ~100 lines.
      Anything that grows goes to journal/. This file is read by every session. -->
 
-**▶ Active:** `P5-16` — privileged-host + neighbour-table `missing_evidence` rows ·
-phase 05 · default model. In `integration_health.go`'s missing-evidence step: a
-`MissingPrivileged` row when a cluster exists, a `MissingNotExposed`
-neighbour-table row when mesh metrics resolved. Branch `feat/P5-16` from `main`.
+**▶ Active:** `P5-08` — investigation 2, doc §13.2 end to end · phase 05 ·
+default model. Integration test in `investigation_test.go` walking
+`find_unavailable_entities` → `analyze_integration_health` → `analyze_entity_health`;
+the restart-evidence step is not asserted (F-31, `P5-09`). Closes F-27, F-35.
+Branch `feat/P5-08` (holds no code) from `main`.
 
 > Advancing this pointer is part of finishing a task, together with ticking the
 > box, recomputing status and appending a journal entry. All four, or none.
@@ -24,10 +25,9 @@ cycle. Remove a row when its task closes.
 
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
-| 1 | `P5-16` | privileged-host + neighbour-table `missing_evidence` rows | 05 | default | |
-| 2 | `P5-08` | investigation 2 — doc §13.2 e2e (closes F-27, F-35) | 05 | default | `blocked:P5-16` |
-| 3 | `P5-10` | measure composite budget (F-26); observe F-28, F-31 | 05 | default | `needs-verify` |
-| 4 | `P5-09` | investigation 3 — mass unavailability vs. HA restart | 05 | default | |
+| 1 | `P5-08` | investigation 2 — doc §13.2 e2e (closes F-27, F-35) | 05 | default | |
+| 2 | `P5-10` | measure composite budget (F-26); observe F-28, F-31 | 05 | default | `needs-verify` |
+| 3 | `P5-09` | investigation 3 — mass unavailability vs. HA restart | 05 | default | |
 
 **Ordering rationale (2026-10-03 second `plan`, F-35).** Producers before the
 e2e that walks them, as for `P5-07`. `P5-14` goes first because `P5-16`'s host
@@ -100,13 +100,13 @@ done
 | 02 | Policy, Privacy, Budget & Audit | 8 / 8 |
 | 03 | MCP Server & Inventory Tools | 11 / 11 |
 | 04 | History, Statistics & Detection | 6 / 6 |
-| 05 | Diagnostics & Evidence Engine | 21 / 25 |
+| 05 | Diagnostics & Evidence Engine | 22 / 25 |
 | 06 | Proposal Mode — gated | 0 / 1 |
 | 07 | Controlled Change (Admin) — gated | 0 / 1 |
 
 Counts include each phase's decision entries, which are boxes too. Phase 05's
-21 ticked are D-05-1…9 and the `P5-01`…`P5-07`, `P5-11`…`P5-15` task boxes; its four remaining
-are task boxes (`P5-08`…`P5-10`, `P5-16`), and no decision entry in the phase is open. Phase 02 is
+22 ticked are D-05-1…9 and the `P5-01`…`P5-07`, `P5-11`…`P5-16` task boxes; its three remaining
+are task boxes (`P5-08`…`P5-10`), and no decision entry in the phase is open. Phase 02 is
 complete: its last box, the Q10 persistence decision, closed 2026-10-03.
 
 Phases 00–04 are milestone M1 (v1 observer) and are **fully implemented**.
@@ -114,7 +114,7 @@ Phase 05 is M2, and is where the last two catalog rows
 (`analyze_entity_health`, `analyze_integration_health`) became real. Phases 06–07 are gated: they open only on an
 explicit owner decision plus a fresh security review, and carry no task boxes.
 
-Last refreshed: 2026-10-03 (`P5-15`)
+Last refreshed: 2026-10-03 (`P5-16`)
 
 ## Open findings
 
@@ -132,8 +132,8 @@ Last refreshed: 2026-10-03 (`P5-15`)
 > rests on. Run `devflow verify` before building further on it.
 
 Five `queue-next`, all attached to queued boxes and closing with them:
-**F-26** → `P5-10`; **F-27** → `P5-08` (its neighbour-table half → `P5-16`);
-**F-35** → `P5-16`, `P5-08`, closing with `P5-08`; **F-28** (`unknown`) and **F-31**
+**F-26** → `P5-10`; **F-27** → `P5-08` (its neighbour-table half settled by `P5-16`);
+**F-35** → `P5-08`, closing with it; **F-28** (`unknown`) and **F-31**
 (`unknown`, no evidence for "HA restarted") → observed in `P5-10`'s live run,
 before `P5-09`. Five
 `defer`s: **F-17** and **F-25** wait on the first production
@@ -149,6 +149,9 @@ open `unknown`s are F-17, F-28 and F-31.
 
 Last 5 closed tasks, one line each. Older entries live in `journal/`.
 
+- 2026-10-03 · `P5-16` — `addUnreachableEvidence`: cluster ⇒ `MissingPrivileged` host
+  row + tool-less `NextAction`; `MeshResolved` input ⇒ `MissingNotExposed`
+  neighbour-table row. No integration name read; no hypothesis changes.
 - 2026-10-03 · `P5-15` — `analysis/mesh.go`: `ResolveMeshMetrics` (device_class
   first, entity-id hint table second; never platform), `MeshEvidence` (min/mean/
   samples, no zero for absence); tool reads metrics of affected devices only,
@@ -165,7 +168,3 @@ Last 5 closed tasks, one line each. Older entries live in `journal/`.
   refused; device/area deps resolved via the registry, history capped at 25
   (rest and private ones counted as unread). Catalog test, doc §9 and phase 03
   moved to twenty-one.
-- 2026-10-03 · `P5-12` — `AnalyzeAutomationHealth`: run outcomes from traces
-  (or degraded logbook runs) × each dependency's outage/stale windows, overlap
-  within the cluster tolerance; fallback strictly lower via `Degraded` alone.
-  Returns `AutomationHealth` (envelope + dependency evidence → entity map).

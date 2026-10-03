@@ -338,3 +338,98 @@ func TestAnalyzeIntegrationHealth_NoCluster_ClustersNil(t *testing.T) {
 		t.Errorf("clusters = %+v, want none", got.Clusters)
 	}
 }
+
+func missingWithReason(a model.HealthAnalysis, r model.MissingReason) []model.MissingEvidence {
+	var out []model.MissingEvidence
+	for _, m := range a.MissingEvidence {
+		if m.Reason == r {
+			out = append(out, m)
+		}
+	}
+	return out
+}
+
+func TestAnalyzeIntegrationHealth_Cluster_AddsPrivilegedHostRowWithToollessAction(t *testing.T) {
+	in := integrationInput()
+	in.Outages = twoEntityCluster()
+	got, err := AnalyzeIntegrationHealth(in)
+	if err != nil {
+		t.Fatalf("AnalyzeIntegrationHealth: %v", err)
+	}
+	if rows := missingWithReason(got, model.MissingPrivileged); len(rows) != 1 {
+		t.Fatalf("privileged rows = %d, want 1", len(rows))
+	}
+	if !slices.ContainsFunc(got.NextActions, func(a model.NextAction) bool { return a.Tool == "" && a.Step != "" }) {
+		t.Fatalf("no tool-less next action for the host read: %+v", got.NextActions)
+	}
+	for _, a := range got.NextActions {
+		if a.Tool == "" {
+			continue
+		}
+		if strings.Contains(strings.ToLower(a.Step), "dmesg") {
+			t.Errorf("tool %q is offered for a host read", a.Tool)
+		}
+	}
+}
+
+func TestAnalyzeIntegrationHealth_NoCluster_NoPrivilegedHostRow(t *testing.T) {
+	in := integrationInput()
+	in.Outages = twoEntityCluster()[:1]
+	got, _ := AnalyzeIntegrationHealth(in)
+	if rows := missingWithReason(got, model.MissingPrivileged); len(rows) != 0 {
+		t.Fatalf("privileged rows = %d without a cluster", len(rows))
+	}
+	for _, a := range got.NextActions {
+		if a.Tool == "" {
+			t.Errorf("tool-less action %q without a cluster", a.Step)
+		}
+	}
+}
+
+func TestAnalyzeIntegrationHealth_MeshResolved_AddsNeighbourTableRow(t *testing.T) {
+	in := integrationInput()
+	in.MeshResolved = true
+	got, _ := AnalyzeIntegrationHealth(in)
+	rows := missingWithReason(got, model.MissingNotExposed)
+	if len(rows) != 1 || !strings.Contains(rows[0].What, "neighbour") {
+		t.Fatalf("not_exposed rows = %+v, want one neighbour-table row", rows)
+	}
+}
+
+func TestAnalyzeIntegrationHealth_NoMeshResolved_NoNeighbourTableRow(t *testing.T) {
+	in := integrationInput()
+	in.Outages = twoEntityCluster()
+	got, _ := AnalyzeIntegrationHealth(in)
+	if rows := missingWithReason(got, model.MissingNotExposed); len(rows) != 0 {
+		t.Fatalf("not_exposed rows = %+v without mesh metrics", rows)
+	}
+}
+
+func TestAnalyzeIntegrationHealth_HostAndNeighbourRows_ChangeNoHypothesis(t *testing.T) {
+	base := integrationInput()
+	base.Outages = twoEntityCluster()
+	with := base
+	with.MeshResolved = true
+	a, _ := AnalyzeIntegrationHealth(base)
+	b, _ := AnalyzeIntegrationHealth(with)
+	if len(a.Hypotheses) == 0 || len(a.Hypotheses) != len(b.Hypotheses) {
+		t.Fatalf("hypotheses %d vs %d", len(a.Hypotheses), len(b.Hypotheses))
+	}
+	for i := range a.Hypotheses {
+		if a.Hypotheses[i].Statement() != b.Hypotheses[i].Statement() || a.Hypotheses[i].Confidence() != b.Hypotheses[i].Confidence() {
+			t.Errorf("hypothesis %d changed by a missing-evidence row", i)
+		}
+	}
+}
+
+func TestAnalyzeIntegrationHealth_HostRow_IgnoresIntegrationName(t *testing.T) {
+	for _, domain := range []string{"hue", "zha", "never-heard-of-it"} {
+		in := integrationInput()
+		in.Entry.Domain = domain
+		in.Outages = twoEntityCluster()
+		got, _ := AnalyzeIntegrationHealth(in)
+		if rows := missingWithReason(got, model.MissingPrivileged); len(rows) != 1 {
+			t.Errorf("domain %q: privileged rows = %d, want 1", domain, len(rows))
+		}
+	}
+}

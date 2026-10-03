@@ -277,7 +277,7 @@ reduced to the end-to-end test. Decided as **D-05-8** and **D-05-9** below.
   (D-05-9, asserted: varying LQI from 1 to 255 changes no hypothesis); a
   privacy-denied metric entity is excluded and counted as `P4-05` does.
 
-- [ ] **`P5-16` · Privileged-host and mesh-topology rows in `missing_evidence`**
+- [x] **`P5-16` · Privileged-host and mesh-topology rows in `missing_evidence`**
   Home: `internal/analysis/integration_health.go`, the builder's
   missing-evidence step, which is the one place that knows clusters exist; a
   row, not a new responsibility. When at least one outage cluster is found, the
@@ -295,7 +295,7 @@ reduced to the end-to-end test. Decided as **D-05-8** and **D-05-9** below.
   by itself (missing evidence informs, it does not refute).
 
 - [ ] **`P5-08` · Investigation 2 — doc §13.2, end to end** —
-  `blocked:P5-14,P5-15,P5-16`
+  (unblocked: `P5-14`…`P5-16` closed)
   An integration-level test in `investigation_test.go` walking
   `find_unavailable_entities` → `analyze_integration_health` (clusters with
   topology, mesh evidence, host and neighbour-table rows) →
