@@ -31,3 +31,8 @@ live ZHA installation exists to confirm the source-read half.
 `internal/model/evidence.go`: `Evidence`, `Hypothesis` (unexported fields, `NewHypothesis` refuses zero citations), `MissingEvidence` with a typed `MissingReason` (incl. D-05-5's `entity_disabled` vs `not_exposed`), `NextAction`, `HealthAnalysis`; a source scan over `internal/` forbids any `cause`/`root_cause` field or json tag.
 **Surprise:** "assert by reflection over the package" is not possible in Go — reflection cannot enumerate a package's types — so the no-cause check is a `go/parser` scan, which also catches json tags reflection on names alone would miss.
 **Left open:** `Confidence` levels (low/medium/high) defined here so `Hypothesis` can hold one; the ladder mapping evidence onto them is `P5-03`'s. Citations are not checked to resolve within a `HealthAnalysis` — `P5-05`/`P5-06` own that.
+
+### 2026-10-03 · P5-03
+`internal/analysis/confidence.go`: `ConfidenceFor(cited ...model.Evidence)` — per-Evidence ladder (high ≥20 samples & ≥0.9 coverage, medium ≥5 & ≥0.5, else low), `Degraded` demotes one step, several citations take the weakest. A `go/parser` scan over `cmd/` and `internal/` refuses any `ConfidenceX` reference or `Confidence(...)` conversion outside `confidence.go` and `model/evidence.go`.
+**Surprise:** D-05-2 wrote the signature as three scalars, but a `Hypothesis` cites *several* Evidence — taking `Evidence` values lets the one function also own the combining rule, which would otherwise have been a second, unscanned producer of confidence at every call site.
+**Left open:** thresholds are explained defaults, not measurements; `P5-10` revisits them against a real recorder.
