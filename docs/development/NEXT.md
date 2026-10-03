@@ -11,7 +11,14 @@ run `devflow next` on the **default** model.
 
 ## Suspended
 
-None.
+`P8-09` (2026-10-03) — **packaging half landed on `feat/P8-09`, live half waits on the owner.** Done, tests red first,
+`make check` green: `http_secret` password option (no default), `ports: 8790/tcp: null`, `run.sh` sets
+`HA_INSPECTOR_TRANSPORT=http`, AppArmor network rule pinned to TCP stream, INSTALL.md §3–4, version bumped
+`0.9.0`→`0.9.1` (0.9.0 is already on the Pi from `P8-01`). Remains: owner merges, tags `v0.9.1` (release.yml), installs
+on the Pi, sets `http_secret`, opens a host port; then the DoD observations (Started, `initialize`/`tools/list`/tool
+call over LAN, 401 without secret, closed-port refusal, `hassio`-network reachability) into
+`docs/research/<date>-http-transport-on-pi.md`, `mcp-proxy` flags into INSTALL.md §4. Box not ticked, pointer not
+advanced. Waits on no finding — on the Pi run itself.
 
 ## Queue
 

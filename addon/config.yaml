@@ -1,5 +1,5 @@
 name: "HA Inspector MCP"
-version: "0.9.0"
+version: "0.9.1"
 slug: "ha_inspector_mcp"
 description: "Read-only diagnostic MCP server for Home Assistant"
 url: "https://github.com/freemanjava/ha-explorer-mcp"
@@ -43,11 +43,20 @@ apparmor: true
 # No /config, no Recorder DB, no host filesystem — see CLAUDE.md "Not Yet".
 map: []
 
+# D-08-6: the listener's container port, published nowhere until the owner
+# picks a host port on the App's Network tab. "Closed" is the host side only —
+# other Apps on the hassio network still reach it, which is why http_secret has
+# no default and a missing one refuses start (D-08-4, D-08-9).
+ports:
+  8790/tcp: null
+
 # D-08-12: the two settings an owner needs on the Pi. Budget limits are
-# measured constants, not options.
+# measured constants, not options. http_secret (D-08-9) is the client's bearer
+# secret: required, masked in the UI, and deliberately without a default.
 options:
   privacy_profile: mask
   log_level: info
 schema:
+  http_secret: password
   privacy_profile: list(mask|allow|deny)
   log_level: list(debug|info|warn|error)

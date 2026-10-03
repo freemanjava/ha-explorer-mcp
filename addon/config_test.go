@@ -206,3 +206,85 @@ func TestReleaseWorkflow_PassesManifestVersionAsBuildArg(t *testing.T) {
 		t.Errorf("release.yml passes the VERSION build arg %d times, want 2 (one per image)", got)
 	}
 }
+
+// TestAddonManifest_HTTPSecret_IsRequiredPassword guards D-08-9: the client
+// secret is a masked, required App option with no default, so a fresh install
+// cannot start with a secret nobody chose (start-up refuses, D-08-4).
+func TestAddonManifest_HTTPSecret_IsRequiredPassword(t *testing.T) {
+	raw, err := os.ReadFile("config.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(raw)
+	if !strings.Contains(text, "\n  http_secret: password\n") {
+		t.Error("config.yaml schema must declare http_secret as a required password")
+	}
+	if strings.Contains(optionsBlock(text), "http_secret") {
+		t.Error("config.yaml options: must not ship a default http_secret")
+	}
+}
+
+// optionsBlock returns the text of the top-level options: block.
+func optionsBlock(text string) string {
+	_, after, ok := strings.Cut(text, "\noptions:\n")
+	if !ok {
+		return ""
+	}
+	block, _, _ := strings.Cut(after, "\nschema:")
+	return block
+}
+
+// TestAddonManifest_Port_ClosedByDefault guards D-08-6: 8790/tcp is declared
+// but mapped to null, so nothing is published on the host until the owner
+// chooses a port on the Network tab; and the App has no Ingress and no host
+// network (D-08-1).
+func TestAddonManifest_Port_ClosedByDefault(t *testing.T) {
+	raw, err := os.ReadFile("config.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(raw)
+	if !strings.Contains(text, "\nports:\n  8790/tcp: null\n") {
+		t.Error("config.yaml must map 8790/tcp to null (closed by default)")
+	}
+	m := parseManifest(t, "config.yaml")
+	if _, present := m.scalars["ingress"]; present {
+		t.Error("config.yaml must not declare ingress")
+	}
+	if v := m.scalars["host_network"]; v != "false" {
+		t.Errorf("host_network = %q, want false", v)
+	}
+}
+
+// TestRunScript_SelectsHTTPTransport guards D-08-9: the image fixes the
+// transport, because the only other value would make the App exit at once.
+func TestRunScript_SelectsHTTPTransport(t *testing.T) {
+	raw, err := os.ReadFile("rootfs/run.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), "HA_INSPECTOR_TRANSPORT=http") {
+		t.Error("run.sh must set HA_INSPECTOR_TRANSPORT=http")
+	}
+}
+
+// TestAppArmor_NetworkIsStreamOnly guards "accepting on that socket and
+// nothing more": TCP over IPv4/IPv6 covers the listener and the Supervisor
+// proxy; no blanket, datagram or raw network rule.
+func TestAppArmor_NetworkIsStreamOnly(t *testing.T) {
+	raw, err := os.ReadFile("apparmor.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var rules []string
+	for _, line := range strings.Split(string(raw), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "network") {
+			rules = append(rules, line)
+		}
+	}
+	want := []string{"network inet stream,", "network inet6 stream,"}
+	if strings.Join(rules, "|") != strings.Join(want, "|") {
+		t.Errorf("network rules = %q, want exactly %q", rules, want)
+	}
+}
