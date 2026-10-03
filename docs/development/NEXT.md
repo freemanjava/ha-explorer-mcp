@@ -3,19 +3,17 @@
 <!-- BOUNDED FILE — rewritten in place, never appended to. Keep under ~100 lines.
      Anything that grows goes to journal/. This file is read by every session. -->
 
-**▶ Active:** `P5-07` — investigation 1, doc §13.1 end to end · phase 05 ·
-default model. An integration-level test walking `get_automation` →
-`get_automation_traces` → dependency history → repairs →
-`analyze_automation_health` against a fixture installation, happy path and the
-F-11 degraded branch (strictly lower confidence). Closes F-30.
+**▶ Active:** `P5-08` — investigation 2, doc §13.2 end to end · phase 05 ·
+default model. Overview/health → integration health → `find_unavailable_entities`
+→ P5-04 clustering → coordinator/parent evidence → ranked hypotheses; host
+evidence named in `missing_evidence`. Carries F-27's rule in its DoD.
 
 > Advancing this pointer is part of finishing a task, together with ticking the
 > box, recomputing status and appending a journal entry. All four, or none.
 
 ## Suspended
 
-None. `P5-07`'s suspension (F-30) was re-planned 2026-10-03 into `P5-11`…`P5-13`
-plus a reduced `P5-07`. Its branch `feat/P5-07` holds no work.
+None.
 
 ## Queue
 
@@ -24,10 +22,9 @@ cycle. Remove a row when its task closes.
 
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
-| 1 | `P5-07` | investigation 1 — doc §13.1 e2e + degraded branch | 05 | default | |
-| 2 | `P5-08` | investigation 2 — doc §13.2 e2e (F-27's rule in its DoD) | 05 | default | |
-| 3 | `P5-10` | measure composite budget (F-26); observe F-28, F-31 | 05 | default | `needs-verify` |
-| 4 | `P5-09` | investigation 3 — mass unavailability vs. HA restart | 05 | default | |
+| 1 | `P5-08` | investigation 2 — doc §13.2 e2e (F-27's rule in its DoD) | 05 | default | |
+| 2 | `P5-10` | measure composite budget (F-26); observe F-28, F-31 | 05 | default | `needs-verify` |
+| 3 | `P5-09` | investigation 3 — mass unavailability vs. HA restart | 05 | default | |
 
 **Ordering rationale (2026-10-03 `plan`).** Dependencies → analysis → tool →
 the §13.1 e2e that walks them. `P5-10` now runs **before** `P5-09`: one
@@ -95,13 +92,13 @@ done
 | 02 | Policy, Privacy, Budget & Audit | 8 / 8 |
 | 03 | MCP Server & Inventory Tools | 11 / 11 |
 | 04 | History, Statistics & Detection | 6 / 6 |
-| 05 | Diagnostics & Evidence Engine | 16 / 20 |
+| 05 | Diagnostics & Evidence Engine | 17 / 20 |
 | 06 | Proposal Mode — gated | 0 / 1 |
 | 07 | Controlled Change (Admin) — gated | 0 / 1 |
 
 Counts include each phase's decision entries, which are boxes too. Phase 05's
-16 ticked are D-05-1…7 and the `P5-01`…`P5-06`, `P5-11`…`P5-13` task boxes; its four remaining
-are task boxes (`P5-07`…`P5-10`), and no decision entry in the phase is open. Phase 02 is
+17 ticked are D-05-1…7 and the `P5-01`…`P5-07`, `P5-11`…`P5-13` task boxes; its three remaining
+are task boxes (`P5-08`…`P5-10`), and no decision entry in the phase is open. Phase 02 is
 complete: its last box, the Q10 persistence decision, closed 2026-10-03.
 
 Phases 00–04 are milestone M1 (v1 observer) and are **fully implemented**.
@@ -109,7 +106,7 @@ Phase 05 is M2, and is where the last two catalog rows
 (`analyze_entity_health`, `analyze_integration_health`) became real. Phases 06–07 are gated: they open only on an
 explicit owner decision plus a fresh security review, and carry no task boxes.
 
-Last refreshed: 2026-10-03 (`P5-13` closed)
+Last refreshed: 2026-10-03 (`P5-07` closed)
 
 ## Open findings
 
@@ -117,7 +114,7 @@ Last refreshed: 2026-10-03 (`P5-13` closed)
      grep -c '^\*\*Triage:\*\* `queue-next`' docs/development/FINDINGS.md  (etc.)
      This block exists so captured work cannot quietly rot: every session sees it. -->
 
-`blocks-active` 0 · `queue-next` 5 · `defer` 4 · `unknown` 3 (open)
+`blocks-active` 0 · `queue-next` 4 · `defer` 5 · `unknown` 3 (open)
 
 > Any `blocks-active` is stop-work. If `queue-next` is non-zero and the queue
 > above has fewer than 3 rows, drain it with `devflow plan` before continuing —
@@ -126,22 +123,26 @@ Last refreshed: 2026-10-03 (`P5-13` closed)
 > An open `unknown` outranks the queue: it is an assumption the plan already
 > rests on. Run `devflow verify` before building further on it.
 
-Five `queue-next`, all attached to queued boxes and closing with them:
+Four `queue-next`, all attached to queued boxes and closing with them:
 **F-26** → `P5-10`; **F-27** → `P5-08`; **F-28** (`unknown`) and **F-31**
 (`unknown`, no evidence for "HA restarted") → observed in `P5-10`'s live run,
-before `P5-09`; **F-30** → `P5-07` (`P5-11`…`P5-13` closed), closes with it. Four
+before `P5-09`. Five
 `defer`s: **F-17** and **F-25** wait on the first production
 `Preflight(policy.SourceStatistics, …)` call site — **if Phase 05 closes with
 still none, F-17 becomes `wont-fix` and F-25 a deletion task, at that
 `plan`**; **F-32** is D-05-7's recorded fallback (`search/related`),
 triggered by evidence the mapper misses dependencies; **F-33** is the owner's
-phase 06 topic (help writing fixes/new automations), noted at that gate. The
+phase 06 topic (help writing fixes/new automations), noted at that gate; **F-34**
+(non-admin principals get no automation hypotheses) waits on a non-admin deployment mattering. The
 open `unknown`s are F-17, F-28 and F-31.
 
 ## Recent
 
 Last 5 closed tasks, one line each. Older entries live in `journal/`.
 
+- 2026-10-03 · `P5-07` — §13.1 end to end in `investigation_test.go`: happy path
+  cites existing evidence, traces-refused branch strictly lower, fully non-admin
+  names both gated sources with no hypothesis (F-34). Closes F-30.
 - 2026-10-03 · `P5-13` — `analyze_automation_health`, the twenty-first tool
   (`ClassComposite`): config, traces, then the logbook fallback when traces are
   refused; device/area deps resolved via the registry, history capped at 25
@@ -161,7 +162,3 @@ Last 5 closed tasks, one line each. Older entries live in `journal/`.
   resolution counts (absence named, call still answers). History read for ≤25
   entities, down-now first, the rest named in `missing_evidence` (P5-10 to
   measure).
-- 2026-10-03 · `P5-05` — `analyze_entity_health`: each source (history,
-  registry, repairs) read independently, a failed one becomes
-  `missing_evidence`; hypotheses via `ConfidenceFor`, no score. Found and fixed:
-  `History` was never wired in `cmd/server` (F-29).

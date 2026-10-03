@@ -214,7 +214,7 @@ Decided as **D-05-6** and **D-05-7** below.
   the same change doc §9 gains the row and the phase 03 "full twenty"
   decision record gains a one-line amendment pointing at D-05-6.
 
-- [ ] **`P5-07` · Investigation 1 — doc §13.1, end to end**
+- [x] **`P5-07` · Investigation 1 — doc §13.1, end to end**
   An integration-level test walking `get_automation` → `get_automation_traces`
   → dependency history/statistics → repairs → `analyze_automation_health`,
   against a fixture installation.

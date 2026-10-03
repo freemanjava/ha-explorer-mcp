@@ -1031,9 +1031,9 @@ is a change to D-05-3 and wants its own decision.
 
 **Impact:** Box is larger than written and holds an unsettled design choice (dependency extraction vs. raw config exposure; where the hypothesis producer lives). `P5-08`/`P5-09` are unaffected.
 
-**Triage:** `queue-next`
+**Triage:** `done`
 
-**Outcome:** Planned 2026-10-03 (`devflow plan`): owner decided **D-05-6** (a twenty-first tool, `analyze_automation_health`) and **D-05-7** (ids-only dependency extraction in the mapper; `search/related` recorded as fallback, F-32). Became `P5-11` (dependencies), `P5-12` (analysis, 🧠), `P5-13` (tool) and the reduced `P5-07` (e2e). Closes when `P5-07` closes.
+**Outcome:** Planned 2026-10-03 (`devflow plan`): owner decided **D-05-6** (a twenty-first tool, `analyze_automation_health`) and **D-05-7** (ids-only dependency extraction in the mapper; `search/related` recorded as fallback, F-32). Became `P5-11` (dependencies), `P5-12` (analysis, 🧠), `P5-13` (tool) and the reduced `P5-07` (e2e). **Resolved 2026-10-03** when `P5-07` closed.
 
 ### F-31 · No evidence source tells "HA restarted" from "one integration failed" · 2026-10-03
 
@@ -1070,3 +1070,15 @@ is a change to D-05-3 and wants its own decision.
 **Triage:** `defer`
 
 **Outcome:** Noted in phase 06's gate decision entry as a topic to discuss when that decision is taken. Not a commitment.
+
+### F-34 · A non-admin principal gets no automation hypotheses at all · 2026-10-03
+
+**Kind:** `inconsistency`
+
+**What:** `P5-07`'s degraded branch (F-11) promises hypotheses from `last_triggered` + logbook + `context_id`. But `automation/config` and `trace/*` are admin-gated together (P0-05), so a real non-admin principal loses the dependency list along with the traces, and `AnalyzeAutomationHealth` has nothing to overlay runs on: `TestInvestigation1_NonAdmin_…` asserts zero hypotheses and both sources named in `missing_evidence`. The "strictly lower confidence" comparison is only reachable when config is readable and traces are not, a combination HA does not produce.
+
+**Impact:** Honest (rule 7) but thin: the non-admin path reports what is missing and nothing else. Rare in practice — the App's principal is admin (F-3 closing note) — so low urgency.
+
+**Triage:** `defer`
+
+**Outcome:** Open. Re-triage if a non-admin deployment matters; F-32 (`search/related`) may supply dependencies without admin — unverified.
