@@ -225,17 +225,92 @@ Decided as **D-05-6** and **D-05-7** below.
   confidence than the same scenario with traces present — asserted as a
   comparison, not as a fixed level. Closes F-30.
 
-- [ ] **`P5-08` · Investigation 2 — doc §13.2, end to end**
-  Overview/health → integration health → `find_unavailable_entities` → P5-04
-  clustering by time and parent topology → coordinator/parent evidence →
-  ranked hypotheses, with the privileged host evidence (USB resets, dmesg —
-  ADR-012, never this binary's) named in `missing_evidence`.
-  **DoD:** the mesh-metric evidence is read the way `P5-01` established;
-  a fixture where two devices share a parent produces a topology-annotated
-  cluster, and one where they do not produces the same time cluster *without*
-  the topology claim. **F-27 (settled in `P5-04`):** the shared-parent
-  fixture must be a parent of *part* of its config entry; a coordinator star
-  must yield the time cluster with `via_device` in `Withheld`, not `Shared`.
+**Re-planned 2026-10-03 (F-35).** `P5-08` as first written presumed three
+producers that did not exist: topology on a tool's cluster output, the D-05-5
+mesh analyzer, and a host-evidence `missing_evidence` row. Same shape as F-30
+for `P5-07`: three building boxes, `P5-14`, `P5-15` and `P5-16`, plus `P5-08`
+reduced to the end-to-end test. Decided as **D-05-8** and **D-05-9** below.
+
+- [ ] **`P5-14` · Cluster topology in the response** — per D-05-8
+  Home: `internal/model/evidence.go` gains, additively, `ClusterAnnotation`
+  (`Evidence EvidenceID`, `Members []EntityID`, `Shared`, `Withheld
+  []ClusterTrait`) and `HealthAnalysis.Clusters`; `TraitKind`/`SharedTrait`
+  move from `internal/analysis/correlation.go` into `model` as `ClusterTrait`,
+  because `model` imports nothing internal and the envelope must carry the
+  type. `AnalyzeIntegrationHealth` fills `Clusters` from `ClusterOutages`, one
+  entry per cluster whose evidence it emitted. `Evidence` itself is unchanged:
+  it stays measurement-only.
+  **DoD:** every `Clusters[i].Evidence` names an `Evidence` present in the same
+  envelope (no orphan annotation); a fixture where two devices share a parent
+  of *part* of their config entry serializes it in `shared`, and a coordinator
+  star serializes it in `withheld`, never `shared` (F-27); a cluster with no
+  shared trait still appears with empty lists rather than being dropped;
+  members withheld by the deny profile never appear in `members` (they are not
+  read today, and a test pins that); the D-05-1 reflection test covers the new
+  types (no `cause` field); `analyze_integration_health`'s serialized response
+  carries the `clusters` list (asserted at the MCP boundary).
+
+- [ ] **`P5-15` · Mesh-metric evidence** — per D-05-5, D-05-9
+  Home: new `internal/analysis/mesh.go` — the flat analyzer D-05-5 decided,
+  not grown into `integration_health.go`, which composes it.
+  `ResolveMeshMetrics(entities []model.Entity)` picks, per device, the
+  link-quality and signal-strength entity by `device_class` first
+  (`signal_strength`) and the hint table second (`lqi`, `linkquality`,
+  `link_quality`, `rssi`, `signal_strength`, a named constant citing
+  `docs/research/2026-09-05-zigbee-mesh-metric-normalization.md`); a metric
+  entity that resolves but is disabled is reported as
+  `MissingEntityDisabled`, and a device with mesh-shaped siblings but no RSSI
+  as `MissingNotExposed`. `MeshEvidence` turns each read history into one
+  `Evidence` per device and metric (min, mean, samples; `SampleSize`,
+  `Coverage` set for `ConfidenceFor`). Tool side,
+  `internal/mcp/integration_health_tools.go`: metric entities of the
+  clustered/down devices are read within a named cap
+  (`maxMeshMetricEntities`); the rest are named in `missing_evidence` as
+  `budget_exceeded`, which `P5-10` measures.
+  **DoD:** fixtures for a Zigbee2MQTT shape (`_linkquality`, no RSSI) and a ZHA
+  shape (`_lqi` + RSSI with `device_class`, both disabled) yield, respectively,
+  link-quality evidence plus a `not_exposed` RSSI row, and two
+  `entity_disabled` rows with no evidence; a value is never reported as zero
+  for an absent metric; resolution never reads the registry `platform` field or
+  an integration name (asserted with a fixture whose platform string is
+  unknown to the code); no hypothesis cites mesh evidence through a threshold
+  (D-05-9, asserted: varying LQI from 1 to 255 changes no hypothesis); a
+  privacy-denied metric entity is excluded and counted as `P4-05` does.
+
+- [ ] **`P5-16` · Privileged-host and mesh-topology rows in `missing_evidence`**
+  Home: `internal/analysis/integration_health.go`, the builder's
+  missing-evidence step, which is the one place that knows clusters exist; a
+  row, not a new responsibility. When at least one outage cluster is found, the
+  analysis adds a `MissingPrivileged` row naming kernel USB resets / `dmesg`
+  (ADR-012's separate Host Probe) and a `NextAction` with an empty `Tool`
+  (no tool of this server can read it). When `P5-15` resolved mesh metrics for
+  any member, it adds a `MissingNotExposed` row for the **neighbour/routing
+  table**: settles F-27's second question, since the only sources (ZHA's
+  `zha/devices`, Zigbee2MQTT's bridge topology over MQTT) are outside the
+  gateway allow-list, as D-05-5 already rejected.
+  **DoD:** both rows appear under their conditions and are absent otherwise (no
+  cluster ⇒ no host row; no mesh metric ⇒ no neighbour-table row); neither
+  condition reads an integration name (rule 6, asserted as in `P5-15`); the
+  host `NextAction` names no tool; neither row lowers or removes a hypothesis
+  by itself (missing evidence informs, it does not refute).
+
+- [ ] **`P5-08` · Investigation 2 — doc §13.2, end to end** —
+  `blocked:P5-14,P5-15,P5-16`
+  An integration-level test in `investigation_test.go` walking
+  `find_unavailable_entities` → `analyze_integration_health` (clusters with
+  topology, mesh evidence, host and neighbour-table rows) →
+  `analyze_entity_health` on a clustered member, against a fixture
+  installation. The doc's "correlate with HA/Supervisor restart evidence" step
+  is **not** asserted here: no producer exists (F-31), and `P5-09` owns it
+  after `P5-10`'s report.
+  **DoD:** a fixture where two devices share a parent of *part* of their
+  config entry produces a topology-annotated cluster; the same time outage
+  without that parent produces the same time cluster *without* the topology
+  claim; a coordinator star yields the time cluster with `via_device` in
+  `withheld`, not `shared` (F-27); mesh evidence is present for the
+  Zigbee2MQTT-shaped devices and missing with its reason for the ZHA-shaped
+  ones; `missing_evidence` names the host evidence as `privileged`; every
+  hypothesis cites evidence present in its envelope. Closes F-27 and F-35.
 
 - [ ] **`P5-09` · Investigation 3 — correlated mass unavailability**
   The third of doc §21's three: a batch of entities goes unavailable together;
@@ -402,6 +477,30 @@ Decided as **D-05-6** and **D-05-7** below.
   real automations show our mapper missing constructions. **Also rejected:** no
   dependencies in v1 (every §13.1 answer would carry "dependencies: not
   checked", which is the diagnostic's whole value missing).
+
+- [x] **D-05-8 — Cluster topology ships as a `clusters` list beside
+  `evidence`; `Evidence` stays measurement-only** — owner, 2026-10-03 (F-35)
+  `P5-04` computes `Shared`/`Withheld` per cluster, but nothing serializes
+  them. Decided: `HealthAnalysis` gains an additive `Clusters` list, each entry
+  pointing at its cluster's `Evidence` by id and carrying `members`, `shared`
+  and `withheld` as typed `{kind, value}` traits. The values are registry ids
+  used as lookup keys (the D-05-7 reading of rule 6), never text. **Rejected:**
+  typed refs on every `Evidence` (it widens the core fact type for one
+  producer, and every later producer inherits a field it does not need); one
+  `Evidence` per shared trait (it turns an annotation into a separate
+  observation that a hypothesis could cite on its own, a short step from
+  "they share a parent" being read as the finding).
+
+- [x] **D-05-9 — Mesh metrics are evidence only; no threshold hypothesis in
+  v1** — owner, 2026-10-03 (F-35)
+  LQI/RSSI ship as `Evidence` (min, mean, samples) and, when absent, as
+  `MissingEvidence` with D-05-5's reasons. No code turns a value into a "weak
+  link" hypothesis. No threshold has been measured, LQI's scale is not
+  comparable across stacks and firmware, and a false "weak link" would steer
+  the agent away from, say, a failing USB coordinator. That is D-05-4's
+  objection to an unexplainable number. **Rejected:** a named default
+  threshold (a guess presented as a measurement). Reopen only with `P5-10`-style
+  measurements behind a threshold, and only as an additive field.
 
 ## Phase Definition of Done
 

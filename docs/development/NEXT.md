@@ -3,17 +3,19 @@
 <!-- BOUNDED FILE — rewritten in place, never appended to. Keep under ~100 lines.
      Anything that grows goes to journal/. This file is read by every session. -->
 
-**▶ Active:** `P5-08` — investigation 2, doc §13.2 end to end · phase 05 ·
-default model. Overview/health → integration health → `find_unavailable_entities`
-→ P5-04 clustering → coordinator/parent evidence → ranked hypotheses; host
-evidence named in `missing_evidence`. Carries F-27's rule in its DoD.
+**▶ Active:** `P5-14` — cluster topology in the response (D-05-8) · phase 05 ·
+default model. `HealthAnalysis.Clusters` beside `evidence`: per cluster its
+evidence id, members, `shared`/`withheld` traits; `Evidence` unchanged. Trait
+types move into `model`. Branch `feat/P5-14` from `main`.
 
 > Advancing this pointer is part of finishing a task, together with ticking the
 > box, recomputing status and appending a journal entry. All four, or none.
 
 ## Suspended
 
-None.
+None. `P5-08`'s suspension was resolved by the 2026-10-03 `plan` (F-35): it
+is now the e2e box behind `P5-14`…`P5-16`. Its branch `feat/P5-08` holds no
+code and is only reused when `P5-08` itself comes up.
 
 ## Queue
 
@@ -22,9 +24,22 @@ cycle. Remove a row when its task closes.
 
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
-| 1 | `P5-08` | investigation 2 — doc §13.2 e2e (F-27's rule in its DoD) | 05 | default | |
-| 2 | `P5-10` | measure composite budget (F-26); observe F-28, F-31 | 05 | default | `needs-verify` |
-| 3 | `P5-09` | investigation 3 — mass unavailability vs. HA restart | 05 | default | |
+| 1 | `P5-14` | cluster topology in the response (D-05-8) | 05 | default | |
+| 2 | `P5-15` | mesh-metric evidence, flat analyzer (D-05-5, D-05-9) | 05 | default | |
+| 3 | `P5-16` | privileged-host + neighbour-table `missing_evidence` rows | 05 | default | |
+| 4 | `P5-08` | investigation 2 — doc §13.2 e2e (closes F-27, F-35) | 05 | default | `blocked:P5-14,P5-15,P5-16` |
+| 5 | `P5-10` | measure composite budget (F-26); observe F-28, F-31 | 05 | default | `needs-verify` |
+| 6 | `P5-09` | investigation 3 — mass unavailability vs. HA restart | 05 | default | |
+
+**Ordering rationale (2026-10-03 second `plan`, F-35).** Producers before the
+e2e that walks them, as for `P5-07`. `P5-14` goes first because `P5-16`'s host
+row hangs on "a cluster exists" in the response. `P5-15` comes before `P5-16`
+because the neighbour-table row is conditioned on resolved mesh metrics.
+`P5-10` stays after `P5-08`: it measures `analyze_integration_health` with the
+mesh reads included. **Two decisions taken (owner, F-35):** **D-05-8**:
+topology ships as a `clusters` list beside `evidence`, and `Evidence` stays
+measurement-only. **D-05-9**: mesh metrics are evidence only, with no LQI
+threshold hypothesis in v1.
 
 **Ordering rationale (2026-10-03 `plan`).** Dependencies → analysis → tool →
 the §13.1 e2e that walks them. `P5-10` now runs **before** `P5-09`: one
@@ -37,11 +52,6 @@ hypotheses ship as a **twenty-first tool**, `analyze_automation_health`
 (amends phase 03's "full twenty" in `P5-13`); **D-05-7** — dependencies come
 from **our mapper, ids only**, with HA's `search/related` recorded as the
 fallback (F-32, `defer`).
-
-**Earlier ordering (2026-09-05 `plan`).** Verify → model → analysis
-primitives → tools → workflows → measurement. **Ordering rationale (2026-09-05 `plan`).** Verify → model → analysis
-primitives → tools → workflows → measurement. `P5-10` follows the composite
-tools because measuring them needs them to exist.
 
 **Five earlier design decisions govern this phase's boxes**, D-05-1…5 in the phase
 file, so implementation follows a spec rather than making judgment calls:
@@ -92,13 +102,13 @@ done
 | 02 | Policy, Privacy, Budget & Audit | 8 / 8 |
 | 03 | MCP Server & Inventory Tools | 11 / 11 |
 | 04 | History, Statistics & Detection | 6 / 6 |
-| 05 | Diagnostics & Evidence Engine | 17 / 20 |
+| 05 | Diagnostics & Evidence Engine | 19 / 25 |
 | 06 | Proposal Mode — gated | 0 / 1 |
 | 07 | Controlled Change (Admin) — gated | 0 / 1 |
 
 Counts include each phase's decision entries, which are boxes too. Phase 05's
-17 ticked are D-05-1…7 and the `P5-01`…`P5-07`, `P5-11`…`P5-13` task boxes; its three remaining
-are task boxes (`P5-08`…`P5-10`), and no decision entry in the phase is open. Phase 02 is
+19 ticked are D-05-1…9 and the `P5-01`…`P5-07`, `P5-11`…`P5-13` task boxes; its six remaining
+are task boxes (`P5-08`…`P5-10`, `P5-14`…`P5-16`), and no decision entry in the phase is open. Phase 02 is
 complete: its last box, the Q10 persistence decision, closed 2026-10-03.
 
 Phases 00–04 are milestone M1 (v1 observer) and are **fully implemented**.
@@ -106,7 +116,7 @@ Phase 05 is M2, and is where the last two catalog rows
 (`analyze_entity_health`, `analyze_integration_health`) became real. Phases 06–07 are gated: they open only on an
 explicit owner decision plus a fresh security review, and carry no task boxes.
 
-Last refreshed: 2026-10-03 (`P5-07` closed)
+Last refreshed: 2026-10-03 (`plan`, F-35 split)
 
 ## Open findings
 
@@ -114,7 +124,7 @@ Last refreshed: 2026-10-03 (`P5-07` closed)
      grep -c '^\*\*Triage:\*\* `queue-next`' docs/development/FINDINGS.md  (etc.)
      This block exists so captured work cannot quietly rot: every session sees it. -->
 
-`blocks-active` 0 · `queue-next` 4 · `defer` 5 · `unknown` 3 (open)
+`blocks-active` 0 · `queue-next` 5 · `defer` 5 · `unknown` 3 (open)
 
 > Any `blocks-active` is stop-work. If `queue-next` is non-zero and the queue
 > above has fewer than 3 rows, drain it with `devflow plan` before continuing —
@@ -123,8 +133,9 @@ Last refreshed: 2026-10-03 (`P5-07` closed)
 > An open `unknown` outranks the queue: it is an assumption the plan already
 > rests on. Run `devflow verify` before building further on it.
 
-Four `queue-next`, all attached to queued boxes and closing with them:
-**F-26** → `P5-10`; **F-27** → `P5-08`; **F-28** (`unknown`) and **F-31**
+Five `queue-next`, all attached to queued boxes and closing with them:
+**F-26** → `P5-10`; **F-27** → `P5-08` (its neighbour-table half → `P5-16`);
+**F-35** → `P5-14`…`P5-16`, closing with `P5-08`; **F-28** (`unknown`) and **F-31**
 (`unknown`, no evidence for "HA restarted") → observed in `P5-10`'s live run,
 before `P5-09`. Five
 `defer`s: **F-17** and **F-25** wait on the first production
