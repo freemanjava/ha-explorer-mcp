@@ -250,7 +250,7 @@ reduced to the end-to-end test. Decided as **D-05-8** and **D-05-9** below.
   types (no `cause` field); `analyze_integration_health`'s serialized response
   carries the `clusters` list (asserted at the MCP boundary).
 
-- [ ] **`P5-15` · Mesh-metric evidence** — per D-05-5, D-05-9
+- [x] **`P5-15` · Mesh-metric evidence** — per D-05-5, D-05-9
   Home: new `internal/analysis/mesh.go` — the flat analyzer D-05-5 decided,
   not grown into `integration_health.go`, which composes it.
   `ResolveMeshMetrics(entities []model.Entity)` picks, per device, the

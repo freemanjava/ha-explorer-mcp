@@ -25,6 +25,13 @@ import (
 // P5-10.
 const maxClusterEntities = 25
 
+// maxMeshMetricEntities bounds how many link-quality/signal-strength entities
+// have their history read, on top of maxClusterEntities and within the same
+// composite budget of 50 requests. Only devices with an outage or currently
+// down are read; the rest are named as budget_exceeded. A starting default
+// (doc §26), measured by P5-10.
+const maxMeshMetricEntities = 10
+
 // configEntryIDPattern accepts the identifiers HA gives config entries (ULID
 // style, but older entries use other word-character ids). It exists so the
 // id is never anything a route or query could be built from (rule 2).
@@ -106,6 +113,9 @@ func analyzeIntegrationHealth(ctx context.Context, deps integrationHealthDeps, i
 		return HealthResponse{}, err
 	}
 	if err := readOutages(ctx, deps, entities, down, &input); err != nil {
+		return HealthResponse{}, err
+	}
+	if err := readMesh(ctx, deps, entities, down, &input); err != nil {
 		return HealthResponse{}, err
 	}
 	if err := readIntegrationRepairs(ctx, deps.repairs, &input); err != nil {
@@ -242,6 +252,74 @@ func readOutages(ctx context.Context, deps integrationHealthDeps, entities []mod
 		in.OutagesRead = true
 	}
 	return nil
+}
+
+// readMesh reads link-quality and signal-strength history for the devices that
+// show a problem: one with an outage in the window or an entity down now. The
+// values become evidence only (D-05-9). Metric entities the profile denies are
+// excluded and counted, never named, as readOutages does (P4-05); metrics that
+// exist but cannot be read are named in missing_evidence.
+func readMesh(ctx context.Context, deps integrationHealthDeps, entities []model.Entity, down map[model.EntityID]struct{}, in *analysis.IntegrationHealthInput) error {
+	affected := affectedDevices(entities, down, in.Outages)
+	var scoped []model.Entity
+	for _, e := range entities {
+		if _, ok := affected[e.DeviceID]; ok && analysis.IsMeshEntity(e) {
+			scoped = append(scoped, e)
+		}
+	}
+	permitted, denied := permittedEntities(deps.profile, scoped)
+	if denied > 0 {
+		in.Missing = append(in.Missing, model.MissingEvidence{
+			What: "mesh metrics for some entities", Source: recorderSourceName, Reason: model.MissingPolicyDenied,
+			Detail: fmt.Sprintf("%d entities of affected devices were excluded by the privacy profile", denied),
+		})
+	}
+	res := analysis.ResolveMeshMetrics(permitted)
+	in.Missing = append(in.Missing, res.Missing...)
+
+	metrics := res.Metrics
+	if len(metrics) > maxMeshMetricEntities {
+		in.Missing = append(in.Missing, model.MissingEvidence{
+			What: "mesh metrics for some devices", Source: recorderSourceName, Reason: model.MissingBudgetExceeded,
+			Detail: fmt.Sprintf("history was read for %d of %d resolved mesh metric entities", maxMeshMetricEntities, len(metrics)),
+		})
+		metrics = metrics[:maxMeshMetricEntities]
+	}
+
+	window := in.To.Sub(in.From)
+	budget, hasBudget := policy.BudgetFrom(ctx)
+	for i, m := range metrics {
+		points, err := readEntityPoints(ctx, deps.history, budget, hasBudget, m.Entity.ID, in.From, in.To, window)
+		if err != nil {
+			return noteMissing(&in.Missing, "mesh metric history", recorderSourceName, err, withPartial(i > 0))
+		}
+		if ev, ok := analysis.MeshEvidence(m, in.From, in.To, points); ok {
+			in.MeshEvidence = append(in.MeshEvidence, ev)
+			continue
+		}
+		in.Missing = append(in.Missing, model.MissingEvidence{
+			What: "mesh metric readings for a device", Source: recorderSourceName, Reason: model.MissingOutOfRetention,
+			Detail: "the recorder held no numeric reading of this metric in the window",
+		})
+	}
+	return nil
+}
+
+// affectedDevices are the devices with an entity down now or an outage in the
+// window — the ones whose link quality is worth reading.
+func affectedDevices(entities []model.Entity, down map[model.EntityID]struct{}, outages []analysis.EntityOutages) map[model.DeviceID]struct{} {
+	out := map[model.DeviceID]struct{}{}
+	for _, e := range entities {
+		if _, ok := down[e.ID]; ok && e.DeviceID != "" {
+			out[e.DeviceID] = struct{}{}
+		}
+	}
+	for _, o := range outages {
+		if len(o.Availability.Outages) > 0 && o.Entity.DeviceID != "" {
+			out[o.Entity.DeviceID] = struct{}{}
+		}
+	}
+	return out
 }
 
 // permittedEntities drops entities the profile will not serve history for.

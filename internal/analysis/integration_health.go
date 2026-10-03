@@ -51,6 +51,11 @@ type IntegrationHealthInput struct {
 	RepairsRead bool
 	Repairs     []model.Repair
 
+	// MeshEvidence is the mesh-metric evidence already built from read
+	// history (MeshEvidence). Evidence only: nothing here becomes a hypothesis
+	// (D-05-9). Metrics that could not be read arrive through Missing.
+	MeshEvidence []model.Evidence
+
 	// SupervisorRead says Supervisor's resolution summary answered.
 	SupervisorRead bool
 	Resolution     model.ResolutionSummary
@@ -72,6 +77,7 @@ func AnalyzeIntegrationHealth(in IntegrationHealthInput) (model.HealthAnalysis, 
 	b.addInventoryEvidence()
 	b.addStateEvidence()
 	b.addRepairEvidence()
+	b.evidence = append(b.evidence, b.in.MeshEvidence...)
 	b.addSupervisorEvidence()
 	b.addHypotheses()
 	b.rankHypotheses()
