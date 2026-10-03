@@ -87,3 +87,7 @@ live ZHA installation exists to confirm the source-read half.
 `addUnreachableEvidence` in `integration_health.go`: a `MissingPrivileged` host row plus a tool-less `NextAction` when a cluster exists; a `MissingNotExposed` neighbour-table row when `IntegrationHealthInput.MeshResolved` (set by `readMesh` when any metric entity resolved).
 **Surprise:** "mesh metrics resolved" is not "mesh evidence exists" — a ZHA shape with both metrics disabled resolves entities but yields no evidence, so a new input flag was needed rather than `len(MeshEvidence)`.
 **Left open:** `golangci-lint` still not installed.
+
+### 2026-10-03 · P5-08
+`investigation_test.go`: `walkInvestigation2` drives `find_unavailable_entities` → `analyze_integration_health` → `analyze_entity_health` over `layout`/`meshShape` fixtures; asserts partial-parent topology, no-parent, coordinator star (F-27), mesh evidence vs `entity_disabled`, host `privileged` row, hypotheses cite their own envelope. No production code changed.
+**Left open:** the restart-evidence step (F-31, `P5-09`); `golangci-lint` still not installed.
