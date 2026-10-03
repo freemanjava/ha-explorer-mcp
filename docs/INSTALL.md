@@ -33,6 +33,41 @@ and must be done first.
    architecture (`aarch64` on Raspberry Pi), and pulls that tag from GHCR using
    the credential from step 1 — it does not build anything.
 
+## 3. Set the secret and open the port
+
+The App serves MCP over HTTP at `POST /mcp` on container port `8790`
+(D-08-1, D-08-6). It refuses to start without a secret.
+
+1. Generate one: `openssl rand -hex 16` (32 characters is the minimum).
+2. **Settings → Apps → HA Inspector MCP → Configuration**: paste it into
+   `http_secret` and save. Optional: `privacy_profile`, `log_level`.
+3. **Network** tab: type a host port (for example `8790`) for `8790/tcp`. Left
+   empty, nothing is published to your LAN.
+4. Start the App. It should stay **Started**.
+
+Know what this means:
+
+- **The secret crosses the LAN in clear** — v1 has no TLS (D-08-11). Use it on a
+  network you trust.
+- **The secret is stored in Home Assistant backups.**
+- **An empty host port is not isolation.** Other Apps on the same Supervisor
+  network can still reach the listener; the secret is what protects it.
+- **Rotate** by changing `http_secret` and restarting the App; clients then
+  need the new value.
+
+## 4. Connect a client
+
+Claude Code (HTTP with header):
+
+```bash
+claude mcp add --transport http ha-inspector http://<ha-host>:8790/mcp \
+  --header "Authorization: Bearer <secret>"
+```
+
+A stdio-only client needs a local bridge such as `mcp-proxy` pointed at the same
+URL and header. Its exact flags are confirmed during the `P8-09` run on the Pi
+and will be written here then.
+
 ## Troubleshooting
 
 - **The install fails with a generic pull error, not a clear "auth failed"

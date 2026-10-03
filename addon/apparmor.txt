@@ -19,7 +19,8 @@ profile ha_inspector_mcp flags=(attach_disconnected,mediate_deleted) {
   deny /var/run/docker.sock rwklx,
   deny /dev/** rwklx,
 
-  # Supervisor proxy only: outbound network to reach Core, no raw sockets.
+  # TCP only: outbound to the Supervisor proxy, and accept on :8790 (D-08-6).
+  # `network inet stream` covers bind/listen/accept; no datagram, no raw.
   network inet stream,
   network inet6 stream,
 
