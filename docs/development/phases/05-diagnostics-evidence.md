@@ -201,7 +201,7 @@ Decided as **D-05-6** and **D-05-7** below.
   surviving evidence is absent; no `cause` field (the D-05-1 reflection test
   covers the new types).
 
-- [ ] **`P5-13` · `analyze_automation_health`**
+- [x] **`P5-13` · `analyze_automation_health`**
   Home: new `internal/mcp/automation_health_tools.go` plus one catalog row at
   `ClassComposite` (open/closed: a new file and a table entry). Reads
   `automation/config` (dependencies), `trace/list` or the fallback, registry
@@ -214,7 +214,7 @@ Decided as **D-05-6** and **D-05-7** below.
   the same change doc §9 gains the row and the phase 03 "full twenty"
   decision record gains a one-line amendment pointing at D-05-6.
 
-- [ ] **`P5-07` · Investigation 1 — doc §13.1, end to end** — `blocked:P5-13`
+- [ ] **`P5-07` · Investigation 1 — doc §13.1, end to end**
   An integration-level test walking `get_automation` → `get_automation_traces`
   → dependency history/statistics → repairs → `analyze_automation_health`,
   against a fixture installation.

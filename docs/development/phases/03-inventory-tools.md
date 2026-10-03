@@ -284,6 +284,8 @@ internal/mcp/      # server.go, system_tools.go, entity_tools.go, automation_too
   expected tool names is what keeps "twenty" true rather than aspirational.
   `list_apps` and `get_system_health` are in scope at the level the 2026-08-25
   Supervisor decision permits, not above it.
+  **Amended 2026-10-03:** the catalog is twenty-one — `analyze_automation_health`
+  was added by D-05-6 (phase 05, `P5-13`); the registry test and doc §9 moved with it.
 
 - [x] **`P3-09` — the fallback event is masked whole, not searched for
   substrings** — decided 2026-09-05

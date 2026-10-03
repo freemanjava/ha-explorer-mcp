@@ -264,6 +264,7 @@ Public tools should express the engineer’s task, not mirror upstream endpoints
 | 18     | list_apps                  | Supervisor App inventory/state when permitted.                                     |
 | 19     | analyze_entity_health      | Composite deterministic entity health analysis.                                    |
 | 20     | analyze_integration_health | Composite integration health/outage-correlation analysis.                          |
+| 21     | analyze_automation_health  | Composite automation analysis: run outcomes × dependency windows (D-05-6).         |
 
 ## 9.1 Tool design rules
 

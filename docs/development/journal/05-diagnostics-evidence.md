@@ -61,3 +61,8 @@ live ZHA installation exists to confirm the source-read half.
 `AnalyzeAutomationHealth`: trace outcomes (or degraded logbook runs), per-dependency outage + stale windows, run overlap within `outageClusterTolerance`; config/trace/extraction/history gaps each named in `missing_evidence`. Result wraps `HealthAnalysis` with `DependencyEvidence` (numbered evidence id → entity), since ids may not be HA-derived.
 **Surprise:** trace coverage is only knowable from the oldest stored trace (HA keeps ~5), so a busy automation's run evidence covers a sliver of the period and lands `low` honestly. "Overlap ranked above no-overlap" holds by citation count only while the dependency history is at least as strong as the runs — the shared ladder ranks confidence first.
 **Left open:** `P5-13` must render `DependencyEvidence` and resolve device/area deps to entities; `golangci-lint` still not installed.
+
+### 2026-10-03 · P5-13
+`analyze_automation_health` (`internal/mcp/automation_health_tools.go`): config → traces → logbook fallback only when traces are unread; device/area deps resolved through the cached registries; history capped at `maxClusterEntities`, with private (deny) and over-cap dependencies passed to the analysis as unread-with-reason so they are counted, never named. Catalog, doc §9 and phase 03 moved to twenty-one.
+**Surprise:** a fallback-vs-traces confidence comparison is vacuous on a small fixture (both `low`); it needs ≥5 runs, a trace older than the period (trace coverage) and a period the 24h logbook window covers.
+**Left open:** F-26 (composite cost) still unmeasured — `P5-10`; `golangci-lint` still not installed.
