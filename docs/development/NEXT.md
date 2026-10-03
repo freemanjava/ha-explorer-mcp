@@ -3,11 +3,11 @@
 <!-- BOUNDED FILE — rewritten in place, never appended to. Keep under ~100 lines.
      Anything that grows goes to journal/. This file is read by every session. -->
 
-**▶ Active:** `P5-05` — `analyze_entity_health` · phase 05 · default model.
-Compose P4-02 availability, P4-03 cadence, registry/device context,
-integration setup state and repairs into the Appendix A.3 shape: `Evidence`,
-ranked `Hypothesis` via `ConfidenceFor`, `MissingEvidence`. No `score`
-(D-05-4). Replaces its `bindNotImplemented` catalog row.
+**▶ Active:** `P5-06` — `analyze_integration_health` · phase 05 · default model.
+Config-entry setup state, entity/device counts and unavailable ratio, open
+repairs, and the P5-04 outage clusters restricted to the integration's
+entities; Supervisor-derived evidence named in `missing_evidence` when absent.
+Reuses P5-05's `missing_evidence` mapping. Replaces its `bindNotImplemented` row.
 
 > Advancing this pointer is part of finishing a task, together with ticking the
 > box, recomputing status and appending a journal entry. All four, or none.
@@ -19,12 +19,11 @@ cycle. Remove a row when its task closes.
 
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
-| 1 | `P5-05` | `analyze_entity_health` | 05 | default | |
-| 2 | `P5-06` | `analyze_integration_health` | 05 | default | `blocked:P5-05` |
-| 3 | `P5-07` | investigation 1 — doc §13.1 e2e + degraded branch | 05 | default | `blocked:P5-05` |
-| 4 | `P5-08` | investigation 2 — doc §13.2 e2e (F-27's rule now in its DoD) | 05 | default | `blocked:P5-06` |
-| 5 | `P5-09` | investigation 3 — correlated mass unavailability (observe F-28 first) | 05 | default | `blocked:P5-06` |
-| 6 | `P5-10` | measure composite budget, re-class `find_stale_entities` (F-26) | 05 | default | `needs-verify` `blocked:P5-06` |
+| 1 | `P5-06` | `analyze_integration_health` | 05 | default | |
+| 2 | `P5-07` | investigation 1 — doc §13.1 e2e + degraded branch | 05 | default | |
+| 3 | `P5-08` | investigation 2 — doc §13.2 e2e (F-27's rule now in its DoD) | 05 | default | `blocked:P5-06` |
+| 4 | `P5-09` | investigation 3 — correlated mass unavailability (observe F-28 first) | 05 | default | `blocked:P5-06` |
+| 5 | `P5-10` | measure composite budget, re-class `find_stale_entities` (F-26) | 05 | default | `needs-verify` `blocked:P5-06` |
 
 **Ordering rationale (2026-09-05 `plan`).** Verify → model → analysis
 primitives → tools → workflows → measurement. `P5-01` went first because its
@@ -81,12 +80,12 @@ done
 | 02 | Policy, Privacy, Budget & Audit | 8 / 8 |
 | 03 | MCP Server & Inventory Tools | 11 / 11 |
 | 04 | History, Statistics & Detection | 6 / 6 |
-| 05 | Diagnostics & Evidence Engine | 9 / 15 |
+| 05 | Diagnostics & Evidence Engine | 10 / 15 |
 | 06 | Proposal Mode — gated | 0 / 1 |
 | 07 | Controlled Change (Admin) — gated | 0 / 1 |
 
 Counts include each phase's decision entries, which are boxes too. Phase 05's
-9 ticked are D-05-1…5 and the `P5-01`…`P5-04` task boxes; its six remaining task boxes
+10 ticked are D-05-1…5 and the `P5-01`…`P5-05` task boxes; its five remaining task boxes
 are open, and no decision entry in the phase is open any more. Phase 02 is
 complete: its last box, the Q10 persistence decision, closed 2026-10-03.
 
@@ -96,7 +95,7 @@ Phase 05 is M2, and is where the last two catalog rows
 `bindNotImplemented`) become real. Phases 06–07 are gated: they open only on an
 explicit owner decision plus a fresh security review, and carry no task boxes.
 
-Last refreshed: 2026-10-03 (`P5-04` closed — outage clustering, F-27 settled)
+Last refreshed: 2026-10-03 (`P5-05` closed — `analyze_entity_health`)
 
 ## Open findings
 
@@ -130,12 +129,15 @@ call site, F-17 becomes `wont-fix` and F-25 becomes a deletion task, at that
 
 Last 5 closed tasks, one line each. Older entries live in `journal/`.
 
+- 2026-10-03 · `P5-05` — `analyze_entity_health`: each source (history,
+  registry, repairs) read independently, a failed one becomes
+  `missing_evidence`; hypotheses via `ConfidenceFor`, no score. Found and fixed:
+  `History` was never wired in `cmd/server` (F-29).
 - 2026-10-03 · `P5-04` — `ClusterOutages`: sort + one sweep, 2-min tolerance,
   ≥2-entity clusters annotated afterwards, each a citable `Evidence`. F-27: a
   star parent goes to `Withheld`, never `Shared`. Whole-period outages leave
   the sweep (`UnavailableThroughout`). Found: partial long outages still chain
   (F-28).
-
 - 2026-10-03 · `P5-03` — `ConfidenceFor(cited ...model.Evidence)`: ladder
   high ≥20 samples & ≥0.9 coverage, medium ≥5 & ≥0.5, `Degraded` demotes one
   step, several citations take the weakest. A source scan forbids naming a
@@ -144,16 +146,3 @@ Last 5 closed tasks, one line each. Older entries live in `journal/`.
   `internal/model/evidence.go`; `NewHypothesis` refuses zero citations;
   `MissingReason` separates `entity_disabled` from `not_exposed` (D-05-5). The
   no-`cause` rule is a `go/parser` scan over `internal/`, json tags included.
-- 2026-09-05 · `P5-01` — Q9/F-6 answered: mesh metrics get a flat analyzer plus
-  a name/`device_class` hint table, not a per-integration plugin seam
-  (D-05-5). Both integrations expose LQI/RSSI as ordinary entities; they differ
-  only in name, in whether a `device_class` exists, and in whether the entity
-  is enabled — ZHA ships both disabled, Zigbee2MQTT has no RSSI. Found:
-  `via_device_id` is a coordinator star on both, making D-05-3's shared-parent
-  annotation vacuous for Zigbee (F-27).
-- 2026-09-05 · `P4-05` — `find_unavailable_entities` (cheap aggregate scan,
-  paginated) and `find_stale_entities` (per-entity cadence scan bounded by the
-  HA-request budget, `Truncated` meaning "candidates remain unexamined").
-  PRIVATE entities are excluded outright under the deny profile in both,
-  counted via `PrivateExcluded`. Found: `find_stale_entities`' budget class
-  has no measurement behind it (F-26).

@@ -102,6 +102,7 @@ func run() error {
 		Areas:        registry,
 		Automations:  core,
 		Repairs:      core,
+		History:      core,
 
 		AutomationDetail: core,
 		Logbook:          core,
