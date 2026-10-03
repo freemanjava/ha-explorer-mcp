@@ -560,9 +560,9 @@ order and the batching recommendation do not depend on it. It costs ~30%
 accuracy in the statistics half of `P2-01`'s pre-flight byte estimate. The
 estimate uses the larger batched figure, so the error is conservative.
 
-**Triage:** `defer`
+**Triage:** `wont-fix`
 
-**Outcome:** Re-triaged at the 2026-09-05 Phase 05 `plan` and **left deferred**, trigger
+**Outcome:** **Closed `wont-fix` at the 2026-10-03 `plan`**, by the standing decision recorded below: Phase 05 closed with no production `Preflight(policy.SourceStatistics, …)` call site, so the ~30% error never bound, and it errs conservative. F-36 (the one idea that would add such a call site) stays deferred; if it is ever built, its `verify` re-measures batched statistics bytes anyway. Re-triaged at the 2026-09-05 Phase 05 `plan` and **left deferred**, trigger
 unchanged: no `P5-*` box adds a `Preflight(policy.SourceStatistics, …)` call
 site — the composite analyzers compose P4-02/P4-03 over
 `history/history_during_period`, the same source `get_entity_statistics` reads.
@@ -880,9 +880,9 @@ can actually reach is the durable fix; deleting the three entries is the
 alternative, and would have to be undone the moment a statistics-API source is
 wired.
 
-**Triage:** `defer`
+**Triage:** `queue-next`
 
-**Outcome:** Re-triaged at the 2026-09-05 Phase 05 `plan` and **left deferred** on the
+**Outcome:** **Planned 2026-10-03 into `P8-03`** (`phases/08-v1-release.md`), by the standing decision below: Phase 05 closed without a statistics-API call site, so the three entries are deleted and `TestGateway_AllowList_EveryEntryHasACaller` asserts the property durably. Closes when `P8-03` closes. The same check exposed a larger case — the whole Core REST adapter — filed as F-38. Re-triaged at the 2026-09-05 Phase 05 `plan` and **left deferred** on the
 shared F-17 trigger, which Phase 05's boxes do not fire. Standing decision for
 the next `plan`, as this finding's own text anticipated: if Phase 05 closes
 without a statistics-API call site, the question becomes deletion of the three
@@ -1067,7 +1067,7 @@ is a change to D-05-3 and wants its own decision.
 
 **Triage:** `defer`
 
-**Outcome:** Recorded as the owner's chosen fallback (D-05-7). Re-triage at each `plan`; trigger is evidence the mapper misses dependencies.
+**Outcome:** Recorded as the owner's chosen fallback (D-05-7). Re-triage at each `plan`; trigger is evidence the mapper misses dependencies. Re-triaged 2026-10-03 `plan`: trigger not fired, left deferred.
 
 ### F-33 · Should the server help write fixes or new automations? · 2026-10-03
 
@@ -1091,7 +1091,7 @@ is a change to D-05-3 and wants its own decision.
 
 **Triage:** `defer`
 
-**Outcome:** Open. Re-triage if a non-admin deployment matters; F-32 (`search/related`) may supply dependencies without admin — unverified.
+**Outcome:** Open. Re-triage if a non-admin deployment matters; F-32 (`search/related`) may supply dependencies without admin — unverified. Re-triaged 2026-10-03 `plan`: trigger not fired, left deferred.
 
 ### F-35 · `P5-08` assumes three producers that do not exist · 2026-10-03
 
@@ -1108,4 +1108,28 @@ is a change to D-05-3 and wants its own decision.
 **What:** `P5-10` measured `find_stale_entities` at 20 requests / 20 entities per page ([research](../research/2026-10-03-composite-budget-measurement.md)): the cadence judgment reads history per entity, so covering 521 entities takes 27+ calls whatever the class. `recorder/statistics_during_period` answers many ids in one call and is 1–3 orders of magnitude cheaper (P0-07), but only for entities with compiled statistics, so it is a partial replacement.
 **Impact:** Unknown pending verification: how many of an installation's entities have statistics, and whether hourly buckets can judge cadence at all.
 **Triage:** `defer`
-**Outcome:** Recorded by D-05-10 as the fix that would change the scaling. Re-triage at the next `plan` after Phase 05 closes.
+**Outcome:** Re-triaged at the 2026-10-03 `plan` and **left deferred** (owner): no measured pain, a partial gain (only `state_class` entities have statistics) and a risk of reading a frozen sensor as alive from hourly rows. Trigger: v1 usage data showing full staleness scans are needed often and too slow — then `verify` first. Recorded by D-05-10 as the fix that would change the scaling. Re-triage at the next `plan` after Phase 05 closes.
+
+### F-37 · No MCP client can reach the server once it runs as an App · 2026-10-03
+
+**Kind:** `unknown`
+
+**What:** Found at the 2026-10-03 `plan` while scoping v1.0. Phase 01 decided stdio only, "connected to the process's stdin/stdout by whoever starts it"; `cmd/server/main.go` only knows the Supervisor proxy URL, so it runs nowhere but inside the App. Under Supervisor the starter is Supervisor: `addon/config.yaml` declares no `stdin:`, and `docs/INSTALL.md` ends at "Install" with no connection step. Expected, unverified: the process reads EOF at once and exits 0, leaving the App stopped. Every phase 05 journal entry says "not observed against a live HA"; `cmd/measure` ran the tools in-process, off-box.
+
+**Impact:** Unknown pending verification. If the expectation holds, v1 as packaged is installable but unusable by any client, and phase 06's "v1 usage data" cannot exist.
+
+**Triage:** `queue-next`
+
+**Outcome:** Planned 2026-10-03 into `P8-01` (observe), `D-08-1` (owner chooses the client path on that evidence) and `P8-02` (implement it). Closes when `P8-02` closes.
+
+### F-38 · The Core REST adapter is linked in but never constructed · 2026-10-03
+
+**Kind:** `inconsistency`
+
+**What:** Found checking F-25's premise for routes. `internal/ha/rest.go`'s `RESTClient` (`P1-03`) and its five allow-listed routes have no caller: `cmd/server` never calls `NewRESTClient`, and the routes are referenced only from `rest.go` itself. Every reader since phase 01 went over the WebSocket.
+
+**Impact:** No rule broken — it is GET-only and unreachable. But it is dead code (CLAUDE.md), and by ADR-008's own reasoning a linked-in HTTP client is surface; the allow-list overstates the reachable surface by five routes, the same gap F-25 names for three commands.
+
+**Triage:** `queue-next`
+
+**Outcome:** D-08-2 (delete, not keep as a fallback); planned into `P8-07`. Closes when `P8-07` closes.
