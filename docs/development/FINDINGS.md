@@ -1170,8 +1170,8 @@ is a change to D-05-3 and wants its own decision.
 **What:** `cmd/server/main.go` reads `HA_INSPECTOR_PRIVACY_PROFILE` and `HA_INSPECTOR_LOG_LEVEL` from the environment only; `addon/config.yaml` has `options: {}` / `schema: {}`, and Supervisor passes App options only through `/data/options.json`. So on the Pi the profile is always `mask` and the level always `info`. CLAUDE.md "Configuration": "Budget limits and the privacy profile are configurable". Found by `P8-08` while settling D-08-9, which introduces the first options-file read (`http_secret`).
 **Impact:** the owner cannot pick `deny`/`allow` or turn on `debug` for the installation v1 ships to; `P8-05`'s acceptance walk cannot exercise a non-default profile on the Pi. Cheap to close once D-08-9's options-file reader exists — the same reader, two more keys — but that widens `P8-02`/`P8-09`, which is `plan`'s call, not this review's.
 
-**Triage:** `queue-next`
-**Outcome:** D-08-12 (owner, 2026-10-03: profile + log level as App options; budget limits stay constants, CLAUDE.md corrected); planned into `P8-12`.
+**Triage:** `done`
+**Outcome:** D-08-12 (owner, 2026-10-03: profile + log level as App options; budget limits stay constants, CLAUDE.md corrected); planned into `P8-12`; `P8-12` closed 2026-10-03 — resolved.
 
 ### F-43 · TLS for the HTTP transport · 2026-10-03
 

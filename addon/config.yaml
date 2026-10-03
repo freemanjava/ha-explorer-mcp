@@ -43,5 +43,11 @@ apparmor: true
 # No /config, no Recorder DB, no host filesystem — see CLAUDE.md "Not Yet".
 map: []
 
-options: {}
-schema: {}
+# D-08-12: the two settings an owner needs on the Pi. Budget limits are
+# measured constants, not options.
+options:
+  privacy_profile: mask
+  log_level: info
+schema:
+  privacy_profile: list(mask|allow|deny)
+  log_level: list(debug|info|warn|error)

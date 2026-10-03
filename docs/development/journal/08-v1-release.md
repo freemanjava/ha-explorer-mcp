@@ -45,3 +45,7 @@ Security review of D-08-1's HTTP transport: D-08-4…D-08-11, ADR-013, doc §4 T
 HTTP transport per D-08-4…D-08-11: `internal/mcp/transport_http.go` (gate + `Run` switch), `cmd/server/config.go`, audit `transport`, `policy.CompositeDeadline`. Smoked the binary: 401 without secret, tools/list with it, secret absent from logs, start refused without `http_secret`.
 **Surprise:** none — the SDK behaved as `P8-08`'s research note said (stateless POST works with raw JSON-RPC, no initialize needed).
 **Left open:** addon packaging (port, schema, `run.sh`, AppArmor) is `P8-09`; privacy/log-level options are `P8-12`.
+
+### 2026-10-03 · P8-12
+`loadSettings` in `cmd/server/config.go`: `privacy_profile` / `log_level` under the one-source rule, shared `readOptions` with the secret; `addon/config.yaml` declares both as closed lists; startup log reports the effective profile; CLAUDE.md "Configuration" corrected (budgets are constants).
+**Surprise:** none.

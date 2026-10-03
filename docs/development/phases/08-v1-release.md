@@ -161,7 +161,7 @@ and run while the owner is busy there.
   contains `Bearer ` (assertion, like token-never-returned); `SUPERVISOR_TOKEN`
   likewise. `make check` green, `-race` included.
 
-- [ ] **`P8-12` · App options carry the privacy profile and log level (F-42,
+- [x] **`P8-12` · App options carry the privacy profile and log level (F-42,
   D-08-12)** — `blocked:P8-02`
   Home: `cmd/server/config.go` (from `P8-02`) gains two keys under D-08-9's
   one-source rule — options file when it exists, environment otherwise, never

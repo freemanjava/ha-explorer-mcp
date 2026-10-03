@@ -1,10 +1,13 @@
 package main
 
 import (
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/freemanjava/ha-explorer-mcp/internal/policy"
 )
 
 // Built at runtime, low-entropy, so the secret scanner has no literal to flag.
@@ -104,5 +107,67 @@ func TestLoadTransport_SecretFromEnv_WhenNoOptionsFile(t *testing.T) {
 	}
 	if cfg.transport != "http" || cfg.httpSecret != goodSecret {
 		t.Errorf("cfg = %+v", cfg)
+	}
+}
+
+func TestLoadSettings_OptionsFile_WinsOverEnvironment(t *testing.T) {
+	p := writeOptions(t, `{"privacy_profile":"deny","log_level":"debug"}`)
+	got, err := loadSettings(env(map[string]string{
+		envPrivacyProfile: "allow", envLogLevel: "error",
+	}), p)
+	if err != nil {
+		t.Fatalf("loadSettings: %v", err)
+	}
+	if got.profileName != "deny" || got.level != slog.LevelDebug {
+		t.Errorf("got %q / %v, want deny / debug", got.profileName, got.level)
+	}
+	if got.profile.Private != policy.HandlingDeny {
+		t.Errorf("profile handling = %v, want deny", got.profile.Private)
+	}
+}
+
+func TestLoadSettings_OptionsFileWithoutKeys_Defaults(t *testing.T) {
+	p := writeOptions(t, `{}`)
+	got, err := loadSettings(env(map[string]string{envPrivacyProfile: "deny", envLogLevel: "debug"}), p)
+	if err != nil {
+		t.Fatalf("loadSettings: %v", err)
+	}
+	if got.profileName != "mask" || got.level != slog.LevelInfo {
+		t.Errorf("got %q / %v, want mask / info (environment must be ignored)", got.profileName, got.level)
+	}
+}
+
+func TestLoadSettings_UnknownValue_RefusedNamingKey(t *testing.T) {
+	cases := map[string]string{
+		`{"privacy_profile":"open"}`: optionPrivacyProfile,
+		`{"log_level":"trace"}`:      optionLogLevel,
+		`{"log_level":3}`:            optionLogLevel,
+	}
+	for body, key := range cases {
+		_, err := loadSettings(env(nil), writeOptions(t, body))
+		if err == nil || !strings.Contains(err.Error(), key) {
+			t.Errorf("%s: err = %v, want a refusal naming %s", body, err, key)
+		}
+	}
+}
+
+func TestLoadSettings_NoOptionsFile_EnvironmentBehaviorUnchanged(t *testing.T) {
+	absent := filepath.Join(t.TempDir(), "absent.json")
+	got, err := loadSettings(env(map[string]string{envPrivacyProfile: "ALLOW", envLogLevel: "warn"}), absent)
+	if err != nil {
+		t.Fatalf("loadSettings: %v", err)
+	}
+	if got.profileName != "allow" || got.level != slog.LevelWarn {
+		t.Errorf("got %q / %v, want allow / warn", got.profileName, got.level)
+	}
+
+	def, err := loadSettings(env(nil), absent)
+	if err != nil || def.profileName != "mask" || def.level != slog.LevelInfo {
+		t.Errorf("defaults = %+v, %v, want mask / info", def, err)
+	}
+
+	_, err = loadSettings(env(map[string]string{envPrivacyProfile: "open"}), absent)
+	if err == nil || !strings.Contains(err.Error(), envPrivacyProfile) {
+		t.Errorf("err = %v, want a refusal naming %s", err, envPrivacyProfile)
 	}
 }

@@ -239,8 +239,9 @@ are starting defaults, explicitly not measurements (doc §26).
 
 Environment variables and the App options file. Defaults live in code as named
 constants next to what they bound. Secrets are read once, held in memory, never
-written anywhere. Budget limits and the privacy profile are configurable;
-read-only-ness is not.
+written anywhere. The privacy profile and log level are configurable (App
+options, D-08-12); budget limits are measured constants, not options, in v1;
+read-only-ness is never configurable.
 
 ## Testing
 
