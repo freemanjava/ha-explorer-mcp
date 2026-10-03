@@ -276,6 +276,7 @@ func readMesh(ctx context.Context, deps integrationHealthDeps, entities []model.
 	}
 	res := analysis.ResolveMeshMetrics(permitted)
 	in.Missing = append(in.Missing, res.Missing...)
+	in.MeshResolved = len(res.Metrics) > 0
 
 	metrics := res.Metrics
 	if len(metrics) > maxMeshMetricEntities {

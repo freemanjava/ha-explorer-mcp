@@ -55,6 +55,9 @@ type IntegrationHealthInput struct {
 	// history (MeshEvidence). Evidence only: nothing here becomes a hypothesis
 	// (D-05-9). Metrics that could not be read arrive through Missing.
 	MeshEvidence []model.Evidence
+	// MeshResolved says at least one link-quality or signal-strength entity
+	// resolved for an affected device, whether or not its history was readable.
+	MeshResolved bool
 
 	// SupervisorRead says Supervisor's resolution summary answered.
 	SupervisorRead bool
@@ -79,6 +82,7 @@ func AnalyzeIntegrationHealth(in IntegrationHealthInput) (model.HealthAnalysis, 
 	b.addRepairEvidence()
 	b.evidence = append(b.evidence, b.in.MeshEvidence...)
 	b.addSupervisorEvidence()
+	b.addUnreachableEvidence()
 	b.addHypotheses()
 	b.rankHypotheses()
 
@@ -141,6 +145,26 @@ func (b *integrationBuilder) addClusterEvidence() error {
 		})
 	}
 	return nil
+}
+
+// addUnreachableEvidence names what no source of this server can read, once
+// the response has something that would use it. Rows only: missing evidence
+// informs, it never refutes a hypothesis, so addHypotheses is unaffected.
+func (b *integrationBuilder) addUnreachableEvidence() {
+	if len(b.clusters) > 0 {
+		b.missing = append(b.missing, model.MissingEvidence{
+			What: "kernel and host logs around the clustered outage window (USB resets, dmesg)", Source: "host",
+			Reason: model.MissingPrivileged,
+			Detail: "needs host privileges this server never has; ADR-012's separate Host Probe would read it",
+		})
+	}
+	if b.in.MeshResolved {
+		b.missing = append(b.missing, model.MissingEvidence{
+			What: "mesh neighbour/routing table", Source: "integration",
+			Reason: model.MissingNotExposed,
+			Detail: "the integration's topology sources lie outside this server's read-only gateway allow-list",
+		})
+	}
 }
 
 func (b *integrationBuilder) addInventoryEvidence() {
@@ -289,6 +313,11 @@ func (b *integrationBuilder) nextActions() []model.NextAction {
 		actions = append(actions, model.NextAction{
 			Step: "inspect the raw state history of the clustered entities around the shared window",
 			Tool: "get_entity_history",
+		})
+	}
+	if len(b.clusters) > 0 {
+		actions = append(actions, model.NextAction{
+			Step: "read the host's kernel log around the shared window for USB resets; no tool of this server can",
 		})
 	}
 	if _, ok := b.evidenceByID(EvidenceRepairs); ok {
