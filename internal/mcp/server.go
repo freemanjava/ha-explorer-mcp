@@ -77,6 +77,10 @@ type Options struct {
 	// stay empty rather than being fetched — a degradation of the fallback
 	// itself, not of the tool's main answer.
 	Logbook logbookReader
+	// Lifecycle reads Home Assistant's start/stop logbook rows around outage
+	// clusters for analyze_integration_health (P5-09). Nil leaves the restart
+	// evidence named in missing_evidence rather than guessed.
+	Lifecycle lifecycleReader
 	// Repairs reads repairs/list_issues for list_repairs (P3-06), reachable
 	// at any principal. Nil leaves that row "not implemented in this build".
 	Repairs repairReader

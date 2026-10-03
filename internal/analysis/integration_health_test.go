@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/freemanjava/ha-explorer-mcp/internal/model"
 )
@@ -431,5 +432,103 @@ func TestAnalyzeIntegrationHealth_HostRow_IgnoresIntegrationName(t *testing.T) {
 		if rows := missingWithReason(got, model.MissingPrivileged); len(rows) != 1 {
 			t.Errorf("domain %q: privileged rows = %d, want 1", domain, len(rows))
 		}
+	}
+}
+
+func restartInput(events ...time.Time) IntegrationHealthInput {
+	in := integrationInput()
+	in.Outages = twoEntityCluster()
+	probe := RestartProbe{Onset: minute(100)}
+	for _, at := range events {
+		probe.Events = append(probe.Events, model.LifecycleEvent{When: at})
+	}
+	in.RestartProbes = []RestartProbe{probe}
+	return in
+}
+
+func hypothesisCitingLeg(a model.HealthAnalysis, id model.EvidenceID) (model.Hypothesis, bool) {
+	i := slices.IndexFunc(a.Hypotheses, func(h model.Hypothesis) bool { return slices.Contains(h.Cites(), id) })
+	if i < 0 {
+		return model.Hypothesis{}, false
+	}
+	return a.Hypotheses[i], true
+}
+
+func TestAnalyzeIntegrationHealth_RestartAtOnset_HypothesisNamesRestartNotUpstream(t *testing.T) {
+	got, err := AnalyzeIntegrationHealth(restartInput(minute(99)))
+	if err != nil {
+		t.Fatalf("AnalyzeIntegrationHealth: %v", err)
+	}
+	ev, ok := evidenceByID(got, "restart_outage_cluster_1")
+	if !ok || ev.Measurements["lifecycle_events"] != 1 {
+		t.Fatalf("restart evidence = %+v, want one lifecycle event", ev)
+	}
+	h, ok := hypothesisCitingLeg(got, "restart_outage_cluster_1")
+	if !ok || !strings.Contains(h.Statement(), "start or stop") {
+		t.Fatalf("no restart hypothesis citing its evidence: %+v", got.Hypotheses)
+	}
+	if slices.ContainsFunc(got.Hypotheses, func(h model.Hypothesis) bool { return strings.Contains(h.Statement(), "shared upstream") }) {
+		t.Error("the upstream hypothesis is offered beside a coinciding restart")
+	}
+	everyCiteResolves(t, got)
+}
+
+func TestAnalyzeIntegrationHealth_ProbeFoundNoRestart_UpstreamCitesTheAbsence(t *testing.T) {
+	got, err := AnalyzeIntegrationHealth(restartInput())
+	if err != nil {
+		t.Fatalf("AnalyzeIntegrationHealth: %v", err)
+	}
+	ev, ok := evidenceByID(got, "restart_outage_cluster_1")
+	if !ok || ev.Measurements["lifecycle_events"] != 0 {
+		t.Fatalf("restart evidence = %+v, want a measured zero, not an absent leg", ev)
+	}
+	h, ok := hypothesisCitingLeg(got, "restart_outage_cluster_1")
+	if !ok || !strings.Contains(h.Statement(), "shared upstream") {
+		t.Fatalf("upstream hypothesis does not cite the absence of a restart: %+v", got.Hypotheses)
+	}
+	everyCiteResolves(t, got)
+}
+
+func TestAnalyzeIntegrationHealth_NoProbe_NoRestartEvidenceAndUpstreamUnchanged(t *testing.T) {
+	in := restartInput()
+	in.RestartProbes = nil
+	got, err := AnalyzeIntegrationHealth(in)
+	if err != nil {
+		t.Fatalf("AnalyzeIntegrationHealth: %v", err)
+	}
+	if _, ok := evidenceByID(got, "restart_outage_cluster_1"); ok {
+		t.Error("restart evidence invented for an unread window: absence of a read is not absence of a restart")
+	}
+	if _, ok := hypothesisCitingLeg(got, "outage_cluster_1"); !ok {
+		t.Error("the cluster hypothesis disappeared when the logbook was not read")
+	}
+}
+
+func TestAnalyzeIntegrationHealth_ProbeForOtherOnset_NotMatched(t *testing.T) {
+	in := restartInput(minute(99))
+	in.RestartProbes[0].Onset = minute(500)
+	got, err := AnalyzeIntegrationHealth(in)
+	if err != nil {
+		t.Fatalf("AnalyzeIntegrationHealth: %v", err)
+	}
+	if _, ok := evidenceByID(got, "restart_outage_cluster_1"); ok {
+		t.Error("a probe for another onset was attached to this cluster")
+	}
+}
+
+func TestOutageOnsets_MatchClusterOrderAndStarts(t *testing.T) {
+	onsets, err := OutageOnsets(clusterFrom, clusterTo, twoEntityCluster(), nil)
+	if err != nil {
+		t.Fatalf("OutageOnsets: %v", err)
+	}
+	if len(onsets) != 1 || !onsets[0].Equal(minute(100)) {
+		t.Fatalf("onsets = %v, want one at minute 100", onsets)
+	}
+}
+
+func TestRestartProbeWindow_IsSymmetricAroundOnset(t *testing.T) {
+	from, to := RestartProbeWindow(minute(100))
+	if minute(100).Sub(from) != to.Sub(minute(100)) || to.Sub(from) != 2*restartTolerance {
+		t.Errorf("window = [%v, %v], want onset ± %v", from, to, restartTolerance)
 	}
 }

@@ -106,6 +106,7 @@ func run() error {
 
 		AutomationDetail: core,
 		Logbook:          core,
+		Lifecycle:        core,
 	})
 	// mcp.Run already treats any way an established session ends — cancelled
 	// context, clean disconnect, or a client dying mid-request — as a normal

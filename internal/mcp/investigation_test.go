@@ -274,8 +274,7 @@ type investigation2 struct {
 
 // walkInvestigation2 follows doc §13.2 over one server session: find the
 // unavailable entities, analyze their integration, then a clustered member.
-// The "restart evidence" step is deliberately absent: no producer exists
-// (F-31), and P5-09 owns it.
+// Its "restart evidence" step is walkInvestigation3's.
 func walkInvestigation2(t *testing.T, l layout, shape meshShape) investigation2 {
 	t.Helper()
 	inv, down := meshInstallation(l, shape)
@@ -394,4 +393,169 @@ func TestInvestigation2_Cluster_NamesHostEvidenceAsPrivileged(t *testing.T) {
 	if !slices.ContainsFunc(out.integration.MissingEvidence, func(m model.MissingEvidence) bool { return m.Reason == model.MissingNotExposed }) {
 		t.Errorf("the neighbour table is not named as not exposed: %+v", out.integration.MissingEvidence)
 	}
+}
+
+// fakeLifecycleReader serves Home Assistant start/stop rows the way the real
+// window read does: only those inside [from, to]. It records every window it
+// was asked for, so a test can pin that no read was wider than a probe.
+type fakeLifecycleReader struct {
+	events  []model.LifecycleEvent
+	err     error
+	windows [][2]time.Time
+}
+
+func (f *fakeLifecycleReader) LifecycleEvents(_ context.Context, from, to time.Time) ([]model.LifecycleEvent, error) {
+	f.windows = append(f.windows, [2]time.Time{from, to})
+	if f.err != nil {
+		return nil, f.err
+	}
+	var out []model.LifecycleEvent
+	for _, e := range f.events {
+		if !e.When.Before(from) && !e.When.After(to) {
+			out = append(out, e)
+		}
+	}
+	return out, nil
+}
+
+// walkInvestigation3 follows doc §21's third investigation over one server
+// session: a batch of entities goes unavailable together; find them, analyze
+// their integration (clustering, shared config entry, restart evidence,
+// repairs). Both fixtures are the same installation and the same outage; only
+// the logbook differs.
+func walkInvestigation3(t *testing.T, lifecycle *fakeLifecycleReader) (HealthResponse, *fakeLifecycleReader) {
+	t.Helper()
+	inv, down := meshInstallation(noParent, metricExposed)
+	opts := integrationHealthOptions(outageHistory{outage: map[string]bool{down[0]: true, down[1]: true}}, inv, downReader(down...),
+		&fakeRepairReader{repairs: []model.Repair{{IssueID: "i1", Domain: "mesh", Severity: "warning", TranslationPlaceholders: map[string]any{}}}}, nil)
+	if lifecycle != nil {
+		opts.Lifecycle = lifecycle
+	}
+	client := connect(t, newServer(opts, Catalog()))
+	call := func(name string, args map[string]any, into any) {
+		t.Helper()
+		res, err := client.CallTool(t.Context(), &sdkmcp.CallToolParams{Name: name, Arguments: args})
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if res.IsError {
+			t.Fatalf("%s answered with an error: %s", name, resultText(res))
+		}
+		raw, _ := json.Marshal(res.StructuredContent)
+		if err := json.Unmarshal(raw, into); err != nil {
+			t.Fatalf("%s: unmarshal: %v", name, err)
+		}
+	}
+	var unavailable model.UnavailableEntityList
+	var out HealthResponse
+	call("find_unavailable_entities", map[string]any{}, &unavailable)
+	if len(unavailable.Items) != 2 {
+		t.Fatalf("step 1 listed %d unavailable entities, want the two in outage", len(unavailable.Items))
+	}
+	call("analyze_integration_health", map[string]any{"config_entry_id": "entry-1"}, &out)
+	if len(out.Clusters) == 0 {
+		t.Fatalf("step 2 found no cluster: %+v", out.Evidence)
+	}
+	assertHypothesesCiteEnvelope(t, "integration", out)
+	return out, lifecycle
+}
+
+// outageOnset is when dependencyOutage's entities went down.
+func outageOnset() time.Time { return time.Now().UTC().Add(-3 * time.Hour) }
+
+func hypothesisTexts(out HealthResponse) string {
+	var b strings.Builder
+	for _, h := range out.Hypotheses {
+		b.WriteString(h.Statement + "\n")
+	}
+	return b.String()
+}
+
+func TestInvestigation3_RestartVersusIntegrationFailure_DistinguishedByEvidence(t *testing.T) {
+	restarted, _ := walkInvestigation3(t, &fakeLifecycleReader{events: []model.LifecycleEvent{
+		{When: outageOnset().Add(-40 * time.Second)}, {When: outageOnset().Add(90 * time.Second)},
+	}})
+	failed, _ := walkInvestigation3(t, &fakeLifecycleReader{events: []model.LifecycleEvent{
+		{When: outageOnset().Add(-2 * time.Hour)},
+	}})
+
+	const leg = "restart_outage_cluster_1"
+	if ev := evidenceByID(restarted.Evidence, leg); ev == nil || ev.Measurements["lifecycle_events"] != 2 {
+		t.Fatalf("restart fixture evidence = %+v, want two lifecycle events", ev)
+	}
+	if ev := evidenceByID(failed.Evidence, leg); ev == nil || ev.Measurements["lifecycle_events"] != 0 {
+		t.Fatalf("failure fixture evidence = %+v, want a measured zero (a row two hours away is not near)", ev)
+	}
+	if !strings.Contains(hypothesisTexts(restarted), "start or stop") || strings.Contains(hypothesisTexts(restarted), "shared upstream") {
+		t.Errorf("restart fixture hypotheses:\n%s", hypothesisTexts(restarted))
+	}
+	if !strings.Contains(hypothesisTexts(failed), "shared upstream") || strings.Contains(hypothesisTexts(failed), "start or stop") {
+		t.Errorf("failure fixture hypotheses:\n%s", hypothesisTexts(failed))
+	}
+	for name, out := range map[string]HealthResponse{"restarted": restarted, "failed": failed} {
+		if !slices.ContainsFunc(out.Hypotheses, func(h HypothesisView) bool { return slices.Contains(h.Cites, leg) }) {
+			t.Errorf("%s: no hypothesis cites the restart leg", name)
+		}
+	}
+}
+
+func TestInvestigation3_LogbookRead_BoundedToProbeWindowNeverThePeriod(t *testing.T) {
+	_, reader := walkInvestigation3(t, &fakeLifecycleReader{})
+
+	if len(reader.windows) != 1 {
+		t.Fatalf("logbook reads = %d, want one per cluster", len(reader.windows))
+	}
+	if w := reader.windows[0]; w[1].Sub(w[0]) > 10*time.Minute {
+		t.Errorf("window %v..%v is wider than a probe: unfiltered, it would pull the whole logbook", w[0], w[1])
+	}
+}
+
+func TestInvestigation3_LogbookUnreadable_NamedMissingNeverReportedAsNoRestart(t *testing.T) {
+	out, _ := walkInvestigation3(t, &fakeLifecycleReader{err: fmt.Errorf("logbook: %w", ha.ErrUpstreamUnavailable)})
+
+	if evidenceByID(out.Evidence, "restart_outage_cluster_1") != nil {
+		t.Error("restart evidence invented from a failed read")
+	}
+	if !slices.ContainsFunc(out.MissingEvidence, func(m model.MissingEvidence) bool { return m.Source == "logbook" }) {
+		t.Errorf("the unread logbook is not named: %+v", out.MissingEvidence)
+	}
+	if !out.Partial {
+		t.Error("an answer missing its restart evidence must be marked partial")
+	}
+}
+
+func TestInvestigation3_NoLifecycleReader_NamedMissing(t *testing.T) {
+	out, _ := walkInvestigation3(t, nil)
+
+	if !slices.ContainsFunc(out.MissingEvidence, func(m model.MissingEvidence) bool { return m.Source == "logbook" }) {
+		t.Errorf("a build without the logbook reader does not say so: %+v", out.MissingEvidence)
+	}
+}
+
+// TestDocCriterion_ThreeInvestigationsProduceEvidenceBackedRankedHypotheses is
+// doc §21's criterion — "at least three end-to-end investigations produce
+// evidence-backed ranked hypotheses" — pinned by running all three, so it
+// cannot regress by one of them quietly going silent.
+func TestDocCriterion_ThreeInvestigationsProduceEvidenceBackedRankedHypotheses(t *testing.T) {
+	automation := walkInvestigation1(t, investigation1Options(newInvestigationScenario(), admin))
+	if len(automation.Hypotheses) == 0 {
+		t.Error("investigation 1 (§13.1, automation failed during a dependency outage) produced no hypothesis")
+	}
+	for _, h := range automation.Hypotheses {
+		if len(h.Cites) == 0 {
+			t.Errorf("investigation 1: hypothesis %q cites nothing", h.Statement)
+		}
+	}
+
+	mesh := walkInvestigation2(t, partialParent, metricExposed)
+	if len(mesh.integration.Hypotheses) == 0 {
+		t.Error("investigation 2 (§13.2, unreachable mesh devices) produced no hypothesis")
+	}
+	assertHypothesesCiteEnvelope(t, "investigation 2", mesh.integration)
+
+	restart, _ := walkInvestigation3(t, &fakeLifecycleReader{events: []model.LifecycleEvent{{When: outageOnset()}}})
+	if len(restart.Hypotheses) == 0 {
+		t.Error("investigation 3 (§21, mass unavailability vs. restart) produced no hypothesis")
+	}
+	assertHypothesesCiteEnvelope(t, "investigation 3", restart)
 }

@@ -96,3 +96,8 @@ live ZHA installation exists to confirm the source-read half.
 New `cmd/measure` drives the real tools in-process and reads cost from the audit record; `cmd/spike` gained a logbook restart probe. Owner ran both on HA 2026.9.4 (521 entities). D-05-10: classes stand (`find_stale_entities` 20, `analyze_*` composite, max 36/50). Closes F-26, F-28.
 **Surprise:** `find_stale_entities` at `limit=200` examines only 20 entities per call (one recorder read each); and an unfiltered 7d logbook is 10.8 MB, so F-31's restart rows need a bounded window.
 **Left open:** F-31 (closes with `P5-09`); F-36 (statistics-based staleness); Supervisor requests not in the `analyze_integration_health` numbers.
+
+### 2026-10-03 · P5-09
+`analyze_integration_health` probes the logbook ±5 min around each cluster onset (max 3, one request each) through a new unfiltered-window command; only `homeassistant`-domain rows survive the mapper. Restart ⇒ restart hypothesis (no upstream one); none ⇒ upstream citing a measured zero; unread ⇒ `missing_evidence`. Closes F-31; `TestDocCriterion_…` names all three investigations.
+**Surprise:** the restart rows belong to no entity, so the only selector is the time window; and the cluster onset is the one instant that bounds it, which made probing after clustering (not before) the design.
+**Left open:** cross-integration restart signal (a restart seen across several config entries); `cmd/measure` does not wire `Lifecycle`, so its composite numbers exclude up to 3 logbook requests; `golangci-lint` not installed.

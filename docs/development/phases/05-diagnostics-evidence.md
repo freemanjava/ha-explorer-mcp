@@ -312,7 +312,7 @@ reduced to the end-to-end test. Decided as **D-05-8** and **D-05-9** below.
   ones; `missing_evidence` names the host evidence as `privileged`; every
   hypothesis cites evidence present in its envelope. Closes F-27 and F-35.
 
-- [ ] **`P5-09` · Investigation 3 — correlated mass unavailability**
+- [x] **`P5-09` · Investigation 3 — correlated mass unavailability**
   The third of doc §21's three: a batch of entities goes unavailable together;
   the chain is `find_unavailable_entities` → clustering → shared config entry →
   `analyze_integration_health` → repairs, ending in ranked hypotheses that
@@ -325,6 +325,16 @@ reduced to the end-to-end test. Decided as **D-05-8** and **D-05-9** below.
   observes an HA restart, so "HA restarted" has no evidence to rest on yet.
   `P5-10`'s live run checks whether the logbook's start/stop events are
   readable and observes F-28; this box's design starts from that report.
+  **Built:** `analyze_integration_health` reads the logbook for a ±5 min window
+  around each cluster's onset (max 3 probes, one HA request each), never the
+  analysis period (unfiltered 7d is ~10 MB). New `logbookWindowCommand` (same
+  allow-listed command, no `entity_ids`, bounded `end_time`); the mapper keeps
+  only `domain == homeassistant` rows, so no other row leaves `internal/ha`.
+  Rows are counted, never classified by `message` text (rule 6). Per cluster:
+  evidence `restart_<cluster id>` (`lifecycle_events`, a measured zero is
+  evidence); a coinciding row ⇒ restart hypothesis and **no** shared-upstream
+  hypothesis; none ⇒ upstream hypothesis citing the absence; unread ⇒ named in
+  `missing_evidence`, never "no restart". Confidence stays `ConfidenceFor`'s.
 
 - [x] **`P5-10` · Measure the composite budget and re-class `find_stale_entities`
   (F-26)** — `needs-verify`
