@@ -77,6 +77,11 @@ const (
 	compositeDeadline = 30 * time.Second
 )
 
+// CompositeDeadline is the longest any single invocation may run. The HTTP
+// transport derives its write timeout from it so a composite tool's own
+// deadline always fires before a connection is cut (D-08-7).
+func CompositeDeadline() time.Duration { return compositeDeadline }
+
 // LimitsFor returns the measured defaults for a class. An unrecognized class
 // falls back to the tightest one: failing closed is the rule, and a zero
 // Limits would be an unlimited budget in disguise.

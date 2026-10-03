@@ -40,3 +40,8 @@ Read HA Core `mcp_server`, Supervisor `apps.py`/`docker/app.py`/`ingress.py`, bo
 Security review of D-08-1's HTTP transport: D-08-4…D-08-11, ADR-013, doc §4 T5/§15.2, SDK facts in `docs/research/2026-10-03-go-sdk-streamable-http.md`; `P8-02`/`P8-09` amended.
 **Surprise:** go-sdk passes the *whole* HTTP header set to server code (`RequestExtra.Header`), `Authorization` included — so the middleware must strip it; and the SDK has no default Origin check, its deprecated option admits same-origin (= DNS-rebinding) requests.
 **Left open:** "port closed" doesn't stop other Apps on the `hassio` network (P8-09 observes); privacy profile/log level unsettable in the App (F-42); TLS (F-43, defer).
+
+### 2026-10-03 · P8-02
+HTTP transport per D-08-4…D-08-11: `internal/mcp/transport_http.go` (gate + `Run` switch), `cmd/server/config.go`, audit `transport`, `policy.CompositeDeadline`. Smoked the binary: 401 without secret, tools/list with it, secret absent from logs, start refused without `http_secret`.
+**Surprise:** none — the SDK behaved as `P8-08`'s research note said (stateless POST works with raw JSON-RPC, no initialize needed).
+**Left open:** addon packaging (port, schema, `run.sh`, AppArmor) is `P8-09`; privacy/log-level options are `P8-12`.

@@ -134,8 +134,7 @@ and run while the owner is busy there.
   doc §4/§15.2/§24 updated; the `P8-02` box below is amended where the review
   changes it; any rule-level conflict filed as a finding, not decided here.
 
-- [ ] **`P8-02` · Streamable HTTP transport, selectable beside stdio** —
-  `blocked:P8-08`
+- [x] **`P8-02` · Streamable HTTP transport, selectable beside stdio**
   Home: `internal/mcp` gains a transport choice behind `Run` (today
   `server.go:143` hard-wires `StdioTransport`) — a new `transport_http.go`, not
   a branch inside a tool; config parsing stays in `cmd/server`, the only place

@@ -1,10 +1,10 @@
 // Command server runs the HA Inspector MCP server: a read-only diagnostic
 // bridge between an AI agent and Home Assistant.
 //
-// It speaks MCP over stdio (the 2026-08-25 transport decision): the Supervisor
-// starts it as a child process, there is no listening socket and no client
-// authentication subsystem. Every diagnostic line goes to stderr, because
-// stdout carries the protocol framing.
+// It speaks MCP over stdio for development and over Streamable HTTP as the
+// App (D-08-1, selected by HA_INSPECTOR_TRANSPORT; the image fixes http).
+// Every diagnostic line goes to stderr, because stdout carries the stdio
+// protocol framing.
 package main
 
 import (
@@ -66,20 +66,29 @@ func run() error {
 		return err
 	}
 
+	transport, err := loadTransport(os.Getenv, optionsPath)
+	if err != nil {
+		return err
+	}
+
 	token := os.Getenv(envSupervisorToken)
 	var secrets []string
 	if token != "" {
 		secrets = append(secrets, token)
 	}
+	if transport.httpSecret != "" {
+		secrets = append(secrets, transport.httpSecret)
+	}
 
 	log := mcp.NewLogger(level, secrets...)
 
-	// An interrupt cancels the context, which closes the stdio session; the
-	// Supervisor stopping the App is a normal shutdown, not a crash.
+	// An interrupt cancels the context, which closes the stdio session or the
+	// HTTP listener; the Supervisor stopping the App is a normal shutdown, not
+	// a crash.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	log.InfoContext(ctx, "starting", "version", version, "transport", "stdio", "privacy_profile", os.Getenv(envPrivacyProfile))
+	log.InfoContext(ctx, "starting", "version", version, "transport", transport.transport, "privacy_profile", os.Getenv(envPrivacyProfile))
 
 	manager := ha.NewManager(coreWebSocketURL, token, log)
 	manager.Start(ctx)
@@ -91,6 +100,8 @@ func run() error {
 
 	err = mcp.Run(ctx, mcp.Options{
 		Version:      version,
+		Transport:    transport.transport,
+		HTTPSecret:   transport.httpSecret,
 		Logger:       log,
 		Profile:      profile,
 		Secrets:      secrets,
