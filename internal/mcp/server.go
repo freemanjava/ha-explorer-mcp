@@ -2,7 +2,9 @@ package mcp
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
+	"net"
 
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -29,6 +31,12 @@ type Options struct {
 	// Profile is the privacy profile applied at the response and audit
 	// boundary. Its zero value is the default (mask).
 	Profile policy.Profile
+	// Transport selects stdio (the default, for development) or http. The App
+	// image fixes http (D-08-9).
+	Transport string
+	// HTTPSecret is the validated bearer secret clients present over http. It
+	// is registered with the redactor like SUPERVISOR_TOKEN (D-08-4).
+	HTTPSecret string
 	// Secrets are literals that must never appear in a response, a log line
 	// or an audit record — SUPERVISOR_TOKEN above all (rule 4).
 	Secrets []string
@@ -134,13 +142,23 @@ func newServer(opts Options, tools []Tool) *sdkmcp.Server {
 	return srv
 }
 
-// Run serves the MCP protocol over stdio until ctx is cancelled or the client
-// disconnects. There is no listening socket and no auth subsystem: the
-// transport decision of 2026-08-25 is stdio only, and the Supervisor starts
-// this binary as a child process.
+// Run serves the MCP protocol until ctx is cancelled: over stdio until the
+// client disconnects (development), or over Streamable HTTP on the App's one
+// port (D-08-1, D-08-9). The HTTP listener starts only with a validated secret.
 func Run(ctx context.Context, opts Options) error {
 	opts = opts.withDefaults()
-	return run(ctx, NewServer(opts), opts.Logger, &sdkmcp.StdioTransport{})
+	switch opts.Transport {
+	case TransportStdio:
+		return run(ctx, NewServer(opts), opts.Logger, &sdkmcp.StdioTransport{})
+	case TransportHTTP:
+		ln, err := net.Listen("tcp", httpListenAddr)
+		if err != nil {
+			return fmt.Errorf("listen on %s: %w", httpListenAddr, err)
+		}
+		return runHTTP(ctx, NewServer(opts), opts.HTTPSecret, ln, opts.Logger)
+	default:
+		return fmt.Errorf("unknown transport %q", opts.Transport)
+	}
 }
 
 // run is Run over an explicit server and transport, so a test can drive a
@@ -194,11 +212,17 @@ const instructions = "Read-only diagnostic access to a Home Assistant installati
 	"was unavailable rather than answering with an empty result."
 
 func (o Options) withDefaults() Options {
+	if o.Transport == "" {
+		o.Transport = TransportStdio
+	}
+	if o.HTTPSecret != "" {
+		o.Secrets = append(append([]string(nil), o.Secrets...), o.HTTPSecret)
+	}
 	if o.Logger == nil {
 		o.Logger = NewLogger(slog.LevelInfo, o.Secrets...)
 	}
 	if o.Audit == nil {
-		o.Audit = audit.New(o.Logger)
+		o.Audit = audit.New(o.Logger).WithTransport(o.Transport)
 	}
 	if o.Limiter == nil {
 		o.Limiter = policy.NewInvocationLimiter()

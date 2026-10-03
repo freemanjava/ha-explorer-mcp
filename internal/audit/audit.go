@@ -53,6 +53,7 @@ type Record struct {
 type Logger struct {
 	log         *slog.Logger
 	includeBody bool
+	transport   string
 }
 
 // New returns a Logger that never persists result bodies.
@@ -64,7 +65,19 @@ func New(log *slog.Logger) *Logger {
 // Record.Body. Callers opt in per instance, not by a config flag flipped
 // once and forgotten.
 func (l *Logger) WithBody() *Logger {
-	return &Logger{log: l.log, includeBody: true}
+	c := *l
+	c.includeBody = true
+	return &c
+}
+
+// WithTransport returns a Logger whose records carry the transport the server
+// is serving (stdio or http), set once at start rather than per call: with one
+// shared secret every HTTP caller is the same principal, so the transport is
+// the only caller attribute the trail can honestly state (D-08-10).
+func (l *Logger) WithTransport(name string) *Logger {
+	c := *l
+	c.transport = name
+	return &c
 }
 
 // Emit writes one audit record. It never fails the call it is recording: a
@@ -88,6 +101,9 @@ func (l *Logger) Emit(ctx context.Context, redactor *redact.Redactor, rec Record
 		"duration_ms", rec.Duration.Milliseconds(),
 		"result_bytes", rec.ResultBytes,
 		"status", string(rec.Status),
+	}
+	if l.transport != "" {
+		attrs = append(attrs, "transport", l.transport)
 	}
 	if rec.Reason != "" {
 		attrs = append(attrs, "reason", rec.Reason)
