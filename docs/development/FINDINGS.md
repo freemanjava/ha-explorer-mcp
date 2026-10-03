@@ -1009,3 +1009,16 @@ is a change to D-05-3 and wants its own decision.
 
 **Outcome:** Open. Observe alongside `P5-10`'s live measurement (the same
 `cmd/spike` run), before `P5-09` asserts on a mass-outage cluster.
+
+### F-29 · `History` was never wired in `cmd/server`, so four tools shipped unimplemented · 2026-10-03
+
+**Kind:** `defect`
+
+**What:** `cmd/server/main.go` built `mcp.Options` without `History`, so `get_entity_history`, `get_entity_statistics` and `find_stale_entities` stayed bound to `bindNotImplemented` in the real binary while their unit tests (which inject fakes) passed. Found while wiring `analyze_entity_health`, which needs the same reader.
+
+**Impact:** Phase 04's tools were green but unreachable in the shipped App; no test exercises `cmd/server` wiring.
+
+**Triage:** `done`
+
+**Outcome:** Fixed in `P5-05` by setting `History: core`. A wiring test for `cmd/server` was not added; `P5-07`'s end-to-end run is the natural place to catch a recurrence.
+

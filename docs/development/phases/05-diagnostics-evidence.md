@@ -130,7 +130,7 @@ structural decision gets made on an unverified premise.
   `OpenEnded` (down for the whole observed period) overlaps everything by
   construction, so it is reported in `UnavailableThroughout`, never chained.
 
-- [ ] **`P5-05` · `analyze_entity_health`** — `blocked:P5-02,P5-03`
+- [x] **`P5-05` · `analyze_entity_health`** — `blocked:P5-02,P5-03`
   Compose P4-02 availability, P4-03 cadence, the entity's registry/device
   context, its integration's setup state and any related repairs into the
   Appendix A.3 shape. No `score` (D-05-4).

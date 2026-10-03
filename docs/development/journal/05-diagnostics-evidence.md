@@ -41,3 +41,9 @@ live ZHA installation exists to confirm the source-read half.
 `internal/analysis/correlation.go`: `ClusterOutages` — sort + one sweep over all outage windows (2-min tolerance), clusters of ≥2 entities, annotated afterwards with shared device/via_device/config entry/area, each cluster a citable `Evidence`. F-27 settled: a star parent goes to `Withheld`, not `Shared`.
 **Surprise:** the vacuity rule needed no integration knowledge at all — "every other device of the entry names this parent" is pure registry structure, so it also catches Hue-style bridges. And a whole-period outage overlaps everything, so it had to leave the sweep (`UnavailableThroughout`) or one dead sensor would merge and strip every cluster.
 **Left open:** partial long outages still chain (F-28); area/config-entry vacuity in a one-area or one-integration home is not handled.
+
+### 2026-10-03 · P5-05
+`analysis.AnalyzeEntityHealth` composes availability, cadence, registry/integration state and open repairs into Evidence, ranked Hypotheses (confidence only via `ConfidenceFor`) and MissingEvidence; `internal/mcp/entity_health_tools.go` reads each source independently, so a failed one becomes `missing_evidence` and not an error. No score.
+**Surprise:** `cmd/server/main.go` never set `Options.History`, so `get_entity_history`, `get_entity_statistics` and `find_stale_entities` all answered "not implemented" in the shipped binary (F-29); wired here because this tool needs it. Snapshot evidence (setup state, repairs) has one sample, so the ladder caps any hypothesis citing it at low — accurate, not a bug.
+**Left open:** `golangci-lint` not installed locally, so `make check` skipped lint; not observed against a live HA.
+
