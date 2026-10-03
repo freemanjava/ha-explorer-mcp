@@ -12,6 +12,10 @@ branch (F-11, traces unavailable) must carry strictly lower confidence.
 > Advancing this pointer is part of finishing a task, together with ticking the
 > box, recomputing status and appending a journal entry. All four, or none.
 
+## Suspended
+
+- `P5-07` — branch `feat/P5-07` cut from `main`; no code, tests or plan edits landed. Waits on **F-30** (`blocks-active`): no automation hypothesis producer and no dependency source exist. Remaining: everything; re-plan first (`devflow plan`, stronger model).
+
 ## Queue
 
 Ordered by dependency, not by phase number. Work strictly top to bottom, one per
@@ -101,7 +105,7 @@ Last refreshed: 2026-10-03 (`P5-06` closed — `analyze_integration_health`)
      grep -c '^\*\*Triage:\*\* `queue-next`' docs/development/FINDINGS.md  (etc.)
      This block exists so captured work cannot quietly rot: every session sees it. -->
 
-`blocks-active` 0 · `queue-next` 3 · `defer` 2 · `unknown` 2 (open)
+`blocks-active` 1 · `queue-next` 3 · `defer` 2 · `unknown` 2 (open)
 
 > Any `blocks-active` is stop-work. If `queue-next` is non-zero and the queue
 > above has fewer than 3 rows, drain it with `devflow plan` before continuing —
