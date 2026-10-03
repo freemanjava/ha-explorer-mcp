@@ -179,7 +179,7 @@ Decided as **D-05-6** and **D-05-7** below.
   trigger/condition/action body text; under the deny profile a PRIVATE
   dependency is withheld and counted, as `P4-05` does for `find_*`.
 
-- [ ] **`P5-12` · Automation run analysis** — 🧠
+- [x] **`P5-12` · Automation run analysis** — 🧠
   Home: new `internal/analysis/automation_health.go`,
   `AnalyzeAutomationHealth(AutomationHealthInput)` — the third analyzer,
   same shape as `entity_health.go`/`integration_health.go` (reuses the P5-06
@@ -201,7 +201,7 @@ Decided as **D-05-6** and **D-05-7** below.
   surviving evidence is absent; no `cause` field (the D-05-1 reflection test
   covers the new types).
 
-- [ ] **`P5-13` · `analyze_automation_health`** — `blocked:P5-12`
+- [ ] **`P5-13` · `analyze_automation_health`**
   Home: new `internal/mcp/automation_health_tools.go` plus one catalog row at
   `ClassComposite` (open/closed: a new file and a table entry). Reads
   `automation/config` (dependencies), `trace/list` or the fallback, registry

@@ -56,3 +56,8 @@ live ZHA installation exists to confirm the source-read half.
 ### 2026-10-03 · P5-11
 `MapAutomation` walks the config body structurally (sorted keys, depth cap 32) and collects `entity_id`/`device_id`/`area_id` values by grammar; `get_automation` applies the deny profile to entities.
 **Surprise:** a device trigger/condition's `entity_id` is a registry uuid, not an entity id — it fails the grammar and is counted unextracted, so such automations under-report dependencies (F-32's trigger evidence).
+
+### 2026-10-03 · P5-12
+`AnalyzeAutomationHealth`: trace outcomes (or degraded logbook runs), per-dependency outage + stale windows, run overlap within `outageClusterTolerance`; config/trace/extraction/history gaps each named in `missing_evidence`. Result wraps `HealthAnalysis` with `DependencyEvidence` (numbered evidence id → entity), since ids may not be HA-derived.
+**Surprise:** trace coverage is only knowable from the oldest stored trace (HA keeps ~5), so a busy automation's run evidence covers a sliver of the period and lands `low` honestly. "Overlap ranked above no-overlap" holds by citation count only while the dependency history is at least as strong as the runs — the shared ladder ranks confidence first.
+**Left open:** `P5-13` must render `DependencyEvidence` and resolve device/area deps to entities; `golangci-lint` still not installed.
