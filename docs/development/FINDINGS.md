@@ -1153,3 +1153,12 @@ is a change to D-05-3 and wants its own decision.
 
 **Triage:** `queue-next`
 **Outcome:** to be planned: drop each or name its consumer, then delete the exemption set.
+
+### F-41 · Which client paths to the App actually work is unverified · 2026-10-03
+
+**Kind:** `unknown`
+**What:** D-08-1 rests on three unobserved facts: (1) whether `docker` is absent in the SSH App only because of its protection mode (Info page not read); (2) whether `stdin: true` plus a Supervisor attach path lets a client reach the App's stdio (never tried, needs a new image); (3) whether the 17:03:28Z start was manual. Owner asked for further checks in a fresh Opus session before deciding.
+**Impact:** unknown pending verification. It decides which of D-08-1 (a)–(d) are real options, and so the shape of `P8-02`…`P8-06`.
+
+**Triage:** `blocks-active`
+**Outcome:** run `devflow verify` (evidence on default model, interpretation on Opus); then return to D-08-1 with the findings.

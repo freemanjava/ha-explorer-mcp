@@ -3,8 +3,8 @@
 <!-- BOUNDED FILE — rewritten in place, never appended to. Keep under ~100 lines.
      Anything that grows goes to journal/. This file is read by every session. -->
 
-**▶ Active:** `D-08-1` — owner: how a client reaches the App (`needs-decision`) ·
-[phase 08](phases/08-v1-release.md) · ask the owner; nothing else in the queue is unblocked.
+**▶ Active:** `D-08-1` — owner: how a client reaches the App (`needs-verify`, waits on **F-41**) ·
+[phase 08](phases/08-v1-release.md) · run `devflow verify` for F-41 on **Opus** (owner's choice); then decide.
 
 > Advancing this pointer is part of finishing a task, together with ticking the
 > box, recomputing status and appending a journal entry. All four, or none.
@@ -20,7 +20,7 @@ cycle. Remove a row when its task closes.
 
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
-| 1 | `D-08-1` | owner: how a client reaches the App | 08 | — | `needs-decision` |
+| 1 | `D-08-1` | owner: how a client reaches the App | 08 | Opus (verify) | `needs-verify` (F-41), then `needs-decision` |
 | 2 | `P8-02` | implement D-08-1's path (box written after the decision) | 08 | default | `blocked:D-08-1`, `live-verify` |
 | 3 | `P8-05` | §21 acceptance walk on the Pi | 08 | default | `blocked:P8-02`, `live-verify` |
 | 4 | `P8-06` | cut v1.0 (version bump; owner tags) | 08 | default | `blocked:P8-05` |
@@ -86,7 +86,7 @@ Last refreshed: 2026-10-03 (`P8-04` closed)
      grep -c '^\*\*Triage:\*\* `queue-next`' docs/development/FINDINGS.md  (etc.)
      This block exists so captured work cannot quietly rot: every session sees it. -->
 
-`blocks-active` 0 · `queue-next` 3 · `defer` 4 · `unknown` 0 (open)
+`blocks-active` 1 · `queue-next` 3 · `defer` 4 · `unknown` 1 (open)
 
 > Any `blocks-active` is stop-work. If `queue-next` is non-zero and the queue
 > above has fewer than 3 rows, drain it with `devflow plan` before continuing —
@@ -99,7 +99,7 @@ Three `queue-next`: **F-37** → `D-08-1`/`P8-02`; **F-39**
 (the `0.0.0-dev` version) and **F-40** (six uncalled allow-list entries) await `plan`. Four `defer`s: **F-32** (D-05-7's
 `search/related` fallback), **F-33** (phase 06 topic), **F-34** (non-admin gets
 no automation hypotheses), **F-36** (statistics-based staleness; re-triage on v1
-usage data). No open `unknown`: F-37 was verified 2026-10-03 and is now a confirmed defect.
+usage data). Open `unknown`: **F-41** (`blocks-active`) — which client paths to the App really work. F-37 is a confirmed defect.
 
 ## Recent
 
