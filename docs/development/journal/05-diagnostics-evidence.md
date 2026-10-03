@@ -36,3 +36,8 @@ live ZHA installation exists to confirm the source-read half.
 `internal/analysis/confidence.go`: `ConfidenceFor(cited ...model.Evidence)` — per-Evidence ladder (high ≥20 samples & ≥0.9 coverage, medium ≥5 & ≥0.5, else low), `Degraded` demotes one step, several citations take the weakest. A `go/parser` scan over `cmd/` and `internal/` refuses any `ConfidenceX` reference or `Confidence(...)` conversion outside `confidence.go` and `model/evidence.go`.
 **Surprise:** D-05-2 wrote the signature as three scalars, but a `Hypothesis` cites *several* Evidence — taking `Evidence` values lets the one function also own the combining rule, which would otherwise have been a second, unscanned producer of confidence at every call site.
 **Left open:** thresholds are explained defaults, not measurements; `P5-10` revisits them against a real recorder.
+
+### 2026-10-03 · P5-04
+`internal/analysis/correlation.go`: `ClusterOutages` — sort + one sweep over all outage windows (2-min tolerance), clusters of ≥2 entities, annotated afterwards with shared device/via_device/config entry/area, each cluster a citable `Evidence`. F-27 settled: a star parent goes to `Withheld`, not `Shared`.
+**Surprise:** the vacuity rule needed no integration knowledge at all — "every other device of the entry names this parent" is pure registry structure, so it also catches Hue-style bridges. And a whole-period outage overlaps everything, so it had to leave the sweep (`UnavailableThroughout`) or one dead sensor would merge and strip every cluster.
+**Left open:** partial long outages still chain (F-28); area/config-entry vacuity in a one-area or one-integration home is not handled.

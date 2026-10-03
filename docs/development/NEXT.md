@@ -3,11 +3,11 @@
 <!-- BOUNDED FILE — rewritten in place, never appended to. Keep under ~100 lines.
      Anything that grows goes to journal/. This file is read by every session. -->
 
-**▶ Active:** `P5-04` — cross-entity outage clustering · phase 05 · stronger
-model · 🧠. `internal/analysis/correlation.go`: overlap-with-tolerance
-clusters (D-05-3), annotated afterwards, output as `Evidence`. **Must settle
-F-27** — whether a shared-`via_device` annotation is emitted at all when its
-cardinality is 1 (the Zigbee coordinator star).
+**▶ Active:** `P5-05` — `analyze_entity_health` · phase 05 · default model.
+Compose P4-02 availability, P4-03 cadence, registry/device context,
+integration setup state and repairs into the Appendix A.3 shape: `Evidence`,
+ranked `Hypothesis` via `ConfidenceFor`, `MissingEvidence`. No `score`
+(D-05-4). Replaces its `bindNotImplemented` catalog row.
 
 > Advancing this pointer is part of finishing a task, together with ticking the
 > box, recomputing status and appending a journal entry. All four, or none.
@@ -19,13 +19,12 @@ cycle. Remove a row when its task closes.
 
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
-| 1 | `P5-04` | cross-entity outage clustering (**must settle F-27**) | 05 | stronger | 🧠 |
-| 2 | `P5-05` | `analyze_entity_health` | 05 | default | |
-| 3 | `P5-06` | `analyze_integration_health` | 05 | default | `blocked:P5-04,P5-05` |
-| 4 | `P5-07` | investigation 1 — doc §13.1 e2e + degraded branch | 05 | default | `blocked:P5-05` |
-| 5 | `P5-08` | investigation 2 — doc §13.2 e2e (**F-27 changes its DoD**) | 05 | default | `blocked:P5-06` |
-| 6 | `P5-09` | investigation 3 — correlated mass unavailability | 05 | default | `blocked:P5-06` |
-| 7 | `P5-10` | measure composite budget, re-class `find_stale_entities` (F-26) | 05 | default | `needs-verify` `blocked:P5-06` |
+| 1 | `P5-05` | `analyze_entity_health` | 05 | default | |
+| 2 | `P5-06` | `analyze_integration_health` | 05 | default | `blocked:P5-05` |
+| 3 | `P5-07` | investigation 1 — doc §13.1 e2e + degraded branch | 05 | default | `blocked:P5-05` |
+| 4 | `P5-08` | investigation 2 — doc §13.2 e2e (F-27's rule now in its DoD) | 05 | default | `blocked:P5-06` |
+| 5 | `P5-09` | investigation 3 — correlated mass unavailability (observe F-28 first) | 05 | default | `blocked:P5-06` |
+| 6 | `P5-10` | measure composite budget, re-class `find_stale_entities` (F-26) | 05 | default | `needs-verify` `blocked:P5-06` |
 
 **Ordering rationale (2026-09-05 `plan`).** Verify → model → analysis
 primitives → tools → workflows → measurement. `P5-01` went first because its
@@ -43,14 +42,11 @@ a **flat analyzer over a name/`device_class` hint table**, never a
 per-integration plugin seam (D-05-5, from `P5-01`). Rationale and rejected
 alternatives in the phase file.
 
-**F-27 is the live consequence of D-05-5 and lands on two queued boxes.**
-`via_device_id` is a coordinator star on both Zigbee integrations, so D-05-3's
-"members share a `via_device` parent" annotation is vacuous for Zigbee — it is
-true of the whole network. `P5-04` decides whether that annotation is emitted
-at all when its cardinality is 1; `P5-08`'s DoD, which asserts a shared-parent
-cluster, is satisfiable by a fixture while unreachable in reality and needs
-rewriting there. Neither is a re-plan — both boxes stand, with F-27 named in
-them.
+**F-27's annotation half is settled (`P5-04`).** A shared `via_device` that
+every other device of its config entry names (the Zigbee coordinator star) is
+listed in a cluster's `Withheld`, not `Shared`; a parent of part of its entry
+is named. `P5-08`'s DoD now carries the rule; F-27 closes with `P5-08`, which
+also owns its second question (is a real neighbour table reachable at all).
 
 **Earlier decisions, still standing.** *Transport:* stdio only (phase 01).
 *Supervisor:* `hassio_api: true` at the default role (phase 00). *Catalog:* the
@@ -58,10 +54,9 @@ full twenty before release (phase 03). *HA versions:* current release only
 (phase 00). `P4-05`: a PRIVATE entity is excluded outright from both `find_*`
 tools under the deny profile, never masked.
 
-**One decision remains open**, not blocking this queue: Phase 02's Q10
-(persistence), deliberately not asked yet — it waits on Phase 05 producing a
-diagnostic memory-only cannot deliver. `P5-04`'s clustering over historical
-outages is the candidate; ask when it lands, not before.
+**No decision is open.** Phase 02's Q10 closed 2026-10-03: **memory-only in
+v1** (owner), because `P5-04` — the expected trigger — needed no store of its
+own. Reopens only on a diagnostic memory-only demonstrably cannot deliver.
 
 `cmd/spike` is the probe vehicle `P5-10` reuses: `HA_URL` + `HA_TOKEN`, it
 reports field names and types only. The owner runs it and pastes the report; no
@@ -83,17 +78,17 @@ done
 |------:|-------|:------------:|
 | 00 | Spike & Foundations | 15 / 15 |
 | 01 | HA Access & Read-Only Gateway | 10 / 10 |
-| 02 | Policy, Privacy, Budget & Audit | 7 / 8 |
+| 02 | Policy, Privacy, Budget & Audit | 8 / 8 |
 | 03 | MCP Server & Inventory Tools | 11 / 11 |
 | 04 | History, Statistics & Detection | 6 / 6 |
-| 05 | Diagnostics & Evidence Engine | 8 / 15 |
+| 05 | Diagnostics & Evidence Engine | 9 / 15 |
 | 06 | Proposal Mode — gated | 0 / 1 |
 | 07 | Controlled Change (Admin) — gated | 0 / 1 |
 
 Counts include each phase's decision entries, which are boxes too. Phase 05's
-8 ticked are D-05-1…5 and the `P5-01`…`P5-03` task boxes; its seven remaining task boxes
-are open, and no decision entry in the phase is open any more. Phase 02's one
-open box is the Q10 persistence decision.
+9 ticked are D-05-1…5 and the `P5-01`…`P5-04` task boxes; its six remaining task boxes
+are open, and no decision entry in the phase is open any more. Phase 02 is
+complete: its last box, the Q10 persistence decision, closed 2026-10-03.
 
 Phases 00–04 are milestone M1 (v1 observer) and are **fully implemented**.
 Phase 05 is M2, and is where the last two catalog rows
@@ -101,7 +96,7 @@ Phase 05 is M2, and is where the last two catalog rows
 `bindNotImplemented`) become real. Phases 06–07 are gated: they open only on an
 explicit owner decision plus a fresh security review, and carry no task boxes.
 
-Last refreshed: 2026-10-03 (`P5-03` closed — `ConfidenceFor`)
+Last refreshed: 2026-10-03 (`P5-04` closed — outage clustering, F-27 settled)
 
 ## Open findings
 
@@ -109,7 +104,7 @@ Last refreshed: 2026-10-03 (`P5-03` closed — `ConfidenceFor`)
      grep -c '^\*\*Triage:\*\* `queue-next`' docs/development/FINDINGS.md  (etc.)
      This block exists so captured work cannot quietly rot: every session sees it. -->
 
-`blocks-active` 0 · `queue-next` 2 · `defer` 2 · `unknown` 1 (open)
+`blocks-active` 0 · `queue-next` 3 · `defer` 2 · `unknown` 2 (open)
 
 > Any `blocks-active` is stop-work. If `queue-next` is non-zero and the queue
 > above has fewer than 3 rows, drain it with `devflow plan` before continuing —
@@ -118,21 +113,28 @@ Last refreshed: 2026-10-03 (`P5-03` closed — `ConfidenceFor`)
 > An open `unknown` outranks the queue: it is an assumption the plan already
 > rests on. Run `devflow verify` before building further on it.
 
-**F-6 closed with `P5-01`** (Q9 answered; see D-05-5), leaving two
-`queue-next`, both attached to boxes already in the queue and closing when
-those close: **F-26** → `P5-10`, and the new **F-27** → `P5-04` (the vacuous
-shared-parent annotation) and `P5-08` (its DoD). Two `defer`s remain, both on
+Three `queue-next`, all attached to boxes already in the queue and closing
+when those close: **F-26** → `P5-10`; **F-27** → `P5-08` (its `P5-04` half
+settled); and the new **F-28** (`unknown`) — long outages chain unrelated ones
+into one cluster; observe on `P5-10`'s live run, before `P5-09` asserts on a
+mass-outage cluster. Two `defer`s remain, both on
 the same unfired trigger — the first production
 `Preflight(policy.SourceStatistics, …)` call site: **F-17** (batched
 statistics ~30% larger) and **F-25** (three allow-listed recorder commands
 nothing calls). No Phase 05 box creates that call site, so a standing decision
 stands in place of a sixth deferral: **if Phase 05 closes with still no such
 call site, F-17 becomes `wont-fix` and F-25 becomes a deletion task, at that
-`plan`.** The one open `unknown` is F-17.
+`plan`.** The open `unknown`s are F-17 and F-28.
 
 ## Recent
 
 Last 5 closed tasks, one line each. Older entries live in `journal/`.
+
+- 2026-10-03 · `P5-04` — `ClusterOutages`: sort + one sweep, 2-min tolerance,
+  ≥2-entity clusters annotated afterwards, each a citable `Evidence`. F-27: a
+  star parent goes to `Withheld`, never `Shared`. Whole-period outages leave
+  the sweep (`UnavailableThroughout`). Found: partial long outages still chain
+  (F-28).
 
 - 2026-10-03 · `P5-03` — `ConfidenceFor(cited ...model.Evidence)`: ladder
   high ≥20 samples & ≥0.9 coverage, medium ≥5 & ≥0.5, `Degraded` demotes one
@@ -155,7 +157,3 @@ Last 5 closed tasks, one line each. Older entries live in `journal/`.
   PRIVATE entities are excluded outright under the deny profile in both,
   counted via `PrivateExcluded`. Found: `find_stale_entities`' budget class
   has no measurement behind it (F-26).
-- 2026-09-05 · `P3-09` — the fallback logbook events of
-  `get_automation_traces` now go through the privacy profile (F-23 closed):
-  `maskFallbackEvents` masks `Name`/`Message` whole via `redact`'s new
-  `MaskedText`, keyed by the event's own entity; `When`/`ContextID` survive.

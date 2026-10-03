@@ -968,7 +968,11 @@ pass and the tool would still mislead.
 
 **Triage:** `queue-next`
 
-**Outcome:** Open. Belongs to `P5-04` (the annotation) and `P5-08` (the DoD),
+**Outcome:** (1) settled by `P5-04`, 2026-10-03: a star parent is withheld
+from `Shared` and named in `Withheld` (rule in the phase file under `P5-04`).
+`P5-08`'s DoD now names the rule. Stays open until `P5-08` closes, which also
+owns (2). Original outcome follows.
+Open. Belongs to `P5-04` (the annotation) and `P5-08` (the DoD),
 both still ahead in the queue, so it is queued rather than blocking: `P5-01`
 did not need it, and `P5-04` cannot avoid it. Two things to settle there —
 (1) whether `via_device` is annotated at all when its cardinality across the
@@ -980,3 +984,28 @@ already wired: `cmd/spike`'s `probeMesh` now reports the number of *distinct*
 `via_device_id` values per domain and names the star, so the owner's next
 `cmd/spike` run confirms the 27 point at one bridge rather than several
 routers.
+
+### F-28 · Long outages can chain unrelated ones into one cluster · 2026-10-03
+
+**Kind:** `unknown`
+
+**What:** `P5-04`'s sweep (`internal/analysis/correlation.go`,
+`sweepClusters`) joins windows by overlap, so grouping is single-linkage: one
+entity down for six hours joins every outage that starts inside those six
+hours into one cluster, even when they share nothing else. `P5-04` removed the
+extreme case — a window down for the *whole* observed period goes to
+`UnavailableThroughout` — but a long, partly observed outage still chains.
+The time cluster is still true as stated ("these overlapped"); the cost is
+that a bridged cluster's members share less, so its `Shared` list thins and a
+real mass outage inside it gets diluted.
+
+**Impact:** Unknown pending verification: whether long outages co-occur with
+the short mass outages §13.2 and `P5-09` look for, often enough to matter, is
+a property of real recorder data nobody has looked at. If they do, the fix is
+a bounded rule (e.g. a long window joins but does not extend a cluster), which
+is a change to D-05-3 and wants its own decision.
+
+**Triage:** `queue-next`
+
+**Outcome:** Open. Observe alongside `P5-10`'s live measurement (the same
+`cmd/spike` run), before `P5-09` asserts on a mass-outage cluster.

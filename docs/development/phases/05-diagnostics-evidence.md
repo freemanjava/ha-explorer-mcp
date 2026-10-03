@@ -107,7 +107,7 @@ structural decision gets made on an unverified premise.
   package-scanning test in the spirit of `deps_test.go` asserts no confidence
   literal is assigned outside `confidence.go`.
 
-- [ ] **`P5-04` · Cross-entity outage clustering** — 🧠
+- [x] **`P5-04` · Cross-entity outage clustering** — 🧠
   `blocked:P5-01,P5-02,P5-03`
   `internal/analysis/correlation.go`: group entities whose unavailable windows
   overlap within the D-05-3 tolerance into clusters, then annotate each cluster
@@ -119,6 +119,16 @@ structural decision gets made on an unverified premise.
   parent claim; cost stays linear in windows, not pairwise (asserted by a
   counting fake, not by benchmark); a test asserts a cluster's serialized form
   carries no causal field.
+  **Done 2026-10-03.** `ClusterOutages` sorts all windows and sweeps once
+  (`outageClusterTolerance` = 2 min); a one-entity group is not a cluster.
+  **F-27 settled:** a shared `via_device` is *withheld* — listed in
+  `Withheld`, not `Shared` — when, in each member's config entry, every
+  device but the parent names it (the coordinator star). It then says no more
+  than the shared config entry, which stays annotated. A parent of only part
+  of its entry is named. The rule reads registry structure only, never an
+  integration name. **Also decided here:** a window both `TruncatedStart` and
+  `OpenEnded` (down for the whole observed period) overlaps everything by
+  construction, so it is reported in `UnavailableThroughout`, never chained.
 
 - [ ] **`P5-05` · `analyze_entity_health`** — `blocked:P5-02,P5-03`
   Compose P4-02 availability, P4-03 cadence, the entity's registry/device
@@ -161,7 +171,9 @@ structural decision gets made on an unverified premise.
   **DoD:** the mesh-metric evidence is read the way `P5-01` established;
   a fixture where two devices share a parent produces a topology-annotated
   cluster, and one where they do not produces the same time cluster *without*
-  the topology claim.
+  the topology claim. **F-27 (settled in `P5-04`):** the shared-parent
+  fixture must be a parent of *part* of its config entry; a coordinator star
+  must yield the time cluster with `via_device` in `Withheld`, not `Shared`.
 
 - [ ] **`P5-09` · Investigation 3 — correlated mass unavailability** —
   `blocked:P5-06`

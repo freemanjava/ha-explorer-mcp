@@ -248,13 +248,21 @@ internal/audit/    # logger.go
   counting only ever compares an entity against itself, so nothing diagnostic
   is lost.
 
-- [ ] **`needs-decision` — Persistence beyond cache and audit**
+- [x] **Persistence beyond cache and audit — memory-only in v1** (Q10)
   Q10. Memory-only keeps the App small on a Raspberry Pi and makes every restart
   a clean slate. An embedded store (SQLite/Bolt/Badger) buys durable audit and
   historical baselines for anomaly detection in Phase 05 — at the cost of a
   writable data volume and a schema to maintain. Do not decide this ahead of
   evidence: revisit when Phase 05 has a concrete diagnostic that memory-only
   cannot deliver.
+
+  **Decided 2026-10-03 by the owner: memory-only in v1.** No embedded store,
+  no writable data volume. **Evidence:** the trigger was `P5-04`, the Phase 05
+  diagnostic expected to need history beyond the recorder — and it did not:
+  outage clustering reads recorder history for the requested window and
+  computes in memory. Baselines the recorder already holds need no second
+  copy. **Reopens** only on a concrete diagnostic that memory-only demonstrably
+  cannot deliver, as a new decision, not by initiative.
 
 ## Phase Definition of Done
 
