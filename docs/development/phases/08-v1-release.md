@@ -285,7 +285,7 @@ and run while the owner is busy there.
   **Done 2026-10-04:** `internal/ha/meter.go`; the catalog table asserts audited `ha_requests` equals what the fake
   HA and fake Supervisor received, for all 21 tools.
 
-- [ ] **`P8-16` · `result_bytes` is the size of the result, measured (F-46)**
+- [x] **`P8-16` · `result_bytes` is the size of the result, measured (F-46)**
   Per D-08-17. The middleware sets `audit.Record.ResultBytes` from the `*CallToolResult` the handler returned:
   `len(StructuredContent)` plus the length of every `TextContent` text — the bytes the SDK already marshalled,
   so nothing is re-serialized. `budget.Usage().Bytes` stops feeding the audit; `ChargeBytes` stays exactly as it
@@ -294,6 +294,7 @@ and run while the owner is busy there.
   **DoD:** `list_integrations` and `get_system_overview` through the middleware audit `ResultBytes` equal to
   the summed lengths of the returned result's structured and text content, and > 0; a tool that charges bytes
   (`get_entity_history`) audits the measured size, not its charge; an error result audits 0; `make check` green.
+  **Done 2026-10-04:** `resultBytes` in `middleware.go`; an `IsError` result measures 0.
 
 - [ ] **`P8-17` · `get_automation_traces` asks HA's trace store by the automation's config id (F-47)** —
   `live-verify`
