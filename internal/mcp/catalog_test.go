@@ -2,6 +2,8 @@ package mcp
 
 import (
 	"encoding/json"
+	"os"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -89,5 +91,29 @@ func TestEmptyObjectSchema_RejectsUnknownProperties(t *testing.T) {
 	}
 	if schema["additionalProperties"] != false {
 		t.Fatalf("placeholder schema allows additional properties: %v", schema["additionalProperties"])
+	}
+}
+
+// toolShaped matches a backticked name built like a catalog tool — the verbs
+// the catalog uses, then snake_case. A README that names such a tool the
+// catalog lacks is advertising a capability that does not exist.
+var toolShaped = regexp.MustCompile("`((?:get|list|find|analyze)_[a-z_]+)`")
+
+func TestReadme_ListsEveryCatalogTool(t *testing.T) {
+	raw, err := os.ReadFile("../../README.md")
+	if err != nil {
+		t.Fatalf("read README.md: %v", err)
+	}
+	readme := string(raw)
+
+	for _, tool := range Catalog() {
+		if !strings.Contains(readme, "`"+tool.Name+"`") {
+			t.Errorf("README.md does not list tool `%s`", tool.Name)
+		}
+	}
+	for _, m := range toolShaped.FindAllStringSubmatch(readme, -1) {
+		if _, ok := lookup(Catalog(), m[1]); !ok {
+			t.Errorf("README.md names `%s`, which is not in the catalog", m[1])
+		}
 	}
 }

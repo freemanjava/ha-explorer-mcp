@@ -340,7 +340,7 @@ and run while the owner is busy there.
   **Done 2026-10-04:** `addon/config.yaml` `version: "1.0.0"`; `INSTALL.md` carries no version text, so unchanged;
   `make check` green. The README clause is unmet — the repo has no root README (F-51). Owner tags `v1.0.0`.
 
-- [ ] **`P8-19` · Root README as the public landing page** (F-51, D-08-20)
+- [x] **`P8-19` · Root README as the public landing page** (F-51, D-08-20)
   New `README.md` at the repo root, per D-08-20: what the server is and is not (diagnostic, not a voice remote
   or API proxy — the official HA MCP server does control); the read-only guarantee in CLAUDE.md's terms (no
   write path linked in, no route/command/SQL/path/code parameter, `SUPERVISOR_TOKEN` never returned); status
@@ -353,6 +353,7 @@ and run while the owner is busy there.
   `README.md` as `` `name` ``, and no snake_case tool-shaped name appears there that the catalog lacks;
   (2) `TestReadme_StatusMatchesManifestVersion`: the README status line carries `addon/config.yaml`'s
   `version`; (3) `gitleaks` clean on the staged tree; `make check` green. Closes `P8-06`'s unmet README clause.
+  **Done 2026-10-04:** `README.md` (~100 lines) written after both drift tests were red; `gitleaks` clean, `make check` green. `P8-06`'s README clause is now met.
 
 ## Decisions
 

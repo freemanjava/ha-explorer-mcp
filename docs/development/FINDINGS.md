@@ -1243,8 +1243,8 @@ is a change to D-05-3 and wants its own decision.
 **Kind:** `inconsistency`
 **What:** `P8-06` asks that "README's status line says v1.0"; `git ls-files` shows no root `README.md` (only `docs/reference/README.md` and `docs/research/README.md`). The repo is public.
 **Impact:** the public landing page is empty; the box clause could not be met. No functional effect on the release.
-**Triage:** `queue-next`
-**Outcome:** planned 2026-10-04 as `P8-19` (D-08-20: short landing page, owner's choice). Closes when `P8-19` closes.
+**Triage:** `done`
+**Outcome:** planned 2026-10-04 as `P8-19` (D-08-20: short landing page, owner's choice); closed by `P8-19`, 2026-10-04.
 
 ### F-52 · Public repository has no LICENSE · 2026-10-04
 **Kind:** `scope`

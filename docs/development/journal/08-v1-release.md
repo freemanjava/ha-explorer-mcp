@@ -119,3 +119,7 @@ D-08-19 and `P8-18`: the middleware classifies and redacts an `IsError` result f
 ### 2026-10-04 · plan F-51
 D-08-20 (owner): root README is a short landing page; `P8-19` queued with drift tests for tool names and version.
 **Surprise:** the public repo has no LICENSE either — filed F-52, owner deferred it.
+
+### 2026-10-04 · P8-19
+Root `README.md` landing page (D-08-20); `TestReadme_ListsEveryCatalogTool` and `TestReadme_StatusMatchesManifestVersion` guard tool names and version. Closes F-51.
+**Left open:** LICENSE (F-52, deferred by the owner).
