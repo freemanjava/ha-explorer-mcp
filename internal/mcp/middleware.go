@@ -95,6 +95,11 @@ func (m *invocationMiddleware) invoke(ctx context.Context, next sdkmcp.MethodHan
 	res, err := callWithRecovery(ctx, next, call)
 	used := budget.Usage()
 
+	// The SDK's typed handlers carry a tool's failure as an IsError result
+	// with a nil Go error (D-08-19). Lifting it here means the audit and the
+	// scrub treat it exactly like a returned error.
+	toolErr := toolResultError(res)
+
 	rec := audit.Record{
 		Tool:       name,
 		Parameters: params,
@@ -107,15 +112,53 @@ func (m *invocationMiddleware) invoke(ctx context.Context, next sdkmcp.MethodHan
 		ResultBytes: resultBytes(res),
 		Status:      audit.StatusSuccess,
 	}
-	if err != nil {
-		rec.Status, rec.Reason = classify(err), redactor.Error(err).Error()
+	failure := err
+	if failure == nil {
+		failure = toolErr
+	}
+	if failure != nil {
+		rec.Status, rec.Reason = classify(failure), redactor.Error(failure).Error()
 	}
 	m.emit(ctx, redactor, rec)
 
 	if err != nil {
 		return nil, redactor.Error(err)
 	}
+	if toolErr != nil {
+		scrubToolResult(res, redactor.Error(toolErr).Error(), toolErr.Error())
+	}
 	return res, nil
+}
+
+// errToolResultUnexplained stands in when an IsError result carries no error:
+// the status is still error, but there is nothing to classify.
+var errToolResultUnexplained = errors.New("tool returned an error result without a cause")
+
+// toolResultError is the failure an IsError tool result stands for, or nil
+// for any other result.
+func toolResultError(res sdkmcp.Result) error {
+	out, ok := res.(*sdkmcp.CallToolResult)
+	if !ok || out == nil || !out.IsError {
+		return nil
+	}
+	if err := out.GetError(); err != nil {
+		return err
+	}
+	return errToolResultUnexplained
+}
+
+// scrubToolResult replaces an error result's text with its redacted message
+// when redaction changed it. The result stays an IsError result: the agent
+// still gets a tool error, not a protocol error.
+func scrubToolResult(res sdkmcp.Result, clean, original string) {
+	if clean == original {
+		return
+	}
+	out, ok := res.(*sdkmcp.CallToolResult)
+	if !ok {
+		return
+	}
+	out.Content = []sdkmcp.Content{&sdkmcp.TextContent{Text: clean}}
 }
 
 // resultBytes is the size of a tool result as the agent receives it: its
