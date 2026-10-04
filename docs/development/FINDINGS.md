@@ -1237,4 +1237,4 @@ is a change to D-05-3 and wants its own decision.
 **What:** `internal/mcp/middleware.go` sets `rec.Status` from the Go error only. The SDK reports argument-validation failures as a `*CallToolResult` with `IsError: true` and a nil error, so the audit records `status: success` (seen in `TestInvocation_ErrorResult_AuditsZeroBytes`: `get_entity` with an empty `id`). Found during `P8-16`.
 **Impact:** the audit trail shows a refused or failed call as a success, so an owner reading it cannot tell failures from answers. It affects every tool whose input fails validation. No data exposure.
 **Triage:** `queue-next`
-**Outcome:** not yet planned. Likely a small change: map `IsError` results to `audit.StatusError`, with a reason that is not the raw error text.
+**Outcome:** planned 2026-10-04 as `P8-18` (D-08-19). Wider than filed: the SDK's typed `AddTool` turns *every* handler error into an `IsError` result, so not-found, policy-denied and budget-exceeded inside a tool all audit `success`, and the error text reaches the agent without `redactor.Error`. The fix reads `GetError()` and treats it as a returned error for both.

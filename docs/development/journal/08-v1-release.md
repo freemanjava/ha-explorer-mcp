@@ -102,3 +102,7 @@ D-08-16…D-08-18 recorded; `P8-15` (requests counted at `Manager.Call`/`Supervi
 `CoreReader.AutomationTraces` reads the config id via `automation/config` and keys `trace/list` by it; no id → `ErrAutomationHasNoConfigID` (an `ErrUnsupported`) with its own reason and the logbook fallback. Closes F-47.
 **Surprise:** the reason text was hard-wired to "permission denied" for every `ErrUnsupported`, so a distinct sentinel and a branch in `classifyAutomationError` were needed.
 **Left open:** deploy-only bump to 0.9.4; `P8-06` sets 1.0.0.
+
+### 2026-10-04 · plan F-50
+D-08-19 and `P8-18`: the middleware classifies and redacts an `IsError` result from `GetError()`.
+**Surprise:** go-sdk's typed `AddTool` converts every handler error into an `IsError` result with a nil Go error, so `classify` and `redactor.Error` only ever saw middleware refusals — every in-tool failure has audited `success` since phase 03.

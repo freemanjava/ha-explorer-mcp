@@ -315,6 +315,19 @@ and run while the owner is busy there.
   **Done 2026-10-04:** `CoreReader.AutomationTraces` reads the config id first; `ErrAutomationHasNoConfigID` → `unsupported`
   with its own reason. Live on the Pi (0.9.4): two automations returned runs whose start equals their `LastTriggered`.
 
+- [ ] **`P8-18` · An `IsError` tool result is audited and redacted as the error it is (F-50)**
+  Per D-08-19. In `invoke`, after `callWithRecovery`: a `*CallToolResult` with `IsError` takes its error from
+  `GetError()` (nil → a fixed sentinel-free reason, status `error`); that error goes through the same
+  `classify` and `redactor.Error` as a Go error. The result stays an `IsError` result on the wire — the agent
+  still gets a tool error, not a protocol error — but its `TextContent` is replaced by the redacted message
+  when redaction changed it. Home: `internal/mcp/middleware.go` (the one place both paths already meet).
+  **DoD:** written red first, through the real server and middleware — (1) `get_entity` with `id:""` audits
+  `status:"error"`; (2) a tool whose reader returns `ha.ErrNotFound` audits `error`, `policy.ErrPolicyDenied`
+  audits `denied`, `policy.ErrBudgetExceeded` audits `budget_exceeded`; (3) a reader error whose message embeds
+  a configured secret reaches neither the audit `reason` nor the result text; (4) each of those calls still
+  returns `IsError:true` with a nil client error; (5) a successful call still audits `success`; `make check`
+  green.
+
 - [ ] **`P8-06` · Cut v1.0**
   `addon/config.yaml` `version: "1.0.0"`; `docs/INSTALL.md` current; README's
   status line says v1.0. The owner tags `v1.0.0` and pushes; `release.yml`
@@ -329,6 +342,22 @@ D-08-4…D-08-11 are `P8-08`'s security review of D-08-1's HTTP transport, decid
 SDK already does is recorded in `docs/research/2026-10-03-go-sdk-streamable-http.md`; the architecture doc carries
 the summary as **ADR-013** (§24), T5 (§4) and §15.2. The owner may overturn any of them at review; none is
 implemented yet (`P8-02`).
+
+D-08-19 was decided at the 2026-10-04 `plan` for F-50, on the stronger model.
+
+- [x] **D-08-19 — A tool error is an error whichever way the SDK carries it** — `P8-18` (F-50)
+  go-sdk v1.7.0's typed `AddTool` wrapper (`mcp/server.go`) turns *every* non-`jsonrpc` handler error — and
+  argument-validation failures — into a `*CallToolResult{IsError:true}` with a nil Go error, keeping the
+  original via `SetError`/`GetError()`. Every tool here is registered that way, so `classify` and
+  `redactor.Error` have only ever seen middleware-level refusals (unknown tool, rate limit): a not-found, a
+  policy denial or a budget cutoff inside a tool audits `success`, and its text reaches the agent unscrubbed.
+  The middleware therefore reads `GetError()` and treats it exactly as a returned error, for both the audit
+  and the response text. **Why:** F-50 as filed named validation failures only; reading the SDK showed the
+  status is wrong for every tool failure, and the redaction gap is the same hole — one rule closes both, in
+  the one place both paths meet. **Rejected:** *return handler errors as `*jsonrpc.Error`* — changes the
+  agent-facing contract from a tool error to a protocol error, against the MCP spec's guidance; *a fixed
+  reason for every `IsError`* — loses denied/budget/error, the distinction CLAUDE.md requires to survive to
+  the record; *classify by matching the result text* — branches on a string.
 
 D-08-16…D-08-18 were decided at the 2026-10-04 `plan` after F-46's and F-47's `verify`s, on the stronger model.
 
