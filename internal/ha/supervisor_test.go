@@ -125,7 +125,7 @@ func TestSupervisorClient_Info_ValidToken_ReturnsBody(t *testing.T) {
 			t.Errorf("server saw method %s, want GET", r.Method)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"supervisor":"2026.08.0","hostname":"homeassistant"}`))
+		_, _ = w.Write([]byte(`{"result":"ok","data":{"supervisor":"2026.08.0","hostname":"homeassistant"}}`))
 	})
 
 	c := NewSupervisorClient(srv.URL, testToken, srv.Client(), nil)
@@ -182,7 +182,7 @@ func TestSupervisorClient_TokenNeverReturned(t *testing.T) {
 func TestSupervisorInfo_ValidShape_Maps(t *testing.T) {
 	srv, _ := countingServer(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{"result":"ok","data":{
 			"version": "2026.08.0",
 			"version_latest": "2026.09.0",
 			"channel": "stable",
@@ -191,7 +191,7 @@ func TestSupervisorInfo_ValidShape_Maps(t *testing.T) {
 			"addons": [
 				{"slug": "core_ssh", "name": "Terminal & SSH", "version": "9.14.0", "version_latest": "9.14.0", "update_available": false, "state": "started", "repository": "core"}
 			]
-		}`))
+		}}`))
 	})
 	c := NewSupervisorClient(srv.URL, testToken, srv.Client(), nil)
 
@@ -212,9 +212,9 @@ func TestSupervisorInfo_ValidShape_Maps(t *testing.T) {
 // never map silently into a zeroed or garbage value.
 func TestSupervisorInfo_MutatedShape_FailsLoudly(t *testing.T) {
 	cases := map[string]string{
-		"supported is a string, not a bool":    `{"version":"2026.08.0","supported":"yes"}`,
-		"addons element version is a number":   `{"version":"2026.08.0","addons":[{"slug":"core_ssh","version":9}]}`,
-		"top-level is an array, not an object": `[1,2,3]`,
+		"supported is a string, not a bool":    `{"result":"ok","data":{"version":"2026.08.0","addons":[],"supported":"yes"}}`,
+		"addons element version is a number":   `{"result":"ok","data":{"version":"2026.08.0","addons":[{"slug":"core_ssh","version":9}]}}`,
+		"top-level is an array, not an object": `{"result":"ok","data":[1,2,3]}`,
 	}
 	for name, payload := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -248,7 +248,7 @@ func countingServer(t *testing.T, h http.HandlerFunc) (*httptest.Server, *atomic
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{}`))
+		_, _ = w.Write([]byte(`{"result":"ok","data":{}}`))
 	}))
 	t.Cleanup(srv.Close)
 	return srv, &got

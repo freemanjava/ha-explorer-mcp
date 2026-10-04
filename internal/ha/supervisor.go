@@ -237,7 +237,31 @@ func (c *SupervisorClient) get(ctx context.Context, route string) (json.RawMessa
 	if !json.Valid(body) {
 		return nil, fmt.Errorf("%w: GET %s: response is not valid JSON", ErrUnexpectedMessage, route)
 	}
-	return json.RawMessage(body), nil
+	return unwrapSupervisorEnvelope(body, route)
+}
+
+// supervisorEnvelope is the {"result","data"} wrapper every Supervisor route
+// answers with (D-08-13; observed on /info, docs/research/2026-10-04-supervisor-response-shape.md).
+type supervisorEnvelope struct {
+	Result string          `json:"result"`
+	Data   json.RawMessage `json:"data"`
+}
+
+// unwrapSupervisorEnvelope returns the envelope's data object. Supervisor's
+// own "message" field is deliberately not decoded: it is upstream text
+// (CLAUDE.md rule 6) and must not reach an error string.
+func unwrapSupervisorEnvelope(body []byte, route string) (json.RawMessage, error) {
+	var env supervisorEnvelope
+	if err := json.Unmarshal(body, &env); err != nil {
+		return nil, fmt.Errorf("%w: GET %s: response is not an envelope object", ErrUnexpectedMessage, route)
+	}
+	if env.Result != "ok" {
+		return nil, fmt.Errorf("%w: Supervisor GET %s: result is not ok", ErrUnsupported, route)
+	}
+	if len(env.Data) == 0 || env.Data[0] != '{' {
+		return nil, fmt.Errorf("%w: GET %s: envelope has no data object", ErrUnexpectedMessage, route)
+	}
+	return env.Data, nil
 }
 
 // supervisorStatusError maps Supervisor's HTTP status onto this project's

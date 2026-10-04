@@ -1,0 +1,21 @@
+{
+  "result": "ok",
+  "data": {
+    "supervisor": "2099.01.0",
+    "homeassistant": "2099.1.0",
+    "hassos": "99.0",
+    "docker": "99.0.0",
+    "hostname": "test-host",
+    "operating_system": "Test OS 99.0",
+    "features": ["reboot", "shutdown"],
+    "machine": "test-machine",
+    "machine_id": "00000000000000000000000000000000",
+    "arch": "testarch",
+    "state": "running",
+    "supported_arch": ["testarch"],
+    "supported": true,
+    "channel": "stable",
+    "logging": "info",
+    "timezone": "Etc/UTC"
+  }
+}
