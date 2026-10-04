@@ -296,7 +296,7 @@ and run while the owner is busy there.
   (`get_entity_history`) audits the measured size, not its charge; an error result audits 0; `make check` green.
   **Done 2026-10-04:** `resultBytes` in `middleware.go`; an `IsError` result measures 0.
 
-- [ ] **`P8-17` · `get_automation_traces` asks HA's trace store by the automation's config id (F-47)** —
+- [x] **`P8-17` · `get_automation_traces` asks HA's trace store by the automation's config id (F-47)** —
   `live-verify`
   Per D-08-18. `CoreReader.AutomationTraces` first reads `automation/config` for the entity (the read
   `AutomationDetail` already makes) and sends `trace/list{domain:"automation", item_id:<config id>}`. A config
@@ -312,6 +312,8 @@ and run while the owner is busy there.
   `get_automation_traces` for one of the three automations sampled in F-47's `verify` returns `Items` with
   at least one run whose start is after its `LastTriggered` minus a minute — or, if still empty, that is a
   new finding, not a pass.
+  **Done 2026-10-04:** `CoreReader.AutomationTraces` reads the config id first; `ErrAutomationHasNoConfigID` → `unsupported`
+  with its own reason. Live on the Pi (0.9.4): two automations returned runs whose start equals their `LastTriggered`.
 
 - [ ] **`P8-06` · Cut v1.0**
   `addon/config.yaml` `version: "1.0.0"`; `docs/INSTALL.md` current; README's

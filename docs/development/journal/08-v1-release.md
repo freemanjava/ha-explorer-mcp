@@ -97,3 +97,8 @@ D-08-16…D-08-18 recorded; `P8-15` (requests counted at `Manager.Call`/`Supervi
 `resultBytes` in the middleware sums `StructuredContent` (the SDK's already-marshalled RawMessage) and text blocks; `budget.Usage().Bytes` no longer feeds the audit. Closes F-46.
 **Surprise:** SDK argument-validation failures come back as an `IsError` result, not a Go error, so the audit status is `success` with 26 bytes of error text — measuring zero for `IsError` was needed to meet the DoD.
 **Left open:** audit status for `IsError` results still reads `success`.
+
+### 2026-10-04 · P8-17
+`CoreReader.AutomationTraces` reads the config id via `automation/config` and keys `trace/list` by it; no id → `ErrAutomationHasNoConfigID` (an `ErrUnsupported`) with its own reason and the logbook fallback. Closes F-47.
+**Surprise:** the reason text was hard-wired to "permission denied" for every `ErrUnsupported`, so a distinct sentinel and a branch in `classifyAutomationError` were needed.
+**Left open:** deploy-only bump to 0.9.4; `P8-06` sets 1.0.0.
