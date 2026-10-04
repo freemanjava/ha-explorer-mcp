@@ -2,6 +2,9 @@ package ha
 
 import "time"
 
+// automationDomain is trace/list's domain argument for automation traces.
+const automationDomain = "automation"
+
 // automationConfigCommand asks automation/config for one automation's stored
 // config, by entity_id — the admin-gated source get_automation reads (P3-07;
 // docs/research/2026-08-23-ha-automation-traces.md).
@@ -14,9 +17,10 @@ func (automationConfigCommand) CommandType() string { return CommandAutomationCo
 
 // traceListCommand asks trace/list for one domain's stored traces, optionally
 // filtered to one item — get_automation_traces' admin-gated evidence source
-// (P3-07). ItemID is the automation's object id (its entity id with the
-// domain and dot stripped), which is how HA's trace store keys automation
-// (and script) traces; empty asks for the whole domain.
+// (P3-07). ItemID is the automation's config id (its `id:` in automations
+// config, read from automation/config), which is how HA's trace store keys
+// automation traces — not the entity's object id (F-47, D-08-18); empty asks
+// for the whole domain.
 type traceListCommand struct {
 	Domain string `json:"domain"`
 	ItemID string `json:"item_id,omitempty"`

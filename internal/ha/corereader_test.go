@@ -1,6 +1,7 @@
 package ha
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"testing"
@@ -136,16 +137,63 @@ func TestCoreReader_AutomationDetail_MapsConfig(t *testing.T) {
 	}
 }
 
-func TestCoreReader_AutomationTraces_MapsRuns(t *testing.T) {
-	fc := newFakeCaller()
-	fc.set(CommandTraceList, json.RawMessage(`[{"run_id":"r1","state":"stopped","script_execution":"finished","timestamp":{"start":"2026-08-22T19:04:11+00:00"}}]`))
+// traceStoreCaller answers trace/list the way HA's trace store does: keyed by
+// the automation's config id, and an empty list for any other item_id (F-47).
+type traceStoreCaller struct {
+	*fakeCaller
+	configID string
+	traces   json.RawMessage
+}
 
-	traces, err := NewCoreReader(fc).AutomationTraces(testCtx(t), "automation.evening_lights")
+func (c *traceStoreCaller) Call(ctx context.Context, cmd Command) (json.RawMessage, error) {
+	raw, err := c.fakeCaller.Call(ctx, cmd)
+	if t, ok := cmd.(traceListCommand); ok {
+		if t.ItemID != c.configID {
+			return json.RawMessage(`[]`), nil
+		}
+		return c.traces, nil
+	}
+	return raw, err
+}
+
+func TestCoreReader_AutomationTraces_KeysTraceListByConfigID(t *testing.T) {
+	fc := newFakeCaller()
+	fc.set(CommandAutomationConfig, json.RawMessage(`{"config":{"id":"1700000000001","alias":"Evening lights"}}`))
+	store := &traceStoreCaller{
+		fakeCaller: fc,
+		configID:   "1700000000001",
+		traces:     json.RawMessage(`[{"run_id":"r1","state":"stopped","script_execution":"finished","timestamp":{"start":"2026-08-22T19:04:11+00:00"}}]`),
+	}
+
+	traces, err := NewCoreReader(store).AutomationTraces(testCtx(t), "automation.evening_lights")
 	if err != nil {
 		t.Fatalf("AutomationTraces: %v", err)
 	}
 	if len(traces) != 1 || traces[0].RunID != "r1" {
 		t.Fatalf("AutomationTraces = %+v, want one run r1", traces)
+	}
+}
+
+func TestCoreReader_AutomationTraces_NoConfigID_UnsupportedWithoutTraceFrame(t *testing.T) {
+	fc := newFakeCaller()
+	fc.set(CommandAutomationConfig, json.RawMessage(`{"config":{"alias":"YAML only"}}`))
+
+	_, err := NewCoreReader(fc).AutomationTraces(testCtx(t), "automation.yaml_only")
+	if !errors.Is(err, ErrUnsupported) || !errors.Is(err, ErrAutomationHasNoConfigID) {
+		t.Fatalf("AutomationTraces error = %v, want ErrAutomationHasNoConfigID (an ErrUnsupported)", err)
+	}
+	if n := fc.callCount(CommandTraceList); n != 0 {
+		t.Fatalf("trace/list sent %d times for an automation with no config id, want 0", n)
+	}
+}
+
+func TestCoreReader_AutomationTraces_ConfigReadRefused_Propagates(t *testing.T) {
+	fc := newFakeCaller()
+	fc.err = &CommandError{Code: "unauthorized", Message: "unauthorized"}
+
+	_, err := NewCoreReader(fc).AutomationTraces(testCtx(t), "automation.evening_lights")
+	if !errors.Is(err, ErrUnsupported) || errors.Is(err, ErrAutomationHasNoConfigID) {
+		t.Fatalf("AutomationTraces error = %v, want a plain permission ErrUnsupported", err)
 	}
 }
 

@@ -328,6 +328,35 @@ func TestGetAutomationTraces_PermissionRefused_AttachesFallbackEvidence(t *testi
 	}
 }
 
+// TestGetAutomationTraces_NoConfigID_UnsupportedWithOwnReasonAndFallback pins
+// F-47's rule-7 half: an automation HA cannot key a trace for answers
+// unsupported — never an empty list — says why, and still attaches the
+// fallback evidence.
+func TestGetAutomationTraces_NoConfigID_UnsupportedWithOwnReasonAndFallback(t *testing.T) {
+	triggered := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
+	detail := &fakeAutomationDetailReader{tracesErr: ha.ErrAutomationHasNoConfigID}
+	automations := &fakeAutomationReader{automations: []model.AutomationSummary{
+		{EntityID: "automation.evening_lights", LastTriggered: &triggered},
+	}}
+	client := connect(t, newServer(automationDetailOptions(detail, nil, automations, &fakeLogbookReader{}), Catalog()))
+
+	res, err := client.CallTool(t.Context(), &sdkmcp.CallToolParams{Name: "get_automation_traces", Arguments: map[string]any{"entity_id": "automation.evening_lights"}})
+	if err != nil {
+		t.Fatalf("CallTool: %v", err)
+	}
+	var list model.AutomationTraceList
+	raw, _ := json.Marshal(res.StructuredContent)
+	if err := json.Unmarshal(raw, &list); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if !list.Unsupported || !strings.Contains(list.UnsupportedReason, "config id") || strings.Contains(list.UnsupportedReason, "permission") {
+		t.Errorf("Unsupported=%v reason=%q, want unsupported naming the missing config id", list.Unsupported, list.UnsupportedReason)
+	}
+	if len(list.Items) != 0 || list.FallbackLastTriggered == nil || !list.FallbackLastTriggered.Equal(triggered) {
+		t.Errorf("Items=%v FallbackLastTriggered=%v, want no items and the fallback attached", list.Items, list.FallbackLastTriggered)
+	}
+}
+
 // TestGetAutomationTraces_VersionAbsent_NoFallbackFetched pins the other half
 // of the degraded-branch design: a version-absent trace/list has no fallback
 // worth fetching, since dropping trace/list did not also change

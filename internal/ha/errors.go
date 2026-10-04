@@ -47,6 +47,12 @@ var (
 	// aborting the whole diagnostic (CLAUDE.md, Reliability).
 	ErrUnsupported = errors.New("ha: not supported by this connection")
 
+	// ErrAutomationHasNoConfigID is an ErrUnsupported: HA keys trace/list by an
+	// automation's config id (F-47, D-08-18), and a YAML automation without
+	// `id:` has none, so no trace can be asked for. A caller that must tell
+	// this from a permission refusal checks it before ErrUnsupported.
+	ErrAutomationHasNoConfigID = fmt.Errorf("%w: automation has no config id, which HA keys its traces by", ErrUnsupported)
+
 	// ErrDeadline indicates the caller's own context deadline was reached
 	// while a request was outstanding — distinct from ErrUpstreamUnavailable,
 	// which means the connection itself failed. A caller that retries on
