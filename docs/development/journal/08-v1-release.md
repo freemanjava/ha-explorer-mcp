@@ -82,3 +82,8 @@ Five Supervisor routes and ten raw readers dropped; `EveryEntryHasACaller` now f
 ### 2026-10-04 · verify F-48
 Owner's SSH read of `ha apps info` for the installed App: `protected: true`, AppArmor profile, `host_network`/`full_access`/`docker_api` false, `privileged []`, `hassio_role default`, no ports. §21 rows 1–2 now observed; F-48 closed `done`.
 **Surprise:** the `ha` CLI is `apps` but its JSON still keys `.data.addons`, and the installed slug carries a repository prefix (first two probes returned all-null, not an error).
+
+### 2026-10-04 · plan F-46, F-47
+D-08-16…D-08-18 recorded; `P8-15` (requests counted at `Manager.Call`/`SupervisorClient.get` via a context meter), `P8-16` (`result_bytes` measured from the result), `P8-17` (traces keyed by config id, `live-verify`) queued before `P8-06`.
+**Surprise:** the middleware's "re-serializing would double the work" premise no longer holds — go-sdk v1.7.0 hands the middleware an already-marshalled `StructuredContent`, so measuring is free.
+**Left open:** whether HA stores traces for id-less automations; D-08-18 answers `unsupported` for them until observed.

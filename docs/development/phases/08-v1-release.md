@@ -266,6 +266,50 @@ and run while the owner is busy there.
   **Done 2026-10-04:** red on exactly the five routes, then green after removal; the tests that drove `get` through
   `Info` now use `CoreInfo`.
 
+- [ ] **`P8-15` · Every upstream request is counted where it leaves, not where a tool remembers to (F-46)**
+  Per D-08-16. `internal/ha` gains a narrow `RequestMeter` interface (`ChargeHARequests(n int) error`) and
+  `WithRequestMeter(ctx, m)` / its lookup; `Manager.Call` and `SupervisorClient.get` charge it once per request
+  that has passed the allow-list, before any bytes are written. No meter in the context is a no-op (probes,
+  unit tests). The invocation middleware attaches the invocation's `*policy.QueryBudget` as the meter. Every
+  `ChargeHARequests` call in `internal/mcp` is removed — the seam now counts them, and keeping both would
+  double-count. Home: a new `internal/ha/meter.go` (the interface and context helpers), the two call sites, and
+  `internal/mcp/middleware.go`; `internal/ha` does not import `internal/policy`.
+  **DoD:** a denied command charges nothing and sends nothing; a meter that refuses (budget exhausted) makes
+  `Call`/`get` return an error that `errors.Is(…, ErrBudgetExceeded)` and the fake HA receives zero frames /
+  requests for it; a request that fails or times out upstream is still counted; `list_integrations` through
+  the middleware on a cold registry cache audits `HARequests` equal to the commands the fake HA received, and
+  on a warm cache audits 0 (a refill under a detached context must still reach the meter — test it); a
+  table test over the catalog drives every tool against its fixtures and asserts its counted requests fit its
+  class's `MaxHARequests`; a source-scan test asserts no non-test file in `internal/mcp` calls
+  `ChargeHARequests`; `make check` green.
+
+- [ ] **`P8-16` · `result_bytes` is the size of the result, measured (F-46)**
+  Per D-08-17. The middleware sets `audit.Record.ResultBytes` from the `*CallToolResult` the handler returned:
+  `len(StructuredContent)` plus the length of every `TextContent` text — the bytes the SDK already marshalled,
+  so nothing is re-serialized. `budget.Usage().Bytes` stops feeding the audit; `ChargeBytes` stays exactly as it
+  is, as the budget's backstop. The comment at `middleware.go` that justified the old source is rewritten.
+  Home: `internal/mcp/middleware.go`.
+  **DoD:** `list_integrations` and `get_system_overview` through the middleware audit `ResultBytes` equal to
+  the summed lengths of the returned result's structured and text content, and > 0; a tool that charges bytes
+  (`get_entity_history`) audits the measured size, not its charge; an error result audits 0; `make check` green.
+
+- [ ] **`P8-17` · `get_automation_traces` asks HA's trace store by the automation's config id (F-47)** —
+  `live-verify`
+  Per D-08-18. `CoreReader.AutomationTraces` first reads `automation/config` for the entity (the read
+  `AutomationDetail` already makes) and sends `trace/list{domain:"automation", item_id:<config id>}`. A config
+  with no `id` → `ErrUnsupported` with a fixed reason saying HA keys traces by config id and this automation
+  has none, so the tool answers `unsupported` and attaches its logbook fallback rather than an empty list.
+  `splitEntityID` stops being used for traces; the doc comment on `traceListCommand` that says "object id" is
+  corrected. `analyze_automation_health` reads traces through the same method and inherits the fix. Home:
+  `internal/ha/corereader.go`, `internal/ha/automation_commands.go`.
+  **DoD:** the fake HA's `trace/list` handler answers `[]` for any `item_id` but the config id and the
+  fixture's traces for the config id — the existing test, rerun against it, is red today and green after;
+  a config without `id` yields `Unsupported:true` with that reason and no `trace/list` frame sent; a
+  non-admin principal still reaches the logbook fallback unchanged; `make check` green; **live:** on the Pi,
+  `get_automation_traces` for one of the three automations sampled in F-47's `verify` returns `Items` with
+  at least one run whose start is after its `LastTriggered` minus a minute — or, if still empty, that is a
+  new finding, not a pass.
+
 - [ ] **`P8-06` · Cut v1.0**
   `addon/config.yaml` `version: "1.0.0"`; `docs/INSTALL.md` current; README's
   status line says v1.0. The owner tags `v1.0.0` and pushes; `release.yml`
@@ -280,6 +324,42 @@ D-08-4…D-08-11 are `P8-08`'s security review of D-08-1's HTTP transport, decid
 SDK already does is recorded in `docs/research/2026-10-03-go-sdk-streamable-http.md`; the architecture doc carries
 the summary as **ADR-013** (§24), T5 (§4) and §15.2. The owner may overturn any of them at review; none is
 implemented yet (`P8-02`).
+
+D-08-16…D-08-18 were decided at the 2026-10-04 `plan` after F-46's and F-47's `verify`s, on the stronger model.
+
+- [x] **D-08-16 — Upstream requests are counted at the two wire seams, through a meter carried in the context** —
+  `P8-15` (F-46)
+  `Manager.Call` (WebSocket) and `SupervisorClient.get` (REST) are the only places a request leaves the
+  process; each charges a `RequestMeter` found in the context, after the allow-list and before the write. The
+  meter is a one-method interface defined in `internal/ha`; `*policy.QueryBudget` satisfies it structurally, so
+  `internal/ha` does not import `internal/policy`. A cache hit costs nothing and is counted as nothing; a refill
+  is counted against the invocation that triggered it. Per-tool `ChargeHARequests` goes. Consequence, wanted:
+  `MaxHARequests` now bounds every tool, not only the six that opted in. **Why:** the `verify` showed 8 of 14
+  tool files never charge — opt-in counting drifts by construction, and the seam is the one place that cannot
+  forget. **Rejected:** *charge in every tool* — the status quo, which is how F-46 happened; *`internal/ha`
+  imports `policy`* — ties the adapter to the budget's concrete type for one method; *a decorator in
+  `cmd/server`* — the wiring package gains behaviour; *count in `gateway.go`* — it decides only what is
+  permitted (CLAUDE.md, single responsibility).
+
+- [x] **D-08-17 — `result_bytes` is measured from the returned result, not taken from budget charges** —
+  `P8-16` (F-46)
+  The SDK has already marshalled the typed output into `StructuredContent` (and its text copy) by the time the
+  middleware sees the result (go-sdk v1.7.0, `mcp/server.go` typed-handler wrapper), so its length is free.
+  The audit field means "what this invocation returned"; the budget's byte charges stay as the enforcement
+  backstop and stop doubling as a report. **Why:** the old source was correct only where a tool charged, and
+  its charges mix upstream size and output size. **Rejected:** *re-marshal in the middleware* — the cost the
+  original comment rightly refused, and unnecessary; *make every tool charge its output* — opt-in again.
+
+- [x] **D-08-18 — Traces are read by the automation's config id; no id is `unsupported`, never `[]`** —
+  `P8-17` (F-47)
+  The id comes from `automation/config` (observed live on the Pi: `get_automation` shows a config `ID` unlike
+  the object id; fixtures' trace `item_id` is a config id). Same admin gate as `trace/list`, so no new failure
+  mode; one extra small request. **Why:** rule 7 — an empty, unmarked list for a key HA never used reads as
+  "never ran". **Rejected:** *entity-registry `unique_id`* — free from the cache, but "unique_id equals config
+  id" is not established by any fixture or observation here; *try the config id, fall back to the object id*
+  — whether HA stores traces for id-less automations at all is not established either, and a fallback that
+  may also return a meaningless `[]` reintroduces the defect. If the live check shows id-less automations do
+  carry traces, that is a finding that reopens this record.
 
 D-08-13…D-08-15 were decided at the 2026-10-04 `plan` after F-45's `verify`, on the stronger model.
 
