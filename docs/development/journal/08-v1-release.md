@@ -68,3 +68,8 @@ App packaged for HTTP: `http_secret` password option, `8790/tcp: null`, `run.sh`
 §21 walk on the Pi (0.9.2): 12 rows, 8 pass, 4 findings; owner restarted Core — 14 backoff warnings, `reconnected`, next call OK without restarting the App. Report: `docs/research/2026-10-04-v1-acceptance.md`.
 **Surprise:** on the real build `get_system_health` and `get_automation_traces` answer empty with no unsupported marker, and audit shows `result_bytes:0` — all three green in tests. HA 2026.9.4 shows no Protection mode switch at all.
 **Left open:** F-45 (blocks v1.0), F-46, F-47, F-48 need `verify`; row 7 not exercised live.
+
+### 2026-10-04 · P8-13
+Supervisor `{"result","data"}` envelope unwrapped once in `get`; six mappers require their key (D-08-13/14); invented-value fixture; flat-body test at the MCP layer. Observed on the Pi (0.9.3): `get_system_health` populated, `list_apps` lists 7 Apps. Closes F-45.
+**Surprise:** none — every inner key D-08-14 assumed from Supervisor's docs was present on the first live call.
+**Left open:** F-46 can now be read on a build that returns data; `P8-14` next.

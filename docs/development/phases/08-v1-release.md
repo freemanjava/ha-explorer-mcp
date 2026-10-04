@@ -233,7 +233,7 @@ and run while the owner is busy there.
   "assumed".
   **Done 2026-10-04:** `docs/research/2026-10-04-v1-acceptance.md` — 8 pass, 4 findings (F-45, F-46, F-47, F-48); Core restart observed live.
 
-- [ ] **`P8-13` · Supervisor responses are unwrapped, and a blank body fails loudly (F-45)** — `live-verify`
+- [x] **`P8-13` · Supervisor responses are unwrapped, and a blank body fails loudly (F-45)** — `live-verify`
   Per D-08-13 and D-08-14. Home: `internal/ha/supervisor.go` `get` (the one place every Supervisor body passes,
   so the envelope is handled once) and `internal/ha/mapping.go` (each Supervisor mapper names its required keys).
   Fixture `test/fixtures/supervisor_info.json`: the `{"result","data"}` envelope with exactly the `data` keys
@@ -250,8 +250,9 @@ and run while the owner is busy there.
   figures, `list_apps` lists the installed Apps (counts only in the journal, no names). If the owner can, they
   also paste `jq 'keys, (.data | keys)'` of `ha supervisor info`, `ha os info`, `ha host info` and
   `ha resolution info` into the research doc, settling the inner keys D-08-14 relies on.
+  **Done 2026-10-04:** envelope unwrapped in `get`, `requireKeys` in six mappers, fixture `supervisor_info.json`; observed on the Pi (0.9.3): `get_system_health` fully populated, `list_apps` lists 7 Apps. Inner-key paste not needed — every mapper's required key was present.
 
-- [ ] **`P8-14` · Drop the uncalled Supervisor routes and raw readers (F-49)** — `blocked:P8-13`
+- [ ] **`P8-14` · Drop the uncalled Supervisor routes and raw readers (F-49)**
   Per D-08-15. Remove `SupervisorRouteNetworkInfo`, `…HardwareInfo`, `…JobsInfo`, `…AddonSelfInfo` and
   `SupervisorRoutePing` from `allowedSupervisorRoutes`, and the raw-`json.RawMessage` methods with no production
   caller (`Info`, `OSInfo`, `HostInfo`, `ResolutionInfo`, `NetworkInfo`, `HardwareInfo`, `JobsInfo`,
@@ -263,7 +264,7 @@ and run while the owner is busy there.
   through a method that a non-test file outside `internal/ha` calls — shown red against today's tree before the
   removal; `make check` green.
 
-- [ ] **`P8-06` · Cut v1.0** — `blocked:P8-13`
+- [ ] **`P8-06` · Cut v1.0** — `blocked:P8-14`
   `addon/config.yaml` `version: "1.0.0"`; `docs/INSTALL.md` current; README's
   status line says v1.0. The owner tags `v1.0.0` and pushes; `release.yml`
   publishes both architectures.
