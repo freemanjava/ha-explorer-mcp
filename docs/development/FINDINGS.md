@@ -1238,3 +1238,10 @@ is a change to D-05-3 and wants its own decision.
 **Impact:** the audit trail shows a refused or failed call as a success, so an owner reading it cannot tell failures from answers. It affects every tool whose input fails validation. No data exposure.
 **Triage:** `done`
 **Outcome:** planned 2026-10-04 as `P8-18` (D-08-19). Wider than filed: the SDK's typed `AddTool` turns *every* handler error into an `IsError` result, so not-found, policy-denied and budget-exceeded inside a tool all audit `success`, and the error text reaches the agent without `redactor.Error`. The fix reads `GetError()` and treats it as a returned error for both. Closed `done` by `P8-18`, 2026-10-04.
+
+### F-51 · No root README to carry the v1.0 status line · 2026-10-04
+**Kind:** `inconsistency`
+**What:** `P8-06` asks that "README's status line says v1.0"; `git ls-files` shows no root `README.md` (only `docs/reference/README.md` and `docs/research/README.md`). The repo is public.
+**Impact:** the public landing page is empty; the box clause could not be met. No functional effect on the release.
+**Triage:** `queue-next`
+**Outcome:** to be planned: a short README (what it is, read-only guarantee, status v1.0, link to `docs/INSTALL.md`). Content is the owner's call.

@@ -3,15 +3,15 @@
 <!-- BOUNDED FILE — rewritten in place, never appended to. Keep under ~100 lines.
      Anything that grows goes to journal/. This file is read by every session. -->
 
-**▶ Active:** `P8-06` — cut v1.0 (version bump; owner tags) ·
-[phase 08](phases/08-v1-release.md) · **default** model.
+**▶ Active:** none — the queue is empty. v1.0 is cut in the tree; the owner tags `v1.0.0` and pushes.
+Open `queue-next` finding F-51 (no root README) wants `devflow plan`.
 
 > Advancing this pointer is part of finishing a task, together with ticking the
 > box, recomputing status and appending a journal entry. All four, or none.
 
 ## Suspended
 
-None. (`P8-18` closed 2026-10-04.)
+None. (`P8-06` closed 2026-10-04.)
 
 ## Queue
 
@@ -20,7 +20,7 @@ cycle. Remove a row when its task closes.
 
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
-| 1 | `P8-06` | cut v1.0 (version bump; owner tags) | 08 | default | |
+| — | empty | | | | |
 
 **Ordering rationale (2026-10-04, `plan` for F-50).** `P8-18` before `P8-06`: v1.0 should not ship an audit trail that
 records every in-tool failure as `success`. `defer`s re-triaged, unchanged.
@@ -73,16 +73,16 @@ done
 | 05 | Diagnostics & Evidence Engine | 26 / 26 |
 | 06 | Proposal Mode — gated | 0 / 1 |
 | 07 | Controlled Change (Admin) — gated | 0 / 1 |
-| 08 | v1.0 Release | 36 / 37 |
+| 08 | v1.0 Release | 37 / 37 |
 
 Counts include each phase's decision entries, which are boxes too. Phase 08's
-ticks are D-08-1…D-08-19, P8-01, P8-02, P8-03, P8-04, P8-05, P8-07, P8-08, P8-09, P8-10, P8-11, P8-12, P8-13, P8-14, P8-15, P8-16, P8-17 and P8-18; its one open box is `P8-06`.
+ticks are D-08-1…D-08-19, P8-01, P8-02, P8-03, P8-04, P8-05, P8-07, P8-08, P8-09, P8-10, P8-11, P8-12, P8-13, P8-14, P8-15, P8-16, P8-17, P8-18 and P8-06; no box is open.
 
 Phases 00–04 are milestone M1 (v1 observer); phase 05 (M2) is complete. Phase 08
 ships them as v1.0 and runs before 06–07, which stay gated: they open only on an
 explicit owner decision plus a fresh security review, and need v1 usage data.
 
-Last refreshed: 2026-10-04 (`P8-18`)
+Last refreshed: 2026-10-04 (`P8-06`)
 
 ## Open findings
 
@@ -90,7 +90,7 @@ Last refreshed: 2026-10-04 (`P8-18`)
      grep -c '^\*\*Triage:\*\* `queue-next`' docs/development/FINDINGS.md  (etc.)
      This block exists so captured work cannot quietly rot: every session sees it. -->
 
-`blocks-active` 0 · `queue-next` 0 · `defer` 6 · `unknown` 0 (open)
+`blocks-active` 0 · `queue-next` 1 · `defer` 6 · `unknown` 0 (open)
 
 > Any `blocks-active` is stop-work. If `queue-next` is non-zero and the queue
 > above has fewer than 3 rows, drain it with `devflow plan` before continuing —
@@ -99,7 +99,7 @@ Last refreshed: 2026-10-04 (`P8-18`)
 > An open `unknown` outranks the queue: it is an assumption the plan already
 > rests on. Run `devflow verify` before building further on it.
 
-No `blocks-active` (**F-45** closed `done` by `P8-13`, 2026-10-04). **F-46** closed `done` by `P8-16`. **F-47** closed `done` by `P8-17`. **F-50** closed `done` by `P8-18`; **F-49** closed `done` by `P8-14`. Six `defer`s: **F-32** (D-05-7's
+**F-51** (`queue-next`): the repo has no root README, so `P8-06`'s README clause could not be met. No `blocks-active` (**F-45** closed `done` by `P8-13`, 2026-10-04). **F-46** closed `done` by `P8-16`. **F-47** closed `done` by `P8-17`. **F-50** closed `done` by `P8-18`; **F-49** closed `done` by `P8-14`. Six `defer`s: **F-32** (D-05-7's
 `search/related` fallback), **F-33** (phase 06 topic), **F-34** (non-admin gets
 no automation hypotheses), **F-36** (statistics-based staleness; re-triage on v1
 usage data), **F-43** (TLS; re-triage with remote access), **F-44** (configurable budget limits; v1 usage data). No open `unknown` (**F-48** `verify`d 2026-10-04, closed `done`).
@@ -108,8 +108,8 @@ usage data), **F-43** (TLS; re-triage with remote access), **F-44** (configurabl
 
 Last 5 closed tasks, one line each. Older entries live in `journal/`.
 
+- 2026-10-04 · `P8-06` — `addon/config.yaml` bumped to 1.0.0; `make check` green; README clause unmet (no README, F-51). Owner tags.
 - 2026-10-04 · `P8-18` — an `IsError` tool result is classified (error/denied/budget) and redacted like a returned error; text scrubbed only when changed. Closes F-50.
 - 2026-10-04 · `plan F-50` — D-08-19; `P8-18`. F-50 is wider than filed: every in-tool error arrives as an `IsError` result, never classified or redacted.
 - 2026-10-04 · `P8-17` — `trace/list` keyed by the automation's config id; none → `unsupported` with its own reason. Observed on the Pi (0.9.4). Closes F-47.
 - 2026-10-04 · `P8-16` — `result_bytes` measured from the returned result (structured + text; error result 0), not budget charges. Closes F-46.
-- 2026-10-04 · `P8-15` — requests charged at `Manager.Call` / `SupervisorClient.get` through a context meter; per-tool charges removed; audit equals the wire for all 21 tools.

@@ -110,3 +110,8 @@ D-08-19 and `P8-18`: the middleware classifies and redacts an `IsError` result f
 ### 2026-10-04 · P8-18
 `invoke` takes the failure from an `IsError` result's `GetError()` and runs it through `classify` and `redactor.Error`; the result stays `IsError`, its text scrubbed only if redaction changed it. Closes F-50.
 **Surprise:** `probeTable`'s raw `AddTool` yields protocol errors, not `IsError` results, so the tests needed a typed-`AddTool` probe table to exercise the shipped path.
+
+### 2026-10-04 · P8-06
+`addon/config.yaml` version 0.9.4 → 1.0.0; `make check` green; the owner tags `v1.0.0`.
+**Surprise:** the box names a README status line, but the repo has no root README.
+**Left open:** README (F-51).

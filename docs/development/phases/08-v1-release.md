@@ -330,13 +330,15 @@ and run while the owner is busy there.
   **Done 2026-10-04:** `invoke` lifts an `IsError` result's `GetError()` (none → `errToolResultUnexplained`) through
   `classify` and `redactor.Error`; the result text is replaced only when redaction changed it. Tests: `tool_error_test.go`.
 
-- [ ] **`P8-06` · Cut v1.0**
+- [x] **`P8-06` · Cut v1.0**
   `addon/config.yaml` `version: "1.0.0"`; `docs/INSTALL.md` current; README's
   status line says v1.0. The owner tags `v1.0.0` and pushes; `release.yml`
   publishes both architectures.
   **DoD:** `TestAddonManifestImageIsPinnedToVersion` green at 1.0.0; no
   `blocks-active` finding open; `make check` green. The tag itself is the
   owner's action and is not part of this box.
+  **Done 2026-10-04:** `addon/config.yaml` `version: "1.0.0"`; `INSTALL.md` carries no version text, so unchanged;
+  `make check` green. The README clause is unmet — the repo has no root README (F-51). Owner tags `v1.0.0`.
 
 ## Decisions
 
