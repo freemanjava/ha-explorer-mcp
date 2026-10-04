@@ -3,8 +3,8 @@
 <!-- BOUNDED FILE — rewritten in place, never appended to. Keep under ~100 lines.
      Anything that grows goes to journal/. This file is read by every session. -->
 
-**▶ Active:** `devflow verify` **F-45** (blocks-active) — then F-46…F-48; `P8-06` waits on it ·
-[phase 08](phases/08-v1-release.md) · run on the **default** model, interpret contested evidence on the stronger one.
+**▶ Active:** `P8-13` — Supervisor responses are unwrapped, and a blank body fails loudly (F-45) ·
+[phase 08](phases/08-v1-release.md) · **default** model (D-08-13/14 settled the design) · `live-verify`.
 
 > Advancing this pointer is part of finishing a task, together with ticking the
 > box, recomputing status and appending a journal entry. All four, or none.
@@ -20,15 +20,18 @@ cycle. Remove a row when its task closes.
 
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
-| 1 | `P8-06` | cut v1.0 (version bump; owner tags) | 08 | default | `blocked:F-45` |
+| 1 | `P8-13` | Supervisor envelope unwrapped in `get`; mappers require their key (F-45) | 08 | default | `live-verify` |
+| 2 | `P8-14` | drop the five uncalled Supervisor routes and raw readers (F-49) | 08 | default | `blocked:P8-13` |
+| 3 | verify F-46 | audit `result_bytes`/`ha_requests` zero for most tools | 08 | default | `needs-verify` |
+| 4 | verify F-47 | `get_automation_traces` empty, unmarked, live | 08 | default | `needs-verify` |
+| 5 | verify F-48 | protection mode as installed (owner's SSH read) | 08 | default | `needs-verify` |
+| 6 | `P8-06` | cut v1.0 (version bump; owner tags) | 08 | default | `blocked:P8-13` |
 
-**Ordering rationale (2026-10-03, `plan` after D-08-1).** The owner chose HTTP inside the App (D-08-1); phase 01
-required a fresh security review before any listener, so `P8-08` gates `P8-02`. `P8-11` and `P8-10` need no Pi and
-must land before the image the owner publishes for `P8-09`, so the acceptance walk runs the final build.
-`defer`s re-triaged, unchanged: F-32, F-33, F-34, F-36 are untouched by the transport.
-**2026-10-03, `plan` after `P8-08`:** `P8-12` (F-42) follows `P8-02` because it extends the `config.go` that
-`P8-02` creates, and precedes `P8-09` so the image on the Pi has the options. `defer`s re-triaged, unchanged:
-F-32…F-36 as above, F-43 (TLS, with remote access), F-44 (configurable budgets, on v1 usage data).
+**Ordering rationale (2026-10-04, `plan` after F-45's `verify`).** `P8-13` first: it clears the only
+`blocks-active`, and F-46's audit figures are worth reading only on a build whose Supervisor tools return data.
+`P8-14` touches the same file, so it follows rather than conflicts. F-46…F-48 stay `verify`s — none has an
+established cause — and run before `P8-06` because phase 08's DoD wants every §21 row a pass, not a finding;
+any of them may add a box. `defer`s re-triaged, unchanged: F-32, F-33, F-34, F-36, F-43, F-44.
 
 **Phase 05's design decisions** (D-05-1…10) stand in its phase file: separate
 fact/inference/recommendation types, one `ConfidenceFor`, overlap-with-tolerance
@@ -45,7 +48,7 @@ full twenty before release (phase 03). *HA versions:* current release only
 (phase 00). `P4-05`: a PRIVATE entity is excluded outright from both `find_*`
 tools under the deny profile, never masked.
 
-**Open decision:** none. D-08-12 (owner, 2026-10-03): App options = privacy profile + log level; budget
+**Open decision:** none. D-08-13…D-08-15 (2026-10-04 `plan`): Supervisor envelope unwrapped in `get`, mappers require their key, uncalled Supervisor routes dropped — owner may overturn at review. D-08-12 (owner, 2026-10-03): App options = privacy profile + log level; budget
 limits stay constants, CLAUDE.md corrected in `P8-12`. D-08-1 decided 2026-10-03 (evidence: `docs/research/2026-10-03-mcp-client-paths.md`). Q10 (persistence) closed
 2026-10-03: memory-only in v1.
 
@@ -72,16 +75,16 @@ done
 | 05 | Diagnostics & Evidence Engine | 26 / 26 |
 | 06 | Proposal Mode — gated | 0 / 1 |
 | 07 | Controlled Change (Admin) — gated | 0 / 1 |
-| 08 | v1.0 Release | 23 / 24 |
+| 08 | v1.0 Release | 26 / 29 |
 
 Counts include each phase's decision entries, which are boxes too. Phase 08's
-ticks are D-08-1…D-08-12, P8-01, P8-02, P8-03, P8-04, P8-05, P8-07, P8-08, P8-09, P8-10, P8-11 and P8-12; its open box is one task.
+ticks are D-08-1…D-08-15, P8-01, P8-02, P8-03, P8-04, P8-05, P8-07, P8-08, P8-09, P8-10, P8-11 and P8-12; its open boxes are `P8-13`, `P8-14`, `P8-06`.
 
 Phases 00–04 are milestone M1 (v1 observer); phase 05 (M2) is complete. Phase 08
 ships them as v1.0 and runs before 06–07, which stay gated: they open only on an
 explicit owner decision plus a fresh security review, and need v1 usage data.
 
-Last refreshed: 2026-10-04 (`P8-05` closed)
+Last refreshed: 2026-10-04 (`plan` after F-45's `verify`)
 
 ## Open findings
 
@@ -89,7 +92,7 @@ Last refreshed: 2026-10-04 (`P8-05` closed)
      grep -c '^\*\*Triage:\*\* `queue-next`' docs/development/FINDINGS.md  (etc.)
      This block exists so captured work cannot quietly rot: every session sees it. -->
 
-`blocks-active` 1 · `queue-next` 3 · `defer` 6 · `unknown` 4 (open)
+`blocks-active` 1 · `queue-next` 4 · `defer` 6 · `unknown` 3 (open)
 
 > Any `blocks-active` is stop-work. If `queue-next` is non-zero and the queue
 > above has fewer than 3 rows, drain it with `devflow plan` before continuing —
@@ -98,10 +101,10 @@ Last refreshed: 2026-10-04 (`P8-05` closed)
 > An open `unknown` outranks the queue: it is an assumption the plan already
 > rests on. Run `devflow verify` before building further on it.
 
-`blocks-active` **F-45** (`get_system_health` empty without a marker on the Pi) stops `P8-06`; `queue-next` F-46, F-47, F-48 — drain with `plan` after `verify`. F-37 closed `done` (`P8-09`); F-39 closed `done` (`P8-10`); F-40 closed `done` (`P8-11`); F-42 closed `done` (`P8-12`). Six `defer`s: **F-32** (D-05-7's
+`blocks-active` **F-45** (Supervisor envelope never unwrapped — every Supervisor field blank on the Pi) is now `P8-13`, top of the queue; it stops `P8-06`. `queue-next` **F-46, F-47, F-48** (unknowns, queued as `verify`s) and **F-49** (uncalled Supervisor routes → `P8-14`). Six `defer`s: **F-32** (D-05-7's
 `search/related` fallback), **F-33** (phase 06 topic), **F-34** (non-admin gets
 no automation hypotheses), **F-36** (statistics-based staleness; re-triage on v1
-usage data), **F-43** (TLS; re-triage with remote access), **F-44** (configurable budget limits; v1 usage data). Four open `unknown`s: **F-45…F-48** (live-build gaps from `P8-05`); `verify` before building on them. F-41 closed `done` 2026-10-03.
+usage data), **F-43** (TLS; re-triage with remote access), **F-44** (configurable budget limits; v1 usage data). Three open `unknown`s: **F-46…F-48**; `verify` before building on them.
 
 ## Recent
 

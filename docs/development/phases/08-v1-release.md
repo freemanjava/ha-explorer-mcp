@@ -233,7 +233,37 @@ and run while the owner is busy there.
   "assumed".
   **Done 2026-10-04:** `docs/research/2026-10-04-v1-acceptance.md` — 8 pass, 4 findings (F-45, F-46, F-47, F-48); Core restart observed live.
 
-- [ ] **`P8-06` · Cut v1.0** — `blocked:P8-05`
+- [ ] **`P8-13` · Supervisor responses are unwrapped, and a blank body fails loudly (F-45)** — `live-verify`
+  Per D-08-13 and D-08-14. Home: `internal/ha/supervisor.go` `get` (the one place every Supervisor body passes,
+  so the envelope is handled once) and `internal/ha/mapping.go` (each Supervisor mapper names its required keys).
+  Fixture `test/fixtures/supervisor_info.json`: the `{"result","data"}` envelope with exactly the `data` keys
+  observed on the Pi (`docs/research/2026-10-04-supervisor-response-shape.md`), **invented values only** — no
+  hostname, machine id or version string from the real installation enters the repo. The existing hand-written
+  flat test bodies are rewritten into the envelope; none may stay flat.
+  **DoD:** written red first — (1) the fixture through `CoreInfo` yields non-empty `CoreVersion`, `Hostname`,
+  `Arch`; (2) a flat (un-enveloped) body, `{"result":"error"}` on 200, and an envelope with no `data` each return
+  an error per D-08-13, with no Supervisor `message` text in it; (3) per mapper, a `data` object missing its
+  required key (D-08-14) returns `ErrUnexpectedMessage`, and a present-but-empty `addons: []` maps to zero Apps
+  with no error; (4) at the MCP layer, a Supervisor answering a flat body makes `get_system_health` and
+  `list_apps` report `Unsupported` with a reason — never empty-and-unmarked. `make check` green.
+  **Live:** on the Pi, after the owner installs the build: `get_system_health` returns a Core version and disk
+  figures, `list_apps` lists the installed Apps (counts only in the journal, no names). If the owner can, they
+  also paste `jq 'keys, (.data | keys)'` of `ha supervisor info`, `ha os info`, `ha host info` and
+  `ha resolution info` into the research doc, settling the inner keys D-08-14 relies on.
+
+- [ ] **`P8-14` · Drop the uncalled Supervisor routes and raw readers (F-49)** — `blocked:P8-13`
+  Per D-08-15. Remove `SupervisorRouteNetworkInfo`, `…HardwareInfo`, `…JobsInfo`, `…AddonSelfInfo` and
+  `SupervisorRoutePing` from `allowedSupervisorRoutes`, and the raw-`json.RawMessage` methods with no production
+  caller (`Info`, `OSInfo`, `HostInfo`, `ResolutionInfo`, `NetworkInfo`, `HardwareInfo`, `JobsInfo`,
+  `AddonSelfInfo`, `AddonSelfStats`, `Ping`). Tests that drove `get` through `Info` switch to a typed reader.
+  Home: `internal/ha/gateway.go`, `internal/ha/supervisor.go`; the property stays asserted in
+  `gateway_test.go`.
+  **DoD:** each dropped route is denied by `checkSupervisorRoute` before a request is built (one case per
+  route); `TestGateway_AllowList_EveryEntryHasACaller` is tightened so a Supervisor route counts as called only
+  through a method that a non-test file outside `internal/ha` calls — shown red against today's tree before the
+  removal; `make check` green.
+
+- [ ] **`P8-06` · Cut v1.0** — `blocked:P8-13`
   `addon/config.yaml` `version: "1.0.0"`; `docs/INSTALL.md` current; README's
   status line says v1.0. The owner tags `v1.0.0` and pushes; `release.yml`
   publishes both architectures.
@@ -247,6 +277,40 @@ D-08-4…D-08-11 are `P8-08`'s security review of D-08-1's HTTP transport, decid
 SDK already does is recorded in `docs/research/2026-10-03-go-sdk-streamable-http.md`; the architecture doc carries
 the summary as **ADR-013** (§24), T5 (§4) and §15.2. The owner may overturn any of them at review; none is
 implemented yet (`P8-02`).
+
+D-08-13…D-08-15 were decided at the 2026-10-04 `plan` after F-45's `verify`, on the stronger model.
+
+- [x] **D-08-13 — The Supervisor envelope is unwrapped once, in `get`, and only `result:"ok"` passes** —
+  `P8-13` (F-45)
+  `get` decodes `{"result": string, "data": raw}` and returns `data`. `result` other than `"ok"` on a 200 →
+  `ErrUnsupported` with a fixed string naming the route; no `data` key, or `data` not an object →
+  `ErrUnexpectedMessage`. Supervisor's `message` field is never copied into the error: it is upstream text
+  (rule 6) and may quote anything. **Why:** every Supervisor route carries the same envelope (observed on
+  `/info`; Supervisor's documented API contract for the rest), so it is a transport property, and `get` is
+  already the single choke point for Supervisor bytes. **Rejected:** *each mapper unwraps* — six copies of one
+  rule, and the seventh mapper forgets; *accept both flat and enveloped bodies* — the flat shape was never
+  observed, and tolerating it is what hid this defect.
+
+- [x] **D-08-14 — Each Supervisor mapper requires its identifying key; absence is an error, emptiness is not** —
+  `P8-13` (F-45)
+  Before decoding, a mapper checks that `data` holds its required key(s): `/info` → `homeassistant`;
+  `/supervisor/info` → `version`, `addons`; `/os/info` → `version`; `/host/info` → `disk_total`;
+  `/resolution/info` → `issues`; `/addons/self/stats` → `memory_percent`. Missing → `ErrUnexpectedMessage`.
+  A present empty value (`"addons": []`) is a real answer. **Why:** `encoding/json` turns any unexpected shape
+  into zero values with a nil error, and on these routes a zero value reads as a fact ("no Apps", "0 issues") —
+  the rule-7 breach F-45 observed. The envelope fix alone would leave the same hole for the next shape change.
+  The inner keys are the existing wire structs' (Supervisor's docs); only `/info`'s were observed — any that is
+  wrong now surfaces as `Unsupported`, which `P8-13`'s live check catches. **Rejected:** *require every field* —
+  a new Supervisor dropping a minor field would blank a whole tool; *only check non-zero results* — "0 issues"
+  and "no Apps" are legitimate answers.
+
+- [x] **D-08-15 — Supervisor routes and readers with no caller are dropped, as D-08-3 dropped commands** —
+  `P8-14` (F-49)
+  D-08-3's reasoning, applied to the Supervisor half of the allow-list it did not cover: five routes are
+  reached only through raw readers nothing outside tests calls, and the reachability test counted the constant's
+  mention, not a caller. **Rejected:** *keep the raw readers for `cmd/spike`* — the spike has its own client;
+  *keep `/supervisor/ping` for a health probe* — no box plans one, and re-adding it with its caller is one line.
+  Owner may overturn at review.
 
 - [x] **D-08-12 — In v1 the App configures the privacy profile and log level; budget limits stay constants** —
   decided by the owner 2026-10-03 (`plan`, F-42)
