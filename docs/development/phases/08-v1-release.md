@@ -221,7 +221,7 @@ and run while the owner is busy there.
   unknown-command test pattern, one case per command); `make check` green.
   **Done 2026-10-03:** `TestGateway_UncalledCommands_Denied` (six cases) written red first.
 
-- [ ] **`P8-05` · §21 acceptance walk on the Pi** — `live-verify`
+- [x] **`P8-05` · §21 acceptance walk on the Pi** — `live-verify`
   For each of the twelve doc §21 criteria: the test(s) that assert it, by name,
   or a live observation on the Pi — at least: App running under protection mode
   on aarch64 with the §15.2 flags (`addon/config.yaml` as installed); Core
@@ -231,6 +231,7 @@ and run while the owner is busy there.
   **DoD:** `docs/research/<date>-v1-acceptance.md` with one row per criterion
   (evidence, pass/finding); every gap filed in `FINDINGS.md`; no row reads
   "assumed".
+  **Done 2026-10-04:** `docs/research/2026-10-04-v1-acceptance.md` — 8 pass, 4 findings (F-45, F-46, F-47, F-48); Core restart observed live.
 
 - [ ] **`P8-06` · Cut v1.0** — `blocked:P8-05`
   `addon/config.yaml` `version: "1.0.0"`; `docs/INSTALL.md` current; README's

@@ -1,0 +1,33 @@
+# v1 acceptance walk — doc §21 on the Pi (P8-05)
+
+**Date:** 2026-10-04 · **Build:** App `0.9.2`, HAOS on Raspberry Pi (aarch64), HA Core `2026.9.4`, HTTP transport, privacy profile `mask`.
+**Method:** tests by name (`make check`); live calls through a client on the App's HTTP port; the App log pasted by the owner; the HA UI read in Chrome. The owner restarted Core. No HA identifiers are recorded here.
+
+Verdicts: **pass** = asserted by named tests and, where §21 is about behaviour on the device, observed live. **finding** = a gap, filed in `FINDINGS.md`. Nothing reads "assumed".
+
+| # | §21 criterion | Evidence | Verdict |
+|--:|---|---|---|
+| 1 | Runs as an App on aarch64 Pi under protection mode | Live: App `Running` on the Pi, answering tool calls (log 2026-10-04 14:17–14:37Z). Protection mode: the UI on 2026.9.4 shows no switch and no "protection disabled" warning; AppArmor badge present — indirect only. | **finding F-48** |
+| 2 | No `/config`, Docker socket, host network, `full_access`/privileged | `TestAddonManifestSecurityPosture`, `TestAppArmor_NetworkIsStreamOnly`, `TestAppArmor_AllowsReadingOnlyTheOptionsFile`, `TestAddonManifest_Port_ClosedByDefault`. Asserts the repo manifest; Supervisor's view of the installed App was not read (F-48). | pass (manifest) |
+| 3 | System overview and filtered inventory | `TestSystemOverview_ReturnsCountsWithoutEntityList`, `TestListEntities_InvalidAvailability_Rejected`, area/device/integration list tests. Live: `get_system_overview` (counts), `list_integrations` (35 entries, one page). | pass |
+| 4 | Bounded history, availability/outage metrics, no DB access | `TestGetEntityHistory_WindowExceedsMaximum_RefusedNamingMaximum`, `TestComputeAvailability_Fixture7d_MatchesDocExample`, `TestComputeAvailability_RecorderGap_NotAnOutage`. Live: `analyze_integration_health` over 7d cited `recorder_history` evidence (8 entities unavailable throughout). | pass |
+| 5 | Repairs and supported automation execution evidence | `TestListRepairs_ReportsSeverityAndIssueID`, `TestGetAutomationTraces_ReturnsRunsNewestFirst`, `TestGetAutomationTraces_PermissionRefused_AttachesFallbackEvidence`. Live: `list_repairs` returned one issue with severity and id. Live `get_automation_traces` on an automation triggered two minutes earlier returned no items and no unsupported marker. | **finding F-47** |
+| 6 | Every upstream command allow-listed; mutations denied before transmission | `TestUnknownCommandDenied`, `TestMutatingCommandDenied`, `TestSession_Write_DeniedCommand_NeverReachesSocket`, `TestGateway_UncalledCommands_Denied`, `TestGateway_AllowList_EveryEntryHasACaller`. | pass |
+| 7 | Budgets stop oversized work with explicit errors | `TestQueryBudget_EachDimension_TripsIndependently`, `TestQueryBudget_Exceeded_ReportsUsageSoFarAndDoesNotApplyCharge`, `TestGetEntityHistory_BudgetExceeded_ReturnsBudgetError`. Not exercised live (would need an oversized request on the Pi). | pass (tests) |
+| 8 | Redaction: tokens/secrets cannot be returned | `TestSupervisorTokenNeverReturned`, `TestManager_Errors_NeverCarryTheToken`, `TestManager_TokenNeverLogged`, `TestLogHandler_TokenScrubbedFromMessageAndAttrs`, `TestAuditNeverContainsSecrets`. Live: the pasted App log (Oct 3–4) contains no token. | pass |
+| 9 | Audit records cost/metadata, no full private history | `TestEmit_RecordsCostFields`, `TestEmit_NoBodyPersistedByDefault`, `TestEmit_BodyPersistedOnlyWhenOptedIn`. Live: audit lines carry tool, parameters, duration, status, transport and no body — but `result_bytes:0` for `list_integrations`, `get_system_overview`, `list_repairs`, `get_system_health`, and `ha_requests:0` for tools that read Core; only `analyze_integration_health` shows real figures (10 requests, 2167 bytes). Reproduced after the restart. | **finding F-46** |
+| 10 | HA restart ⇒ safe reconnect | `TestManager_HARestart_ReconnectsReauthenticatesAndServesNextRequest`, `TestConnectWithBackoff_*`, `TestBackoffDelay_GrowsAndIsBounded`. Live: owner restarted Core 14:35Z; log shows 14 `websocket connect failed, backing off` warnings (203 ms growing to ~5.5 s, jittered, no tight loop), then `websocket reconnected reconnects:1` at 14:36:43Z; `get_system_overview` succeeded at 14:37:00Z with the App never restarted. | pass |
+| 11 | Unsupported APIs fail explicitly, no fabrication | `TestSystemHealth_SupervisorUnreachable_DegradesToUnsupported_OverviewStillSucceeds`, `TestListApps_SupervisorUnreachable_ReportsUnsupportedNotEmpty`, `TestGetAutomation_PermissionRefused_ReportsUnsupportedWithFallback`. Live: `get_system_health` returned every field empty/zero with `Unsupported:false`, no reason, `Partial:false`; the call took 1044 ms and audited `success`. | **finding F-45** |
+| 12 | At least three end-to-end investigations ⇒ evidence-backed ranked hypotheses | `TestDocCriterion_ThreeInvestigationsProduceEvidenceBackedRankedHypotheses`, `TestInvestigation1…3_*`. Live: one `analyze_integration_health` run on an integration in `setup_retry` returned three hypotheses (medium, medium, low), each citing evidence ids, plus a next action. | pass |
+
+**Totals:** 8 pass (two of them test-only, noted), 4 findings (F-45, F-46, F-47, F-48 — F-45 and F-47 share a symptom: an empty answer on the live build where the tests assert an explicit marker).
+
+## What this says
+
+- F-45 and F-47 are both "tests green, live build empty with no marker", but they are not one cause: F-45 is the Supervisor path (see `2026-10-04-supervisor-response-shape.md`); F-47 goes through the Core WebSocket and is still unexplained.
+- `supervisor_resolution` evidence in the live `analyze_integration_health` run reported zero issues from the same Supervisor path as the empty `get_system_health`; treat it as unconfirmed until F-45 is settled.
+- Criterion 1 cannot be closed by reading the UI on this HA version.
+
+## Not done
+
+Row 7 live (oversized request) and row 2 as installed. Both are covered by tests and F-48 respectively.

@@ -1190,3 +1190,31 @@ is a change to D-05-3 and wants its own decision.
 
 **Triage:** `defer`
 **Outcome:** re-triage on v1 usage data (D-08-12).
+
+### F-45 · `get_system_health` answers all-empty with no unsupported marker on the live installation · 2026-10-04
+**Kind:** `unknown`
+**What:** `P8-05`, live call to `get_system_health` through the connected `ha-inspector` server: every field empty or zero (`CoreVersion`, `Hostname`, `Arch`, disk, `SupervisorVersion` all `""`/`0`), `Healthy:false`, `Supported:false`, but `Unsupported:false`, `UnsupportedReason:""`, `Partial:false`. `internal/mcp/system_tools.go:159` marks a failed read `Unsupported` with a reason, so the readers returned no error yet no data. In the same minute `get_system_overview` returned full Core data and `analyze_integration_health` cited a `supervisor_resolution` item (`issues:0`) — which may be zero-valued too. Unknown: whether this server is the Pi build or a local one, which version, and whether the Supervisor envelope decodes to zero values without an error.
+**Impact:** unknown pending verification. If the Pi build does this, an empty answer reads as a healthy host — a rule-7 breach (never fabricate; empty ≠ could not check) — and §21's "unsupported APIs fail explicitly" does not hold.
+**Triage:** `blocks-active`
+**Outcome:** `verify` run 2026-10-04 (default model; evidence in `docs/research/2026-10-04-supervisor-response-shape.md`). The Pi is the build in question (0.9.2, audit lines match). Cause, observed 2026-10-04 (owner's `ha info --raw-json` shows only `data`/`result` at the top, every field under `data`): every Supervisor mapper decodes the body's top level, nothing unwraps the Supervisor's `{"result","data"}` envelope, and `encoding/json` returns zero values with no error — so nothing reaches `markUnsupported`. Wider than this tool: live `list_apps` also returns `Items:[]`, `Unsupported:false` on an installation with several Apps. The tests share the mapper's assumption (hand-written flat bodies, no Supervisor fixture). Fix is a task for `plan` — start from a captured real response as a fixture, and make the mappers fail loudly on a body with none of the expected keys. `P8-06` stays blocked.
+
+### F-46 · Audit records show `result_bytes:0` and `ha_requests:0` for most tools on the Pi · 2026-10-04
+**Kind:** `unknown`
+**What:** `P8-05`, App log of 0.9.2 on the Pi, 2026-10-04 14:17–14:18Z: `list_integrations` (35 items returned), `get_system_overview`, `list_repairs` and `get_system_health` all audit `result_bytes:0`; the first three read Core yet `ha_requests:0` (a cache hit would explain the count, not the bytes). `analyze_integration_health` audits `ha_requests:10`, `result_bytes:2167`. Unknown whether bytes are only measured for text content while these tools return structured content, and whether `ha_requests` counts only budget-charged calls.
+**Impact:** unknown pending verification. §21 says audit records invocation cost; if the figure is wrong for most tools the audit under-reports exactly what an owner would use it for.
+**Triage:** `queue-next`
+**Outcome:** settle with F-45's `verify`; this is the audit-side half of the same live observation.
+
+### F-47 · `get_automation_traces` empty and not marked unsupported for a just-triggered automation · 2026-10-04
+**Kind:** `unknown`
+**What:** `P8-05`, live on the Pi (0.9.2), 14:39Z: `list_automations` reported an enabled automation with `LastTriggered` 14:37:14Z (after the Core restart); `get_automation_traces` for it returned `Items:[]`, `Unsupported:false`, `Partial:false`. Unknown whether HA keeps no trace for that run (storage off, trace limit 0), whether the adapter's read returned nothing without an error, or whether "no trace" is correct. One automation checked.
+**Impact:** unknown pending verification. §21 "supported automation execution evidence" has no live pass; if the adapter answers empty where it cannot read, an agent concludes "never ran" (rule 7).
+**Triage:** `queue-next`
+**Outcome:** `verify` with F-45 — same shape of symptom (empty, no marker) on the same build.
+
+### F-48 · Protection mode cannot be read from the HA UI on 2026.9.4 · 2026-10-04
+**Kind:** `unknown`
+**What:** `P8-05`, read in Chrome: the App's Info page has no Protection mode switch; the profile page has no Advanced mode toggle; the App menu holds only Uninstall. The page shows an AppArmor badge and no "protection disabled" warning. §21 asks for "under protection mode" and the phase box for the manifest "as installed"; neither is directly observed.
+**Impact:** unknown pending verification. The walk's row 1 rests on indirect evidence. Cheapest direct read is Supervisor's App info (`protected`), which this build does not call and the allow-list does not permit.
+**Triage:** `queue-next`
+**Outcome:** settle by `verify` — find a read path the owner can run (Supervisor API from the SSH App, or the HA version's current UI) rather than widening the allow-list.

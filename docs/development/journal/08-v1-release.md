@@ -63,3 +63,8 @@ Dropped six uncalled allow-list entries from `gateway.go`, deleted `uncalledAllo
 App packaged for HTTP: `http_secret` password option, `8790/tcp: null`, `run.sh` sets the transport, INSTALL §3–4. Observed on the Pi with `0.9.2`: Started, 401 without secret, `initialize` and Claude Code work, port closed refuses, Terminal & SSH App reaches `:8790` (401). Closes F-37.
 **Surprise:** `0.9.1` died on `cannot read the App options file` — AppArmor had no `/data/options.json r,`; no unit test can see that.
 **Left open:** `mcp-proxy` flags for stdio-only clients.
+
+### 2026-10-04 · P8-05
+§21 walk on the Pi (0.9.2): 12 rows, 8 pass, 4 findings; owner restarted Core — 14 backoff warnings, `reconnected`, next call OK without restarting the App. Report: `docs/research/2026-10-04-v1-acceptance.md`.
+**Surprise:** on the real build `get_system_health` and `get_automation_traces` answer empty with no unsupported marker, and audit shows `result_bytes:0` — all three green in tests. HA 2026.9.4 shows no Protection mode switch at all.
+**Left open:** F-45 (blocks v1.0), F-46, F-47, F-48 need `verify`; row 7 not exercised live.
