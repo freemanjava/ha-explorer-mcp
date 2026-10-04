@@ -10,6 +10,7 @@ import (
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/freemanjava/ha-explorer-mcp/internal/audit"
+	"github.com/freemanjava/ha-explorer-mcp/internal/ha"
 	"github.com/freemanjava/ha-explorer-mcp/internal/policy"
 	"github.com/freemanjava/ha-explorer-mcp/internal/redact"
 )
@@ -86,6 +87,9 @@ func (m *invocationMiddleware) invoke(ctx context.Context, next sdkmcp.MethodHan
 	budget := policy.NewQueryBudget(tool.Class)
 	ctx, cancel := policy.WithBudget(ctx, budget)
 	defer cancel()
+	// The wire seams in internal/ha charge this meter, so no tool has to
+	// remember to count its own requests (D-08-16).
+	ctx = ha.WithRequestMeter(ctx, budget)
 
 	started := time.Now()
 	res, err := callWithRecovery(ctx, next, call)

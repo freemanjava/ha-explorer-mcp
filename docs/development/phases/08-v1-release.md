@@ -266,7 +266,7 @@ and run while the owner is busy there.
   **Done 2026-10-04:** red on exactly the five routes, then green after removal; the tests that drove `get` through
   `Info` now use `CoreInfo`.
 
-- [ ] **`P8-15` · Every upstream request is counted where it leaves, not where a tool remembers to (F-46)**
+- [x] **`P8-15` · Every upstream request is counted where it leaves, not where a tool remembers to (F-46)**
   Per D-08-16. `internal/ha` gains a narrow `RequestMeter` interface (`ChargeHARequests(n int) error`) and
   `WithRequestMeter(ctx, m)` / its lookup; `Manager.Call` and `SupervisorClient.get` charge it once per request
   that has passed the allow-list, before any bytes are written. No meter in the context is a no-op (probes,
@@ -282,6 +282,8 @@ and run while the owner is busy there.
   table test over the catalog drives every tool against its fixtures and asserts its counted requests fit its
   class's `MaxHARequests`; a source-scan test asserts no non-test file in `internal/mcp` calls
   `ChargeHARequests`; `make check` green.
+  **Done 2026-10-04:** `internal/ha/meter.go`; the catalog table asserts audited `ha_requests` equals what the fake
+  HA and fake Supervisor received, for all 21 tools.
 
 - [ ] **`P8-16` · `result_bytes` is the size of the result, measured (F-46)**
   Per D-08-17. The middleware sets `audit.Record.ResultBytes` from the `*CallToolResult` the handler returned:

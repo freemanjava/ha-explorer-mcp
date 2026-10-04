@@ -164,14 +164,6 @@ func readAutomationSummary(ctx context.Context, reader automationReader, id mode
 	return &all[idx], nil
 }
 
-// chargeRequest charges one HA request to the invocation budget, if any.
-func chargeRequest(ctx context.Context) error {
-	if budget, ok := policy.BudgetFrom(ctx); ok {
-		return budget.ChargeHARequests(1)
-	}
-	return nil
-}
-
 // unreadReason maps a failed read onto the reason the analysis names it by,
 // aborting only when the caller itself went away.
 func unreadReason(err error) (model.MissingReason, error) {
@@ -196,9 +188,6 @@ func readAutomationConfig(ctx context.Context, reader automationDetailReader, id
 }
 
 func fetchAutomationConfig(ctx context.Context, reader automationDetailReader, id model.EntityID) (model.Automation, error) {
-	if err := chargeRequest(ctx); err != nil {
-		return model.Automation{}, err
-	}
 	return reader.AutomationDetail(ctx, id)
 }
 
@@ -206,11 +195,6 @@ func readAutomationTraces(ctx context.Context, reader automationDetailReader, id
 	if reader == nil {
 		in.TracesUnread = model.MissingUpstreamUnavailable
 		return nil
-	}
-	if err := chargeRequest(ctx); err != nil {
-		reason, abort := unreadReason(err)
-		in.TracesUnread = reason
-		return abort
 	}
 	traces, err := reader.AutomationTraces(ctx, id)
 	if err != nil {
@@ -230,11 +214,6 @@ func readAutomationFallback(ctx context.Context, reader logbookReader, id model.
 	if reader == nil {
 		in.FallbackUnread = model.MissingUpstreamUnavailable
 		return nil
-	}
-	if err := chargeRequest(ctx); err != nil {
-		reason, abort := unreadReason(err)
-		in.FallbackUnread = reason
-		return abort
 	}
 	since := in.To.Add(-min(in.To.Sub(in.From), logbookFallbackWindow))
 	events, err := reader.LogbookEvents(ctx, id, since)
@@ -370,9 +349,6 @@ func readAutomationRepairs(ctx context.Context, reader repairReader, in *analysi
 	if reader == nil {
 		in.Missing = append(in.Missing, notConfigured("open repairs", coreHealthSource))
 		return nil
-	}
-	if err := chargeRequest(ctx); err != nil {
-		return noteMissing(&in.Missing, "open repairs", coreHealthSource, err)
 	}
 	repairs, err := reader.Repairs(ctx)
 	if err != nil {

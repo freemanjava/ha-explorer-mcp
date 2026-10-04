@@ -135,9 +135,6 @@ func getEntityHistory(ctx context.Context, reader historyReader, profile policy.
 	masked := maskHistoryPoints(redactor, entityID, points)
 
 	if budget, ok := policy.BudgetFrom(ctx); ok {
-		if err := budget.ChargeHARequests(1); err != nil {
-			return model.EntityHistory{}, err
-		}
 		if err := budget.ChargeHistoryPoints(len(masked)); err != nil {
 			return model.EntityHistory{}, err
 		}

@@ -138,9 +138,6 @@ func getEntityStatistics(ctx context.Context, reader historyReader, profile poli
 	}
 
 	if budget, ok := policy.BudgetFrom(ctx); ok {
-		if err := budget.ChargeHARequests(1); err != nil {
-			return model.Health{}, err
-		}
 		if err := budget.ChargeHistoryPoints(len(points)); err != nil {
 			return model.Health{}, err
 		}

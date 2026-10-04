@@ -352,13 +352,7 @@ func readRestarts(ctx context.Context, reader lifecycleReader, in *analysis.Inte
 		})
 		onsets = onsets[:maxRestartProbes]
 	}
-	budget, hasBudget := policy.BudgetFrom(ctx)
 	for i, onset := range onsets {
-		if hasBudget {
-			if err := budget.ChargeHARequests(1); err != nil {
-				return noteMissing(&in.Missing, what, logbookSourceName, err, withPartial(i > 0))
-			}
-		}
 		from, to := analysis.RestartProbeWindow(onset)
 		events, err := reader.LifecycleEvents(ctx, from, to)
 		if err != nil {
@@ -432,9 +426,6 @@ func readEntityPoints(ctx context.Context, reader historyReader, budget *policy.
 		return nil, err
 	}
 	if hasBudget {
-		if err := budget.ChargeHARequests(1); err != nil {
-			return nil, err
-		}
 		if err := budget.ChargeHistoryPoints(len(points)); err != nil {
 			return nil, err
 		}
@@ -446,11 +437,6 @@ func readIntegrationRepairs(ctx context.Context, reader repairReader, in *analys
 	if reader == nil {
 		in.Missing = append(in.Missing, notConfigured("open repairs", coreHealthSource))
 		return nil
-	}
-	if budget, ok := policy.BudgetFrom(ctx); ok {
-		if err := budget.ChargeHARequests(1); err != nil {
-			return noteMissing(&in.Missing, "open repairs", coreHealthSource, err)
-		}
 	}
 	repairs, err := reader.Repairs(ctx)
 	if err != nil {
@@ -468,11 +454,6 @@ func readSupervisor(ctx context.Context, reader systemHealthReader, in *analysis
 	if reader == nil {
 		in.Missing = append(in.Missing, notConfigured(what, supervisorHealthSource))
 		return nil
-	}
-	if budget, ok := policy.BudgetFrom(ctx); ok {
-		if err := budget.ChargeHARequests(1); err != nil {
-			return noteMissing(&in.Missing, what, supervisorHealthSource, err)
-		}
 	}
 	summary, err := reader.ResolutionSummary(ctx)
 	if err != nil {

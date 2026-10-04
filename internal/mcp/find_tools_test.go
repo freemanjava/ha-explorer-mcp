@@ -22,7 +22,15 @@ type fakeMultiHistoryReader struct {
 	calls  []model.EntityID
 }
 
-func (f *fakeMultiHistoryReader) History(_ context.Context, id model.EntityID, _, _ time.Time, _ bool) ([]model.HistoryPoint, error) {
+// History charges the invocation's meter the way Manager.Call does at the wire
+// seam: the scan's request bound reads that count, and a double standing in
+// for the seam has to produce it.
+func (f *fakeMultiHistoryReader) History(ctx context.Context, id model.EntityID, _, _ time.Time, _ bool) ([]model.HistoryPoint, error) {
+	if b, ok := policy.BudgetFrom(ctx); ok {
+		if err := b.ChargeHARequests(1); err != nil {
+			return nil, err
+		}
+	}
 	f.calls = append(f.calls, id)
 	return f.points[id], nil
 }

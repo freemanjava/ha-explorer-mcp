@@ -201,6 +201,14 @@ func (m *Manager) Call(ctx context.Context, cmd Command) (json.RawMessage, error
 		defer cancel()
 	}
 
+	// One charge per logical request, after the allow-list and before any
+	// connection is awaited or byte written: a retry on a fresh connection
+	// because nothing was transmitted is still the same request. A request
+	// that later fails or times out upstream stays counted — it was asked for.
+	if err := chargeRequest(ctx); err != nil {
+		return nil, err
+	}
+
 	var failed *session
 	for {
 		s, err := m.session(ctx, failed)
