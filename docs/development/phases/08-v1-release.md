@@ -340,12 +340,36 @@ and run while the owner is busy there.
   **Done 2026-10-04:** `addon/config.yaml` `version: "1.0.0"`; `INSTALL.md` carries no version text, so unchanged;
   `make check` green. The README clause is unmet — the repo has no root README (F-51). Owner tags `v1.0.0`.
 
+- [ ] **`P8-19` · Root README as the public landing page** (F-51, D-08-20)
+  New `README.md` at the repo root, per D-08-20: what the server is and is not (diagnostic, not a voice remote
+  or API proxy — the official HA MCP server does control); the read-only guarantee in CLAUDE.md's terms (no
+  write path linked in, no route/command/SQL/path/code parameter, `SUPERVISOR_TOKEN` never returned); status
+  line `v1.0.0`; the tool catalog by name, one line each; links to `docs/INSTALL.md` and the architecture doc.
+  Silent on licensing (F-52). No real HA data — every example id is invented (`sensor.example_temperature`).
+  Home: root `README.md`; drift guards beside what they guard — the tool list in `internal/mcp/catalog_test.go`
+  (the catalog is the source of names), the version in `addon/config_test.go` (the manifest is the source of
+  the version).
+  **DoD:** written red first — (1) `TestReadme_ListsEveryCatalogTool`: every `catalog` name appears in
+  `README.md` as `` `name` ``, and no snake_case tool-shaped name appears there that the catalog lacks;
+  (2) `TestReadme_StatusMatchesManifestVersion`: the README status line carries `addon/config.yaml`'s
+  `version`; (3) `gitleaks` clean on the staged tree; `make check` green. Closes `P8-06`'s unmet README clause.
+
 ## Decisions
 
 D-08-4…D-08-11 are `P8-08`'s security review of D-08-1's HTTP transport, decided 2026-10-03 on Opus. What the
 SDK already does is recorded in `docs/research/2026-10-03-go-sdk-streamable-http.md`; the architecture doc carries
 the summary as **ADR-013** (§24), T5 (§4) and §15.2. The owner may overturn any of them at review; none is
 implemented yet (`P8-02`).
+
+D-08-20 was decided by the owner at the 2026-10-04 `plan` for F-51.
+
+- [x] **D-08-20 — The root README is a short landing page** — `P8-19` (F-51)
+  The owner chose a short landing page (~60–100 lines): what it is / is not, the read-only guarantee, status
+  v1.0, the tool list by name, links to `docs/INSTALL.md` and the architecture doc. **Why:** the repo is public
+  and its front page is empty; the detail already lives in INSTALL.md and the architecture doc, and duplicating
+  it is how two copies drift. **Rejected:** *minimal stub* — says too little about the guarantee that is the
+  product; *full README* (client setup, profiles, budget, development) — restates INSTALL.md and CLAUDE.md.
+  Licensing is out of scope here and deferred as F-52 (owner, same session).
 
 D-08-19 was decided at the 2026-10-04 `plan` for F-50, on the stronger model.
 

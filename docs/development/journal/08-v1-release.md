@@ -115,3 +115,7 @@ D-08-19 and `P8-18`: the middleware classifies and redacts an `IsError` result f
 `addon/config.yaml` version 0.9.4 → 1.0.0; `make check` green; the owner tags `v1.0.0`.
 **Surprise:** the box names a README status line, but the repo has no root README.
 **Left open:** README (F-51).
+
+### 2026-10-04 · plan F-51
+D-08-20 (owner): root README is a short landing page; `P8-19` queued with drift tests for tool names and version.
+**Surprise:** the public repo has no LICENSE either — filed F-52, owner deferred it.

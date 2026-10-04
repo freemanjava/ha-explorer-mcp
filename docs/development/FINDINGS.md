@@ -1244,4 +1244,11 @@ is a change to D-05-3 and wants its own decision.
 **What:** `P8-06` asks that "README's status line says v1.0"; `git ls-files` shows no root `README.md` (only `docs/reference/README.md` and `docs/research/README.md`). The repo is public.
 **Impact:** the public landing page is empty; the box clause could not be met. No functional effect on the release.
 **Triage:** `queue-next`
-**Outcome:** to be planned: a short README (what it is, read-only guarantee, status v1.0, link to `docs/INSTALL.md`). Content is the owner's call.
+**Outcome:** planned 2026-10-04 as `P8-19` (D-08-20: short landing page, owner's choice). Closes when `P8-19` closes.
+
+### F-52 · Public repository has no LICENSE · 2026-10-04
+**Kind:** `scope`
+**What:** `git ls-files` shows no `LICENSE`/`COPYING` at the root; the repo is public. Noticed while planning F-51.
+**Impact:** without a license the code is all-rights-reserved by default — others may read it but not legally reuse, fork-and-modify or contribute under clear terms. No functional effect.
+**Triage:** `defer`
+**Outcome:** owner chose 2026-10-04 to defer; README stays silent on licensing (D-08-20). Re-triage when the owner picks a license.
