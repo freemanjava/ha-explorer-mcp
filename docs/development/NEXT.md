@@ -3,15 +3,15 @@
 <!-- BOUNDED FILE — rewritten in place, never appended to. Keep under ~100 lines.
      Anything that grows goes to journal/. This file is read by every session. -->
 
-**▶ Active:** `P8-05` — §21 acceptance walk on the Pi · [phase 08](phases/08-v1-release.md) ·
-run `devflow next` on the **default** model.
+**▶ Active:** `devflow verify` **F-45** (blocks-active) — then F-46…F-48; `P8-06` waits on it ·
+[phase 08](phases/08-v1-release.md) · run on the **default** model, interpret contested evidence on the stronger one.
 
 > Advancing this pointer is part of finishing a task, together with ticking the
 > box, recomputing status and appending a journal entry. All four, or none.
 
 ## Suspended
 
-None.
+None. (`P8-05` closed 2026-10-04.)
 
 ## Queue
 
@@ -20,8 +20,7 @@ cycle. Remove a row when its task closes.
 
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
-| 1 | `P8-05` | §21 acceptance walk on the Pi | 08 | default | `live-verify` |
-| 2 | `P8-06` | cut v1.0 (version bump; owner tags) | 08 | default | `blocked:P8-05` |
+| 1 | `P8-06` | cut v1.0 (version bump; owner tags) | 08 | default | `blocked:F-45` |
 
 **Ordering rationale (2026-10-03, `plan` after D-08-1).** The owner chose HTTP inside the App (D-08-1); phase 01
 required a fresh security review before any listener, so `P8-08` gates `P8-02`. `P8-11` and `P8-10` need no Pi and
@@ -73,16 +72,16 @@ done
 | 05 | Diagnostics & Evidence Engine | 26 / 26 |
 | 06 | Proposal Mode — gated | 0 / 1 |
 | 07 | Controlled Change (Admin) — gated | 0 / 1 |
-| 08 | v1.0 Release | 22 / 24 |
+| 08 | v1.0 Release | 23 / 24 |
 
 Counts include each phase's decision entries, which are boxes too. Phase 08's
-ticks are D-08-1…D-08-12, P8-01, P8-02, P8-03, P8-04, P8-07, P8-08, P8-09, P8-10, P8-11 and P8-12; its open boxes are two tasks.
+ticks are D-08-1…D-08-12, P8-01, P8-02, P8-03, P8-04, P8-05, P8-07, P8-08, P8-09, P8-10, P8-11 and P8-12; its open box is one task.
 
 Phases 00–04 are milestone M1 (v1 observer); phase 05 (M2) is complete. Phase 08
 ships them as v1.0 and runs before 06–07, which stay gated: they open only on an
 explicit owner decision plus a fresh security review, and need v1 usage data.
 
-Last refreshed: 2026-10-03 (`P8-09` closed)
+Last refreshed: 2026-10-04 (`P8-05` closed)
 
 ## Open findings
 
@@ -90,7 +89,7 @@ Last refreshed: 2026-10-03 (`P8-09` closed)
      grep -c '^\*\*Triage:\*\* `queue-next`' docs/development/FINDINGS.md  (etc.)
      This block exists so captured work cannot quietly rot: every session sees it. -->
 
-`blocks-active` 0 · `queue-next` 0 · `defer` 6 · `unknown` 0 (open)
+`blocks-active` 1 · `queue-next` 3 · `defer` 6 · `unknown` 4 (open)
 
 > Any `blocks-active` is stop-work. If `queue-next` is non-zero and the queue
 > above has fewer than 3 rows, drain it with `devflow plan` before continuing —
@@ -99,19 +98,18 @@ Last refreshed: 2026-10-03 (`P8-09` closed)
 > An open `unknown` outranks the queue: it is an assumption the plan already
 > rests on. Run `devflow verify` before building further on it.
 
-No `queue-next`. F-37 closed `done` (`P8-09`); F-39 closed `done` (`P8-10`); F-40 closed `done` (`P8-11`); F-42 closed `done` (`P8-12`). Six `defer`s: **F-32** (D-05-7's
+`blocks-active` **F-45** (`get_system_health` empty without a marker on the Pi) stops `P8-06`; `queue-next` F-46, F-47, F-48 — drain with `plan` after `verify`. F-37 closed `done` (`P8-09`); F-39 closed `done` (`P8-10`); F-40 closed `done` (`P8-11`); F-42 closed `done` (`P8-12`). Six `defer`s: **F-32** (D-05-7's
 `search/related` fallback), **F-33** (phase 06 topic), **F-34** (non-admin gets
 no automation hypotheses), **F-36** (statistics-based staleness; re-triage on v1
-usage data), **F-43** (TLS; re-triage with remote access), **F-44** (configurable budget limits; v1 usage data). No open `unknown`: **F-41** closed `done` 2026-10-03 by `verify`. F-37 is a confirmed defect.
+usage data), **F-43** (TLS; re-triage with remote access), **F-44** (configurable budget limits; v1 usage data). Four open `unknown`s: **F-45…F-48** (live-build gaps from `P8-05`); `verify` before building on them. F-41 closed `done` 2026-10-03.
 
 ## Recent
 
 Last 5 closed tasks, one line each. Older entries live in `journal/`.
 
+- 2026-10-04 · `P8-05` — §21 walk on the Pi: 8 pass, 4 findings (F-45…F-48); Core restart → backoff → `reconnected`, next call OK. Report `docs/research/2026-10-04-v1-acceptance.md`.
 - 2026-10-03 · `P8-09` — App packaged for HTTP (`http_secret`, port closed, `run.sh`, AppArmor `/data/options.json`); `0.9.2` observed on the Pi: 401/initialize/Claude Code OK. Closes F-37.
 - 2026-10-03 · `P8-10` — Dockerfile `ARG VERSION` → `-X main.version`; `release.yml` passes config.yaml's version to both builds. Closes F-39.
 - 2026-10-03 · `P8-11` — six uncalled allow-list entries dropped, exemption set deleted; denial test per command. Closes F-40.
 - 2026-10-03 · `P8-12` — App options `privacy_profile` / `log_level` (closed lists, one-source rule) via `loadSettings`;
   startup log shows the effective profile; CLAUDE.md: budgets are constants. Closes F-42.
-- 2026-10-03 · `P8-02` — Streamable HTTP beside stdio: gate (route, Origin, constant-time bearer, 4 in flight, strip
-  `Authorization`) over the SDK's stateless JSON handler; `cmd/server/config.go`; audit carries `transport`.
