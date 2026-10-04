@@ -1202,10 +1202,11 @@ is a change to D-05-3 and wants its own decision.
 **Kind:** `defect`
 **What:** `P8-05`, App log of 0.9.2 on the Pi, 2026-10-04 14:17–14:18Z: `list_integrations` (35 items returned), `get_system_overview`, `list_repairs` and `get_system_health` all audit `result_bytes:0`; the first three read Core yet `ha_requests:0` (a cache hit would explain the count, not the bytes). `analyze_integration_health` audits `ha_requests:10`, `result_bytes:2167`. Unknown whether bytes are only measured for text content while these tools return structured content, and whether `ha_requests` counts only budget-charged calls.
 **Impact:** confirmed: audit `ha_requests`/`result_bytes` are right only for the tools that charge the budget themselves; every `list_*`/`get_*` inventory tool, overview, health and repairs read 0. §21 says audit records invocation cost; if the figure is wrong for most tools the audit under-reports exactly what an owner would use it for.
-**Triage:** `queue-next`
+**Triage:** `done`
 **Outcome:** settle with F-45's `verify`; this is the audit-side half of the same live observation. Not settled by that run; queued as its own `verify` after `P8-13` (2026-10-04 `plan`), so `get_system_health`'s figures are read on a build that returns data.
 **Verified 2026-10-04:** `verify` answered it — cost figures are whatever handlers charged, and 8 of 14 tool files never charge; `internal/ha` counts nothing. Evidence: `docs/research/2026-10-04-v1-acceptance.md` (last entry). Needs `plan` to turn into a task (count centrally vs. per tool).
 **Planned 2026-10-04:** D-08-16 (count requests at the two wire seams via a context meter) and D-08-17 (measure `result_bytes` from the returned result) → `P8-15`, `P8-16`. Closes when both close.
+**Closed 2026-10-04:** `P8-15` (requests counted at the wire seams) and `P8-16` (`result_bytes` measured from the result) both landed.
 
 ### F-47 · `get_automation_traces` empty and not marked unsupported for a just-triggered automation · 2026-10-04
 **Kind:** `defect`
@@ -1229,3 +1230,10 @@ is a change to D-05-3 and wants its own decision.
 **Impact:** the allow-list overstates the reachable surface by five routes (D-08-2/D-08-3's reasoning), and the reachability test gives false assurance for the Supervisor half. No route is mutating; no exposure today.
 **Triage:** `done`
 **Outcome:** `P8-14` (D-08-15) closed 2026-10-04: five routes and ten raw readers dropped; the reachability test now counts a Supervisor route only through a method called outside `internal/ha`.
+
+### F-50 · Audit status is `success` for tool calls that return an `IsError` result · 2026-10-04
+**Kind:** `defect`
+**What:** `internal/mcp/middleware.go` sets `rec.Status` from the Go error only. The SDK reports argument-validation failures as a `*CallToolResult` with `IsError: true` and a nil error, so the audit records `status: success` (seen in `TestInvocation_ErrorResult_AuditsZeroBytes`: `get_entity` with an empty `id`). Found during `P8-16`.
+**Impact:** the audit trail shows a refused or failed call as a success, so an owner reading it cannot tell failures from answers. It affects every tool whose input fails validation. No data exposure.
+**Triage:** `queue-next`
+**Outcome:** not yet planned. Likely a small change: map `IsError` results to `audit.StatusError`, with a reason that is not the raw error text.

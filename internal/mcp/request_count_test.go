@@ -236,3 +236,69 @@ func auditedRequests(rec map[string]any) int {
 	n, _ := rec["ha_requests"].(int64)
 	return int(n)
 }
+
+// resultSize sums what the agent received: structured content plus text blocks.
+func resultSize(t *testing.T, res *sdkmcp.CallToolResult) int {
+	t.Helper()
+	n := 0
+	if res.StructuredContent != nil {
+		raw, err := json.Marshal(res.StructuredContent)
+		if err != nil {
+			t.Fatalf("marshal structured content: %v", err)
+		}
+		n += len(raw)
+	}
+	for _, c := range res.Content {
+		if text, ok := c.(*sdkmcp.TextContent); ok {
+			n += len(text.Text)
+		}
+	}
+	return n
+}
+
+func auditedBytes(rec map[string]any) int {
+	n, _ := rec["result_bytes"].(int64)
+	return int(n)
+}
+
+// TestInvocation_ResultBytes_MeasuredFromReturnedResult: the audited size is
+// the result's own, whether or not the tool charged bytes to the budget (F-46).
+func TestInvocation_ResultBytes_MeasuredFromReturnedResult(t *testing.T) {
+	now := time.Now()
+	cases := map[string]map[string]any{
+		"list_integrations":   nil,
+		"get_system_overview": nil,
+		// get_entity_history charges bytes; the audit must still report the size.
+		"get_entity_history": {"entity_id": "sensor.x", "from": now.Add(-time.Hour).Format(time.RFC3339), "to": now.Format(time.RFC3339)},
+	}
+	for name, args := range cases {
+		t.Run(name, func(t *testing.T) {
+			w := newWireStack(t)
+			client := connect(t, NewServer(w.opts))
+
+			res, rec := w.call(t, client, name, args)
+			if res == nil || res.IsError {
+				t.Fatalf("call did not succeed: %+v", rec)
+			}
+			got, want := auditedBytes(rec), resultSize(t, res)
+			if got <= 0 {
+				t.Fatalf("audited result_bytes = %d, want > 0", got)
+			}
+			if got != want {
+				t.Errorf("audited result_bytes = %d, result carries %d", got, want)
+			}
+		})
+	}
+}
+
+// TestInvocation_ErrorResult_AuditsZeroBytes: a call that returns no result
+// has no size.
+func TestInvocation_ErrorResult_AuditsZeroBytes(t *testing.T) {
+	w := newWireStack(t)
+	client := connect(t, NewServer(w.opts))
+
+	_, rec := w.call(t, client, "get_entity", map[string]any{"id": ""})
+	if got := auditedBytes(rec); got != 0 {
+		t.Errorf("audited result_bytes = %d for a failed call, want 0 (status %v)", got, rec["status"])
+	}
+}

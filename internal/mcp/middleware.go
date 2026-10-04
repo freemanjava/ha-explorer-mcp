@@ -100,10 +100,11 @@ func (m *invocationMiddleware) invoke(ctx context.Context, next sdkmcp.MethodHan
 		Parameters: params,
 		HARequests: used.HARequests,
 		Duration:   time.Since(started),
-		// The bytes charged to the budget are what the invocation actually
-		// cost; re-serializing the result to measure it would double the work
-		// on the machine this server is trying not to load.
-		ResultBytes: used.Bytes,
+		// Measured from the result the handler returned, not taken from budget
+		// charges: only some tools charge bytes, so the charge undercounts the
+		// rest (D-08-17). The SDK has already marshalled the result, so this
+		// reads lengths and re-serializes nothing.
+		ResultBytes: resultBytes(res),
 		Status:      audit.StatusSuccess,
 	}
 	if err != nil {
@@ -115,6 +116,26 @@ func (m *invocationMiddleware) invoke(ctx context.Context, next sdkmcp.MethodHan
 		return nil, redactor.Error(err)
 	}
 	return res, nil
+}
+
+// resultBytes is the size of a tool result as the agent receives it: its
+// structured content plus every text block. An error result or a non-tool
+// result carries no payload, so it measures zero.
+func resultBytes(res sdkmcp.Result) int64 {
+	out, ok := res.(*sdkmcp.CallToolResult)
+	if !ok || out == nil || out.IsError {
+		return 0
+	}
+	var n int64
+	if raw, ok := out.StructuredContent.(json.RawMessage); ok {
+		n += int64(len(raw))
+	}
+	for _, c := range out.Content {
+		if text, ok := c.(*sdkmcp.TextContent); ok {
+			n += int64(len(text.Text))
+		}
+	}
+	return n
 }
 
 // callWithRecovery turns a panicking tool into an error result. A long-lived

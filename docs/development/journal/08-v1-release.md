@@ -92,3 +92,8 @@ D-08-16…D-08-18 recorded; `P8-15` (requests counted at `Manager.Call`/`Supervi
 `ha.RequestMeter` + `WithRequestMeter`; `Manager.Call` and `SupervisorClient.get` charge once per request after the allow-list; middleware attaches the budget; all 12 per-tool `ChargeHARequests` sites removed. Catalog table test holds audited `ha_requests` to the wire count for every tool.
 **Surprise:** `find_stale_entities`' scan bound read `usage.HARequests` — its test double had to charge the meter itself, since a fake reader bypasses the seam. slog returns audit ints as `int64`.
 **Left open:** `result_bytes` (P8-16); F-46 closes with it.
+
+### 2026-10-04 · P8-16
+`resultBytes` in the middleware sums `StructuredContent` (the SDK's already-marshalled RawMessage) and text blocks; `budget.Usage().Bytes` no longer feeds the audit. Closes F-46.
+**Surprise:** SDK argument-validation failures come back as an `IsError` result, not a Go error, so the audit status is `success` with 26 bytes of error text — measuring zero for `IsError` was needed to meet the DoD.
+**Left open:** audit status for `IsError` results still reads `success`.
