@@ -78,3 +78,7 @@ Supervisor `{"result","data"}` envelope unwrapped once in `get`; six mappers req
 Five Supervisor routes and ten raw readers dropped; `EveryEntryHasACaller` now follows a route through its `SupervisorClient` method to a caller outside `internal/ha` (red on the five, green after). `Info`-driven tests moved to `CoreInfo`.
 **Surprise:** none — the name-mention test passed only because the raw readers themselves mentioned the constants.
 **Left open:** F-46…F-48 `verify`s, then `P8-06`.
+
+### 2026-10-04 · verify F-48
+Owner's SSH read of `ha apps info` for the installed App: `protected: true`, AppArmor profile, `host_network`/`full_access`/`docker_api` false, `privileged []`, `hassio_role default`, no ports. §21 rows 1–2 now observed; F-48 closed `done`.
+**Surprise:** the `ha` CLI is `apps` but its JSON still keys `.data.addons`, and the installed slug carries a repository prefix (first two probes returned all-null, not an error).

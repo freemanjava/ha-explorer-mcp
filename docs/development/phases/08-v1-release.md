@@ -231,7 +231,7 @@ and run while the owner is busy there.
   **DoD:** `docs/research/<date>-v1-acceptance.md` with one row per criterion
   (evidence, pass/finding); every gap filed in `FINDINGS.md`; no row reads
   "assumed".
-  **Done 2026-10-04:** `docs/research/2026-10-04-v1-acceptance.md` — 8 pass, 4 findings (F-45, F-46, F-47, F-48); Core restart observed live.
+  **Done 2026-10-04:** `docs/research/2026-10-04-v1-acceptance.md` — 8 pass, 4 findings (F-45, F-46, F-47, F-48); Core restart observed live. F-48 `verify`d the same day: rows 1–2 now observed on the installed App (`protected: true`) — 10 pass, F-46/F-47 open.
 
 - [x] **`P8-13` · Supervisor responses are unwrapped, and a blank body fails loudly (F-45)** — `live-verify`
   Per D-08-13 and D-08-14. Home: `internal/ha/supervisor.go` `get` (the one place every Supervisor body passes,

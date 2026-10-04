@@ -1218,8 +1218,8 @@ is a change to D-05-3 and wants its own decision.
 **Kind:** `unknown`
 **What:** `P8-05`, read in Chrome: the App's Info page has no Protection mode switch; the profile page has no Advanced mode toggle; the App menu holds only Uninstall. The page shows an AppArmor badge and no "protection disabled" warning. §21 asks for "under protection mode" and the phase box for the manifest "as installed"; neither is directly observed.
 **Impact:** unknown pending verification. The walk's row 1 rests on indirect evidence. Cheapest direct read is Supervisor's App info (`protected`), which this build does not call and the allow-list does not permit.
-**Triage:** `queue-next`
-**Outcome:** settle by `verify` — find a read path the owner can run (Supervisor API from the SSH App, or the HA version's current UI) rather than widening the allow-list. Queued as its own `verify` (2026-10-04 `plan`); candidate read: `ha apps info <this App's slug> --raw-json | jq .data.protected` from the SSH App.
+**Triage:** `done`
+**Outcome:** `verify`d 2026-10-04 (owner's SSH read, `docs/research/2026-10-04-v1-acceptance.md`): `protected: true`, AppArmor profile, `host_network`/`full_access`/`docker_api` false, `privileged []`, `hassio_role default`, port closed — installed manifest matches the repo. Answered; no task needed. §21 rows 1 and 2 pass.
 
 ### F-49 · Five Supervisor routes are allow-listed with no production caller · 2026-10-04
 **Kind:** `inconsistency`
