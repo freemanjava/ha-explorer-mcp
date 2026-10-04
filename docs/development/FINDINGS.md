@@ -1207,11 +1207,12 @@ is a change to D-05-3 and wants its own decision.
 **Verified 2026-10-04:** `verify` answered it — cost figures are whatever handlers charged, and 8 of 14 tool files never charge; `internal/ha` counts nothing. Evidence: `docs/research/2026-10-04-v1-acceptance.md` (last entry). Needs `plan` to turn into a task (count centrally vs. per tool).
 
 ### F-47 · `get_automation_traces` empty and not marked unsupported for a just-triggered automation · 2026-10-04
-**Kind:** `unknown`
+**Kind:** `defect`
 **What:** `P8-05`, live on the Pi (0.9.2), 14:39Z: `list_automations` reported an enabled automation with `LastTriggered` 14:37:14Z (after the Core restart); `get_automation_traces` for it returned `Items:[]`, `Unsupported:false`, `Partial:false`. Unknown whether HA keeps no trace for that run (storage off, trace limit 0), whether the adapter's read returned nothing without an error, or whether "no trace" is correct. One automation checked.
-**Impact:** unknown pending verification. §21 "supported automation execution evidence" has no live pass; if the adapter answers empty where it cannot read, an agent concludes "never ran" (rule 7).
+**Impact:** `get_automation_traces` returns an empty, unmarked list for every automation with a config id that differs from its object id (all three sampled) — an agent concludes "never ran" (rule 7). §21 "supported automation execution evidence" has no live pass; if the adapter answers empty where it cannot read, an agent concludes "never ran" (rule 7).
 **Triage:** `queue-next`
 **Outcome:** `verify` with F-45 — same shape of symptom (empty, no marker) on the same build. F-45's `verify` ruled the Supervisor cause out (traces go through the Core WebSocket); queued as its own `verify` (2026-10-04 `plan`).
+**Verified 2026-10-04:** premise void — the adapter likely keys `trace/list` by the entity's object id, but HA keys by the automation's config id (`get_automation` shows `ID` ≠ object id; fixtures' `item_id` is the config id). Three recent automations all empty. Wire reply not directly observed. Evidence: `docs/research/2026-10-04-v1-acceptance.md`. Reclassified `defect`; needs a `plan` task (resolve config id, test with a fake HA that rejects the object id) before `P8-06`.
 
 ### F-48 · Protection mode cannot be read from the HA UI on 2026.9.4 · 2026-10-04
 **Kind:** `unknown`
