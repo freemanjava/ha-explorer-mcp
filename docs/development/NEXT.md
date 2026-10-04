@@ -13,6 +13,12 @@
 
 None. (`P8-05` closed 2026-10-04.)
 
+**Awaiting its live check (not suspended on an unknown):** `P8-13` — code and tests landed on `feat/P8-13`
+(envelope unwrapped in `get`, `requireKeys` in the six mappers, `test/fixtures/supervisor_info.json`, MCP-layer
+flat-body test), `make check` green. Remaining: the owner installs the build; `get_system_health` returns a Core
+version and disk figures and `list_apps` lists Apps (counts only in the journal). Then tick, advance, journal, and
+close F-45. The box stays unticked until then.
+
 ## Queue
 
 Ordered by dependency, not by phase number. Work strictly top to bottom, one per

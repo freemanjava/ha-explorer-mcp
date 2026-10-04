@@ -405,6 +405,9 @@ type supervisorInfoWire struct {
 
 // MapSupervisorInfo maps a /supervisor/info response into model.SupervisorInfo.
 func MapSupervisorInfo(raw json.RawMessage) (model.SupervisorInfo, error) {
+	if err := requireKeys(raw, "/supervisor/info", "version", "addons"); err != nil {
+		return model.SupervisorInfo{}, err
+	}
 	var wire supervisorInfoWire
 	if err := json.Unmarshal(raw, &wire); err != nil {
 		return model.SupervisorInfo{}, fmt.Errorf("%w: decoding /supervisor/info: %v", ErrUnexpectedMessage, err)
@@ -681,6 +684,9 @@ type coreInfoWire struct {
 
 // MapCoreInfo maps Supervisor's /info response into model.CoreInfo.
 func MapCoreInfo(raw json.RawMessage) (model.CoreInfo, error) {
+	if err := requireKeys(raw, "Supervisor /info", "homeassistant"); err != nil {
+		return model.CoreInfo{}, err
+	}
 	var wire coreInfoWire
 	if err := json.Unmarshal(raw, &wire); err != nil {
 		return model.CoreInfo{}, fmt.Errorf("%w: decoding Supervisor /info: %v", ErrUnexpectedMessage, err)
@@ -705,6 +711,9 @@ type osInfoWire struct {
 
 // MapOSInfo maps Supervisor's /os/info response into model.OSInfo.
 func MapOSInfo(raw json.RawMessage) (model.OSInfo, error) {
+	if err := requireKeys(raw, "Supervisor /os/info", "version"); err != nil {
+		return model.OSInfo{}, err
+	}
 	var wire osInfoWire
 	if err := json.Unmarshal(raw, &wire); err != nil {
 		return model.OSInfo{}, fmt.Errorf("%w: decoding Supervisor /os/info: %v", ErrUnexpectedMessage, err)
@@ -723,6 +732,9 @@ type hostInfoWire struct {
 
 // MapHostDisk maps Supervisor's /host/info response into model.HostDisk.
 func MapHostDisk(raw json.RawMessage) (model.HostDisk, error) {
+	if err := requireKeys(raw, "Supervisor /host/info", "disk_total"); err != nil {
+		return model.HostDisk{}, err
+	}
 	var wire hostInfoWire
 	if err := json.Unmarshal(raw, &wire); err != nil {
 		return model.HostDisk{}, fmt.Errorf("%w: decoding Supervisor /host/info: %v", ErrUnexpectedMessage, err)
@@ -742,6 +754,9 @@ type resolutionInfoWire struct {
 // MapResolutionInfo maps Supervisor's /resolution/info response into
 // model.ResolutionSummary.
 func MapResolutionInfo(raw json.RawMessage) (model.ResolutionSummary, error) {
+	if err := requireKeys(raw, "Supervisor /resolution/info", "issues"); err != nil {
+		return model.ResolutionSummary{}, err
+	}
 	var wire resolutionInfoWire
 	if err := json.Unmarshal(raw, &wire); err != nil {
 		return model.ResolutionSummary{}, fmt.Errorf("%w: decoding Supervisor /resolution/info: %v", ErrUnexpectedMessage, err)
@@ -763,11 +778,32 @@ type addonStatsWire struct {
 // MapAddonStats maps Supervisor's /addons/self/stats response — this App's
 // own container resource use — into model.AddonStats.
 func MapAddonStats(raw json.RawMessage) (model.AddonStats, error) {
+	if err := requireKeys(raw, "Supervisor /addons/self/stats", "memory_percent"); err != nil {
+		return model.AddonStats{}, err
+	}
 	var wire addonStatsWire
 	if err := json.Unmarshal(raw, &wire); err != nil {
 		return model.AddonStats{}, fmt.Errorf("%w: decoding Supervisor /addons/self/stats: %v", ErrUnexpectedMessage, err)
 	}
 	return model.AddonStats{CPUPercent: wire.CPUPercent, MemoryPercent: wire.MemoryPercent}, nil
+}
+
+// requireKeys fails with ErrUnexpectedMessage unless raw is a JSON object
+// holding every key. encoding/json turns an unexpected shape into zero values
+// with a nil error, and on Supervisor routes a zero value reads as a fact
+// ("no Apps", "0 issues") — D-08-14. A present-but-empty value passes: it is a
+// real answer. Only key names appear in the error, never upstream values.
+func requireKeys(raw json.RawMessage, route string, keys ...string) error {
+	var obj map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &obj); err != nil {
+		return fmt.Errorf("%w: %s: data is not an object", ErrUnexpectedMessage, route)
+	}
+	for _, k := range keys {
+		if _, ok := obj[k]; !ok {
+			return fmt.Errorf("%w: %s: data lacks required key %q", ErrUnexpectedMessage, route, k)
+		}
+	}
+	return nil
 }
 
 // --- permissive field extraction -------------------------------------------
