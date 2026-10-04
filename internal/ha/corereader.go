@@ -2,7 +2,6 @@ package ha
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	"github.com/freemanjava/ha-explorer-mcp/internal/model"
@@ -96,12 +95,21 @@ func (r *CoreReader) AutomationDetail(ctx context.Context, entityID model.Entity
 }
 
 // AutomationTraces returns trace/list for one automation, mapped —
-// get_automation_traces' admin-gated evidence source (P3-07). ItemID is
-// derived from entityID's own object id, not a caller-supplied value, so it
-// can never diverge from the entity the caller asked about.
+// get_automation_traces' admin-gated evidence source (P3-07). HA keys its
+// trace store by the automation's config id, not its object id (F-47,
+// D-08-18), so the id is read from automation/config for the same entity —
+// never supplied by the caller, so it cannot diverge from the entity asked
+// about. An automation with no config id yields ErrAutomationHasNoConfigID
+// without a trace/list frame: an empty list there would read as "never ran".
 func (r *CoreReader) AutomationTraces(ctx context.Context, entityID model.EntityID) ([]model.AutomationTraceSummary, error) {
-	domain, itemID := splitEntityID(string(entityID))
-	raw, err := r.call.Call(ctx, traceListCommand{Domain: domain, ItemID: itemID})
+	detail, err := r.AutomationDetail(ctx, entityID)
+	if err != nil {
+		return nil, err
+	}
+	if detail.ID == "" {
+		return nil, ErrAutomationHasNoConfigID
+	}
+	raw, err := r.call.Call(ctx, traceListCommand{Domain: automationDomain, ItemID: detail.ID})
 	if err != nil {
 		return nil, err
 	}
@@ -129,18 +137,6 @@ func (r *CoreReader) LifecycleEvents(ctx context.Context, from, to time.Time) ([
 		return nil, err
 	}
 	return MapLifecycleEvents(raw)
-}
-
-// splitEntityID separates an entity id into its domain and object id, the
-// shape trace/list's domain/item_id arguments need. A malformed id (no dot)
-// returns the whole string as both, which fails the same way an invalid
-// entity id fails anywhere else in this package: HA rejects the request
-// rather than this code fabricating a plausible-looking split.
-func splitEntityID(entityID string) (domain, objectID string) {
-	if i := strings.IndexByte(entityID, '.'); i > 0 {
-		return entityID[:i], entityID[i+1:]
-	}
-	return entityID, entityID
 }
 
 // History returns history/history_during_period for one entity over

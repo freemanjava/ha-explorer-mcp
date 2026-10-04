@@ -194,6 +194,8 @@ func validateAutomationEntityID(entityID string) error {
 func classifyAutomationError(ctx context.Context, versions automationVersionReader, err error, fallback string) (reason string, ok bool) {
 	var cmdErr *ha.CommandError
 	switch {
+	case errors.Is(err, ha.ErrAutomationHasNoConfigID):
+		return fmt.Sprintf("Home Assistant keys traces by an automation's config id and this automation has none (no `id:` in its configuration); fall back to %s.", fallback), true
 	case errors.Is(err, ha.ErrUnsupported):
 		return fmt.Sprintf("Home Assistant refused this request to the current principal (permission denied); fall back to %s.", fallback), true
 	case errors.As(err, &cmdErr) && cmdErr.Code == "unknown_command":

@@ -11,7 +11,7 @@
 
 ## Suspended
 
-None. (`P8-16` closed 2026-10-04.)
+`P8-17` — code done on `feat/P8-17`, `make check` green (reader keys `trace/list` by config id; `ErrAutomationHasNoConfigID` → `unsupported` + fallback; fake trace store rejects the object id). **Remains:** the `live-verify` clause — owner deploys to the Pi and calls `get_automation_traces` for one of F-47's three automations; then tick the box, advance the pointer, journal, close F-47. Waits on the owner's deploy, not on a finding.
 
 ## Queue
 

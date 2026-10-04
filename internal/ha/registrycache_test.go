@@ -19,6 +19,7 @@ type fakeCaller struct {
 	calls     map[string]int
 	block     chan struct{} // if non-nil, Call waits on it before answering
 	err       error         // if non-nil, every Call fails with this instead of answering
+	sent      []Command     // every command passed to Call, in order
 }
 
 func newFakeCaller() *fakeCaller {
@@ -43,6 +44,7 @@ func (f *fakeCaller) callCount(command string) int {
 func (f *fakeCaller) Call(ctx context.Context, cmd Command) (json.RawMessage, error) {
 	f.mu.Lock()
 	f.calls[cmd.CommandType()]++
+	f.sent = append(f.sent, cmd)
 	result := f.responses[cmd.CommandType()]
 	block := f.block
 	err := f.err
