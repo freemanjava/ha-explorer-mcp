@@ -31,3 +31,15 @@ Verdicts: **pass** = asserted by named tests and, where §21 is about behaviour 
 ## Not done
 
 Row 7 live (oversized request) and row 2 as installed. Both are covered by tests and F-48 respectively.
+
+### 2026-10-04 · Why do most tools audit `result_bytes:0` and `ha_requests:0`? (F-46)
+
+**Kind:** world-discoverable
+**Method:** read `internal/mcp/middleware.go` (`invoke`), `internal/policy/budget.go`, and counted `Charge*` calls per `internal/mcp/*_tools.go`; grepped `internal/ha` for any `policy.` use. Compared with the Pi's 0.9.2 audit lines already in the acceptance walk. No new live call (the audit log is on the Pi; no token reaches the agent).
+**Found:**
+- The audit record takes `HARequests` and `ResultBytes` from `budget.Usage()` (`middleware.go:97,102`). Nothing measures the call itself; the figures are only what a handler explicitly charged.
+- Tools that charge (`ChargeHARequests`/`ChargeBytes`): `find_*`, `get_entity_history`, `get_entity_statistics`, `analyze_entity_health`, `analyze_integration_health`, `analyze_automation_health`. Tools with zero charges: `app_tools`, `area_tools`, `automation_tools`, `device_tools`, `entity_tools`, `integration_tools`, `repair_tools`, `system_tools` — i.e. every `list_*`/`get_*` inventory tool and `get_system_overview`/`get_system_health`/`list_repairs`.
+- `internal/ha` does not import `policy`, so upstream requests are never counted at the adapter either.
+- This matches the Pi: the four zero-figure tools are all uncharging ones; the one tool with real figures (`analyze_integration_health`, 10 / 2167) is a charging one. Not a cache effect and not a structured-vs-text effect.
+**Not established:** whether the uncharged tools stay within their budget in practice (they are bounded by page limits, not by charges); the audit line was not re-observed after reading the code.
+**Means:** F-46 is a defect, not an unknown: audit cost is accurate only for tools that opt in. Fix is a design choice (count in one place — the HA gateway/adapter for requests, the middleware for result size — versus per-tool charges); that is a `plan` matter.
