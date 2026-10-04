@@ -69,13 +69,6 @@ func NewSupervisorClient(baseURL, token string, httpClient *http.Client, logger 
 	}
 }
 
-// Info returns Supervisor's /info: supervisor/core/OS/docker versions,
-// hostname, arch and Core's state as Supervisor sees it. Granted whether or
-// not hassio_api is set (api_bypass).
-func (c *SupervisorClient) Info(ctx context.Context) (json.RawMessage, error) {
-	return c.get(ctx, SupervisorRouteInfo)
-}
-
 // SupervisorInfo returns Supervisor's own status and installed-App inventory,
 // mapped to internal/model. A mutated response shape fails loudly rather than
 // being coerced into garbage (P1-08 DoD) — see MapSupervisorInfo.
@@ -85,22 +78,6 @@ func (c *SupervisorClient) SupervisorInfo(ctx context.Context) (model.Supervisor
 		return model.SupervisorInfo{}, err
 	}
 	return MapSupervisorInfo(raw)
-}
-
-// OSInfo returns Supervisor's /os/info.
-func (c *SupervisorClient) OSInfo(ctx context.Context) (json.RawMessage, error) {
-	return c.get(ctx, SupervisorRouteOSInfo)
-}
-
-// HostInfo returns Supervisor's /host/info.
-func (c *SupervisorClient) HostInfo(ctx context.Context) (json.RawMessage, error) {
-	return c.get(ctx, SupervisorRouteHostInfo)
-}
-
-// ResolutionInfo returns Supervisor's /resolution/info — issues, checks and
-// suggestions.
-func (c *SupervisorClient) ResolutionInfo(ctx context.Context) (json.RawMessage, error) {
-	return c.get(ctx, SupervisorRouteResolutionInfo)
 }
 
 // CoreInfo returns Supervisor's /info mapped to model.CoreInfo — get_system_
@@ -152,41 +129,6 @@ func (c *SupervisorClient) SelfStats(ctx context.Context) (model.AddonStats, err
 		return model.AddonStats{}, err
 	}
 	return MapAddonStats(raw)
-}
-
-// NetworkInfo returns Supervisor's /network/info.
-func (c *SupervisorClient) NetworkInfo(ctx context.Context) (json.RawMessage, error) {
-	return c.get(ctx, SupervisorRouteNetworkInfo)
-}
-
-// HardwareInfo returns Supervisor's /hardware/info.
-func (c *SupervisorClient) HardwareInfo(ctx context.Context) (json.RawMessage, error) {
-	return c.get(ctx, SupervisorRouteHardwareInfo)
-}
-
-// JobsInfo returns Supervisor's /jobs/info — currently running Supervisor
-// jobs.
-func (c *SupervisorClient) JobsInfo(ctx context.Context) (json.RawMessage, error) {
-	return c.get(ctx, SupervisorRouteJobsInfo)
-}
-
-// AddonSelfInfo returns this App's own manifest, version and state.
-func (c *SupervisorClient) AddonSelfInfo(ctx context.Context) (json.RawMessage, error) {
-	return c.get(ctx, SupervisorRouteAddonSelfInfo)
-}
-
-// AddonSelfStats returns this App's own container resource use — never
-// another App's (that needs the manager role, deliberately not requested).
-func (c *SupervisorClient) AddonSelfStats(ctx context.Context) (json.RawMessage, error) {
-	return c.get(ctx, SupervisorRouteAddonSelfStats)
-}
-
-// Ping reports whether Supervisor answers its liveness endpoint. It carries
-// no security check on Supervisor's side, so a failure here means Supervisor
-// itself is unreachable, not a permission problem.
-func (c *SupervisorClient) Ping(ctx context.Context) error {
-	_, err := c.get(ctx, SupervisorRoutePing)
-	return err
 }
 
 // get is the single place this package issues a Supervisor HTTP request from,

@@ -3,6 +3,7 @@ package ha
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +12,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/freemanjava/ha-explorer-mcp/internal/model"
 )
 
 // TestSupervisorRoutes_AreGetShapedExactMatch guards the allow-list itself:
@@ -41,6 +44,12 @@ func TestSupervisorRoute_OutsideAllowList_Denied(t *testing.T) {
 		"/supervisor/restart",
 		"/store",
 		"/available_updates",
+		// Dropped by P8-14 (F-49): no caller, so no entry.
+		"/network/info",
+		"/hardware/info",
+		"/jobs/info",
+		"/addons/self/info",
+		"/supervisor/ping",
 	}
 	for _, route := range outside {
 		t.Run(route, func(t *testing.T) {
@@ -105,13 +114,13 @@ func TestNoNonGetSupervisorRequestPathExists(t *testing.T) {
 func TestSupervisorClient_Unreachable_ReturnsUnsupported(t *testing.T) {
 	c := NewSupervisorClient("http://127.0.0.1:1", testToken, http.DefaultClient, nil)
 
-	_, err := c.Info(testCtx(t))
+	_, err := c.CoreInfo(testCtx(t))
 	if !errors.Is(err, ErrUnsupported) {
-		t.Fatalf("Info: got %v, want ErrUnsupported", err)
+		t.Fatalf("CoreCoreInfo: got %v, want ErrUnsupported", err)
 	}
 }
 
-func TestSupervisorClient_Info_ValidToken_ReturnsBody(t *testing.T) {
+func TestSupervisorClient_CoreInfo_ValidToken_MapsBody(t *testing.T) {
 	srv, _ := countingServer(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != SupervisorRouteInfo {
 			http.NotFound(w, r)
@@ -125,16 +134,16 @@ func TestSupervisorClient_Info_ValidToken_ReturnsBody(t *testing.T) {
 			t.Errorf("server saw method %s, want GET", r.Method)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"result":"ok","data":{"supervisor":"2026.08.0","hostname":"homeassistant"}}`))
+		_, _ = w.Write([]byte(`{"result":"ok","data":{"homeassistant":"2026.8.1","supervisor":"2026.08.0","hostname":"homeassistant"}}`))
 	})
 
 	c := NewSupervisorClient(srv.URL, testToken, srv.Client(), nil)
-	body, err := c.Info(testCtx(t))
+	info, err := c.CoreInfo(testCtx(t))
 	if err != nil {
-		t.Fatalf("Info: unexpected error: %v", err)
+		t.Fatalf("CoreInfo: unexpected error: %v", err)
 	}
-	if !strings.Contains(string(body), "2026.08.0") {
-		t.Fatalf("Info body = %s, want it to carry the supervisor version", body)
+	if info.SupervisorVersion != "2026.08.0" {
+		t.Fatalf("CoreInfo = %+v, want it to carry the supervisor version", info)
 	}
 }
 
@@ -151,11 +160,11 @@ func TestSupervisorClient_TokenNeverReturned(t *testing.T) {
 	c := NewSupervisorClient(srv.URL, testToken, srv.Client(), logger)
 	ctx := testCtx(t)
 
-	_, statusErr := c.Info(ctx)
+	_, statusErr := c.CoreInfo(ctx)
 	_, denyErr := c.get(ctx, "/addons")
-	_, unreachErr := NewSupervisorClient("http://127.0.0.1:1", testToken, http.DefaultClient, logger).Info(ctx)
+	_, unreachErr := NewSupervisorClient("http://127.0.0.1:1", testToken, http.DefaultClient, logger).CoreInfo(ctx)
 	_, mutatedErr := NewSupervisorClient(srv.URL, testToken, srv.Client(), logger).SupervisorInfo(ctx)
-	body, respErr := c.Info(ctx)
+	info, respErr := c.CoreInfo(ctx)
 
 	for name, err := range map[string]error{
 		"status":  statusErr,
@@ -171,8 +180,8 @@ func TestSupervisorClient_TokenNeverReturned(t *testing.T) {
 			t.Fatalf("%s: error string carries the token: %q", name, err)
 		}
 	}
-	if strings.Contains(string(body), testToken) {
-		t.Fatalf("response body carries the token: %q", body)
+	if strings.Contains(fmt.Sprintf("%+v", info), testToken) {
+		t.Fatalf("response carries the token: %+v", info)
 	}
 	if strings.Contains(logBuf.String(), testToken) {
 		t.Fatalf("log output carries the token: %q", logBuf.String())
@@ -226,10 +235,10 @@ func TestSupervisorInfo_MutatedShape_FailsLoudly(t *testing.T) {
 
 			info, err := c.SupervisorInfo(testCtx(t))
 			if err == nil {
-				t.Fatalf("SupervisorInfo: got nil error and %+v, want a mapping failure", info)
+				t.Fatalf("SupervisorCoreInfo: got nil error and %+v, want a mapping failure", info)
 			}
 			if !errors.Is(err, ErrUnexpectedMessage) {
-				t.Fatalf("SupervisorInfo: got %v, want ErrUnexpectedMessage", err)
+				t.Fatalf("SupervisorCoreInfo: got %v, want ErrUnexpectedMessage", err)
 			}
 		})
 	}
@@ -284,12 +293,12 @@ func TestSupervisorClient_OversizedResponse_TruncatedWithExplicitError(t *testin
 	})
 	c := NewSupervisorClient(srv.URL, testToken, srv.Client(), nil)
 
-	body, err := c.Info(testCtx(t))
+	info, err := c.CoreInfo(testCtx(t))
 	if !errors.Is(err, ErrResponseTooLarge) {
-		t.Fatalf("Info: got %v, want ErrResponseTooLarge", err)
+		t.Fatalf("CoreCoreInfo: got %v, want ErrResponseTooLarge", err)
 	}
-	if body != nil {
-		t.Fatalf("Info: returned %d bytes alongside a size error, want nil", len(body))
+	if info != (model.CoreInfo{}) {
+		t.Fatalf("CoreInfo: returned %+v alongside a size error, want zero", info)
 	}
 }
 
@@ -307,16 +316,16 @@ func TestSupervisorClient_NoCallerDeadline_AppliesBackstop(t *testing.T) {
 
 	done := make(chan error, 1)
 	go func() {
-		_, err := c.Info(context.Background())
+		_, err := c.CoreInfo(context.Background())
 		done <- err
 	}()
 	select {
 	case err := <-done:
 		if !errors.Is(err, ErrDeadline) {
-			t.Fatalf("Info: got %v, want ErrDeadline", err)
+			t.Fatalf("CoreCoreInfo: got %v, want ErrDeadline", err)
 		}
 	case <-time.After(5 * time.Second):
-		t.Fatal("Info: no deadline applied — call did not return")
+		t.Fatal("CoreInfo: no deadline applied — call did not return")
 	}
 }
 
@@ -332,11 +341,11 @@ func TestSupervisorClient_CallerDeadlineExceeded_ReturnsErrDeadline(t *testing.T
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 
-	_, err := c.Info(ctx)
+	_, err := c.CoreInfo(ctx)
 	if !errors.Is(err, ErrDeadline) {
-		t.Fatalf("Info: got %v, want ErrDeadline", err)
+		t.Fatalf("CoreCoreInfo: got %v, want ErrDeadline", err)
 	}
 	if errors.Is(err, ErrUnsupported) {
-		t.Fatalf("Info: %v also matches ErrUnsupported, want it distinguishable from ErrDeadline", err)
+		t.Fatalf("CoreInfo: %v also matches ErrUnsupported, want it distinguishable from ErrDeadline", err)
 	}
 }

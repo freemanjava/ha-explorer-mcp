@@ -125,12 +125,7 @@ const (
 	SupervisorRouteOSInfo         = "/os/info"           // default role
 	SupervisorRouteHostInfo       = "/host/info"         // default role
 	SupervisorRouteResolutionInfo = "/resolution/info"   // default role
-	SupervisorRouteNetworkInfo    = "/network/info"      // default role
-	SupervisorRouteHardwareInfo   = "/hardware/info"     // default role
-	SupervisorRouteJobsInfo       = "/jobs/info"         // default role
-	SupervisorRouteAddonSelfInfo  = "/addons/self/info"  // api_bypass — granted at hassio_api: false too
 	SupervisorRouteAddonSelfStats = "/addons/self/stats" // api_bypass — this App's own container only
-	SupervisorRoutePing           = "/supervisor/ping"   // no_security_check — liveness only
 )
 
 // allowedSupervisorRoutes is an exact-match set of concrete paths. None of
@@ -142,12 +137,7 @@ var allowedSupervisorRoutes = map[string]struct{}{
 	SupervisorRouteOSInfo:         {},
 	SupervisorRouteHostInfo:       {},
 	SupervisorRouteResolutionInfo: {},
-	SupervisorRouteNetworkInfo:    {},
-	SupervisorRouteHardwareInfo:   {},
-	SupervisorRouteJobsInfo:       {},
-	SupervisorRouteAddonSelfInfo:  {},
 	SupervisorRouteAddonSelfStats: {},
-	SupervisorRoutePing:           {},
 }
 
 // checkSupervisorRoute decides whether a Supervisor REST request may be

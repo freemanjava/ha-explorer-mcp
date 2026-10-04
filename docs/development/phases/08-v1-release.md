@@ -252,7 +252,7 @@ and run while the owner is busy there.
   `ha resolution info` into the research doc, settling the inner keys D-08-14 relies on.
   **Done 2026-10-04:** envelope unwrapped in `get`, `requireKeys` in six mappers, fixture `supervisor_info.json`; observed on the Pi (0.9.3): `get_system_health` fully populated, `list_apps` lists 7 Apps. Inner-key paste not needed — every mapper's required key was present.
 
-- [ ] **`P8-14` · Drop the uncalled Supervisor routes and raw readers (F-49)**
+- [x] **`P8-14` · Drop the uncalled Supervisor routes and raw readers (F-49)**
   Per D-08-15. Remove `SupervisorRouteNetworkInfo`, `…HardwareInfo`, `…JobsInfo`, `…AddonSelfInfo` and
   `SupervisorRoutePing` from `allowedSupervisorRoutes`, and the raw-`json.RawMessage` methods with no production
   caller (`Info`, `OSInfo`, `HostInfo`, `ResolutionInfo`, `NetworkInfo`, `HardwareInfo`, `JobsInfo`,
@@ -263,8 +263,10 @@ and run while the owner is busy there.
   route); `TestGateway_AllowList_EveryEntryHasACaller` is tightened so a Supervisor route counts as called only
   through a method that a non-test file outside `internal/ha` calls — shown red against today's tree before the
   removal; `make check` green.
+  **Done 2026-10-04:** red on exactly the five routes, then green after removal; the tests that drove `get` through
+  `Info` now use `CoreInfo`.
 
-- [ ] **`P8-06` · Cut v1.0** — `blocked:P8-14`
+- [ ] **`P8-06` · Cut v1.0**
   `addon/config.yaml` `version: "1.0.0"`; `docs/INSTALL.md` current; README's
   status line says v1.0. The owner tags `v1.0.0` and pushes; `release.yml`
   publishes both architectures.

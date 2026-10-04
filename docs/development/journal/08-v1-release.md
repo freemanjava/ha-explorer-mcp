@@ -73,3 +73,8 @@ App packaged for HTTP: `http_secret` password option, `8790/tcp: null`, `run.sh`
 Supervisor `{"result","data"}` envelope unwrapped once in `get`; six mappers require their key (D-08-13/14); invented-value fixture; flat-body test at the MCP layer. Observed on the Pi (0.9.3): `get_system_health` populated, `list_apps` lists 7 Apps. Closes F-45.
 **Surprise:** none — every inner key D-08-14 assumed from Supervisor's docs was present on the first live call.
 **Left open:** F-46 can now be read on a build that returns data; `P8-14` next.
+
+### 2026-10-04 · P8-14
+Five Supervisor routes and ten raw readers dropped; `EveryEntryHasACaller` now follows a route through its `SupervisorClient` method to a caller outside `internal/ha` (red on the five, green after). `Info`-driven tests moved to `CoreInfo`.
+**Surprise:** none — the name-mention test passed only because the raw readers themselves mentioned the constants.
+**Left open:** F-46…F-48 `verify`s, then `P8-06`.
