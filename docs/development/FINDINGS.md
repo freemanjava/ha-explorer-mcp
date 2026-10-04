@@ -1223,5 +1223,5 @@ is a change to D-05-3 and wants its own decision.
 **Kind:** `inconsistency`
 **What:** found at the 2026-10-04 `plan` while placing F-45's fix. `internal/ha/gateway.go:128-133` allow-lists `/network/info`, `/hardware/info`, `/jobs/info`, `/addons/self/info`, `/supervisor/ping`; their only users are raw readers in `internal/ha/supervisor.go` (`NetworkInfo`, `HardwareInfo`, `JobsInfo`, `AddonSelfInfo`, `Ping`, plus raw duplicates `Info`, `OSInfo`, `HostInfo`, `ResolutionInfo`, `AddonSelfStats`) that no non-test code calls. `TestGateway_AllowList_EveryEntryHasACaller` passes because it counts a constant's mention, not a call. `P8-03`/`P8-11` cleaned only the WebSocket half.
 **Impact:** the allow-list overstates the reachable surface by five routes (D-08-2/D-08-3's reasoning), and the reachability test gives false assurance for the Supervisor half. No route is mutating; no exposure today.
-**Triage:** `queue-next`
-**Outcome:** `P8-14` (D-08-15).
+**Triage:** `done`
+**Outcome:** `P8-14` (D-08-15) closed 2026-10-04: five routes and ten raw readers dropped; the reachability test now counts a Supervisor route only through a method called outside `internal/ha`.

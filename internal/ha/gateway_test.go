@@ -346,18 +346,103 @@ func TestGateway_UncalledCommands_Denied(t *testing.T) {
 // command or route constant is referenced nowhere outside gateway.go. The
 // allow-list is the security boundary; an entry with no caller widens it for
 // nothing (F-25). Production files only: a test calling a constant is not a
-// reason to ship it.
+// reason to ship it. A Supervisor route is held to a stricter bar: mentioning
+// its constant in a raw reader nothing calls proves nothing (F-49), so it
+// counts only through a SupervisorClient method that a production file outside
+// internal/ha uses.
 func TestGateway_AllowList_EveryEntryHasACaller(t *testing.T) {
 	listed := allowListedConstants(t)
 	if len(listed) == 0 {
 		t.Fatal("found no allow-listed constants in gateway.go; the parser is not proving anything")
 	}
 	used := identifiersOutsideGateway(t)
+	calledOutside := identifiersOutsideHA(t)
+	methodsByRoute := supervisorMethodsByRoute(t)
 	for _, name := range listed {
-		if !used[name] {
-			t.Errorf("allow-listed %s is referenced by no production file outside gateway.go", name)
+		if !strings.HasPrefix(name, "SupervisorRoute") {
+			if !used[name] {
+				t.Errorf("allow-listed %s is referenced by no production file outside gateway.go", name)
+			}
+			continue
+		}
+		if !anyCalled(methodsByRoute[name], calledOutside) {
+			t.Errorf("allow-listed %s is reached by no SupervisorClient method that a production file outside internal/ha calls", name)
 		}
 	}
+}
+
+func anyCalled(methods []string, called map[string]bool) bool {
+	for _, m := range methods {
+		if called[m] {
+			return true
+		}
+	}
+	return false
+}
+
+// supervisorMethodsByRoute maps each SupervisorRoute* constant to the names of
+// the SupervisorClient methods in supervisor.go whose body mentions it.
+func supervisorMethodsByRoute(t *testing.T) map[string][]string {
+	t.Helper()
+	file, err := parser.ParseFile(token.NewFileSet(), "supervisor.go", nil, 0)
+	if err != nil {
+		t.Fatalf("parse supervisor.go: %v", err)
+	}
+	out := map[string][]string{}
+	for _, decl := range file.Decls {
+		fn, ok := decl.(*ast.FuncDecl)
+		if !ok || fn.Recv == nil || fn.Body == nil {
+			continue
+		}
+		ast.Inspect(fn.Body, func(n ast.Node) bool {
+			if id, ok := n.(*ast.Ident); ok && strings.HasPrefix(id.Name, "SupervisorRoute") {
+				out[id.Name] = append(out[id.Name], fn.Name.Name)
+			}
+			return true
+		})
+	}
+	return out
+}
+
+// identifiersOutsideHA collects every identifier used in the non-test Go files
+// of cmd/ and internal/ other than internal/ha itself — the layers that call
+// into the adapters.
+func identifiersOutsideHA(t *testing.T) map[string]bool {
+	t.Helper()
+	used := map[string]bool{}
+	fset := token.NewFileSet()
+	haDir := filepath.Join("..", "..", "internal", "ha")
+	for _, root := range []string{filepath.Join("..", "..", "cmd"), filepath.Join("..", "..", "internal")} {
+		err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if d.IsDir() {
+				if path == haDir {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			if !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+				return nil
+			}
+			file, err := parser.ParseFile(fset, path, nil, 0)
+			if err != nil {
+				return err
+			}
+			ast.Inspect(file, func(n ast.Node) bool {
+				if id, ok := n.(*ast.Ident); ok {
+					used[id.Name] = true
+				}
+				return true
+			})
+			return nil
+		})
+		if err != nil {
+			t.Fatalf("walk %s: %v", root, err)
+		}
+	}
+	return used
 }
 
 // allowListedConstants returns the constant names used as keys of the
