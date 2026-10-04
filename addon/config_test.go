@@ -310,3 +310,32 @@ func TestAppArmor_AllowsReadingOnlyTheOptionsFile(t *testing.T) {
 		t.Errorf("/data rules = %q, want exactly [%q]", dataRules, want)
 	}
 }
+
+// TestReadme_StatusMatchesManifestVersion keeps the landing page's status line
+// from drifting: config.yaml's version: is the single source of the version,
+// and the README must carry it.
+func TestReadme_StatusMatchesManifestVersion(t *testing.T) {
+	m := parseManifest(t, "config.yaml")
+	version := m.scalars["version"]
+	if version == "" {
+		t.Fatal("config.yaml must set version:")
+	}
+
+	readme, err := os.ReadFile("../README.md")
+	if err != nil {
+		t.Fatalf("read README.md: %v", err)
+	}
+	var status string
+	for _, line := range strings.Split(string(readme), "\n") {
+		if strings.HasPrefix(line, "**Status:**") {
+			status = line
+			break
+		}
+	}
+	if status == "" {
+		t.Fatal("README.md has no line starting **Status:**")
+	}
+	if !strings.Contains(status, "v"+version) {
+		t.Errorf("README status line %q does not carry v%s from config.yaml", status, version)
+	}
+}
