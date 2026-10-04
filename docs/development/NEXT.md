@@ -3,7 +3,7 @@
 <!-- BOUNDED FILE — rewritten in place, never appended to. Keep under ~100 lines.
      Anything that grows goes to journal/. This file is read by every session. -->
 
-**▶ Active:** `P8-15` — every upstream request counted at the wire seam (F-46, D-08-16) ·
+**▶ Active:** `P8-16` — audit `result_bytes` measured from the returned result (F-46, D-08-17) ·
 [phase 08](phases/08-v1-release.md) · **default** model.
 
 > Advancing this pointer is part of finishing a task, together with ticking the
@@ -11,7 +11,7 @@
 
 ## Suspended
 
-None. (`P8-14` closed 2026-10-04.)
+None. (`P8-15` closed 2026-10-04.)
 
 ## Queue
 
@@ -20,10 +20,9 @@ cycle. Remove a row when its task closes.
 
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
-| 1 | `P8-15` | count upstream requests at `Manager.Call` / `SupervisorClient.get` via a context meter | 08 | default | |
-| 2 | `P8-16` | audit `result_bytes` measured from the returned result | 08 | default | |
-| 3 | `P8-17` | `get_automation_traces` keyed by config id; no id → `unsupported` | 08 | default | `live-verify` |
-| 4 | `P8-06` | cut v1.0 (version bump; owner tags) | 08 | default | |
+| 1 | `P8-16` | audit `result_bytes` measured from the returned result | 08 | default | |
+| 2 | `P8-17` | `get_automation_traces` keyed by config id; no id → `unsupported` | 08 | default | `live-verify` |
+| 3 | `P8-06` | cut v1.0 (version bump; owner tags) | 08 | default | |
 
 **Ordering rationale (2026-10-04, `plan` for F-46, F-47).** `P8-15` before `P8-16`: both edit `middleware.go`, and
 P8-16's "measured, not charged" assertion reads cleaner once request charges have left the tools. `P8-17` is
@@ -73,16 +72,16 @@ done
 | 05 | Diagnostics & Evidence Engine | 26 / 26 |
 | 06 | Proposal Mode — gated | 0 / 1 |
 | 07 | Controlled Change (Admin) — gated | 0 / 1 |
-| 08 | v1.0 Release | 31 / 35 |
+| 08 | v1.0 Release | 32 / 35 |
 
 Counts include each phase's decision entries, which are boxes too. Phase 08's
-ticks are D-08-1…D-08-18, P8-01, P8-02, P8-03, P8-04, P8-05, P8-07, P8-08, P8-09, P8-10, P8-11, P8-12, P8-13 and P8-14; its open boxes are `P8-15`, `P8-16`, `P8-17`, `P8-06`.
+ticks are D-08-1…D-08-18, P8-01, P8-02, P8-03, P8-04, P8-05, P8-07, P8-08, P8-09, P8-10, P8-11, P8-12, P8-13, P8-14 and P8-15; its open boxes are `P8-16`, `P8-17`, `P8-06`.
 
 Phases 00–04 are milestone M1 (v1 observer); phase 05 (M2) is complete. Phase 08
 ships them as v1.0 and runs before 06–07, which stay gated: they open only on an
 explicit owner decision plus a fresh security review, and need v1 usage data.
 
-Last refreshed: 2026-10-04 (`plan` for F-46, F-47)
+Last refreshed: 2026-10-04 (`P8-15`)
 
 ## Open findings
 
@@ -108,8 +107,8 @@ usage data), **F-43** (TLS; re-triage with remote access), **F-44** (configurabl
 
 Last 5 closed tasks, one line each. Older entries live in `journal/`.
 
+- 2026-10-04 · `P8-15` — requests charged at `Manager.Call` / `SupervisorClient.get` through a context meter; per-tool charges removed; audit equals the wire for all 21 tools.
 - 2026-10-04 · `plan F-46, F-47` — D-08-16…18; `P8-15`, `P8-16` (audit cost counted at the seam, bytes measured), `P8-17` (traces by config id).
 - 2026-10-04 · `verify F-48` — owner's SSH read: `protected: true`, AppArmor profile, no privilege fields, port closed; installed manifest matches the repo. §21 rows 1–2 pass.
 - 2026-10-04 · `P8-14` — five uncalled Supervisor routes and ten raw readers dropped; reachability test now follows a route to a caller outside `internal/ha`. Closes F-49.
 - 2026-10-04 · `P8-13` — Supervisor envelope unwrapped in `get`, mappers require their key; observed on the Pi (0.9.3): health populated, 7 Apps listed. Closes F-45.
-- 2026-10-04 · `P8-05` — §21 walk on the Pi: 8 pass, 4 findings (F-45…F-48); Core restart → backoff → `reconnected`, next call OK. Report `docs/research/2026-10-04-v1-acceptance.md`.

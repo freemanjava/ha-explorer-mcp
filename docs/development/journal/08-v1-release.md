@@ -87,3 +87,8 @@ Owner's SSH read of `ha apps info` for the installed App: `protected: true`, App
 D-08-16…D-08-18 recorded; `P8-15` (requests counted at `Manager.Call`/`SupervisorClient.get` via a context meter), `P8-16` (`result_bytes` measured from the result), `P8-17` (traces keyed by config id, `live-verify`) queued before `P8-06`.
 **Surprise:** the middleware's "re-serializing would double the work" premise no longer holds — go-sdk v1.7.0 hands the middleware an already-marshalled `StructuredContent`, so measuring is free.
 **Left open:** whether HA stores traces for id-less automations; D-08-18 answers `unsupported` for them until observed.
+
+### 2026-10-04 · P8-15
+`ha.RequestMeter` + `WithRequestMeter`; `Manager.Call` and `SupervisorClient.get` charge once per request after the allow-list; middleware attaches the budget; all 12 per-tool `ChargeHARequests` sites removed. Catalog table test holds audited `ha_requests` to the wire count for every tool.
+**Surprise:** `find_stale_entities`' scan bound read `usage.HARequests` — its test double had to charge the meter itself, since a fake reader bypasses the seam. slog returns audit ints as `int64`.
+**Left open:** `result_bytes` (P8-16); F-46 closes with it.

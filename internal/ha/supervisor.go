@@ -144,6 +144,12 @@ func (c *SupervisorClient) get(ctx context.Context, route string) (json.RawMessa
 		defer cancel()
 	}
 
+	// Charged after the allow-list and before the request is built, so a
+	// refused charge sends nothing; a request that then fails is still counted.
+	if err := chargeRequest(ctx); err != nil {
+		return nil, err
+	}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+route, nil)
 	if err != nil {
 		return nil, fmt.Errorf("ha: building Supervisor request for %s: %w", route, err)

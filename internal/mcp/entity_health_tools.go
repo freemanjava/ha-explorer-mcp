@@ -189,9 +189,6 @@ func readHistory(ctx context.Context, reader historyReader, in *analysis.EntityH
 		return missing(err)
 	}
 	if budget, ok := policy.BudgetFrom(ctx); ok {
-		if err := budget.ChargeHARequests(1); err != nil {
-			return missing(err)
-		}
 		if err := budget.ChargeHistoryPoints(len(points)); err != nil {
 			return missing(err)
 		}
@@ -251,11 +248,6 @@ func readRepairs(ctx context.Context, reader repairReader, in *analysis.EntityHe
 			Detail: "no repairs source is configured in this build",
 		})
 		return nil
-	}
-	if budget, ok := policy.BudgetFrom(ctx); ok {
-		if err := budget.ChargeHARequests(1); err != nil {
-			return recordMissing(in, "open repairs", "home_assistant_core", err)
-		}
 	}
 	repairs, err := reader.Repairs(ctx)
 	if err != nil {

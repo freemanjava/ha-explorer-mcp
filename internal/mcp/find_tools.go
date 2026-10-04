@@ -197,12 +197,6 @@ func findUnavailableEntities(ctx context.Context, registry entityRegistryReader,
 	}
 
 	if budget, ok := policy.BudgetFrom(ctx); ok {
-		// Two aggregate reads regardless of installation size: the entity
-		// registry and the availability snapshot, neither charged per entity
-		// (P4-02's UnavailableEntityIDs is already a single aggregate call).
-		if err := budget.ChargeHARequests(2); err != nil {
-			return model.UnavailableEntityList{}, err
-		}
 		if err := budget.ChargeEntities(len(pg.Items)); err != nil {
 			return model.UnavailableEntityList{}, err
 		}
@@ -311,9 +305,6 @@ func findStaleEntities(ctx context.Context, registry entityRegistryReader, reade
 		lastKey = string(e.ID)
 
 		if hasBudget {
-			if err := budget.ChargeHARequests(1); err != nil {
-				return model.StaleEntityList{}, err
-			}
 			if err := budget.ChargeHistoryPoints(len(points)); err != nil {
 				return model.StaleEntityList{}, err
 			}
