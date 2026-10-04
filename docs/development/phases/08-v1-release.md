@@ -315,7 +315,7 @@ and run while the owner is busy there.
   **Done 2026-10-04:** `CoreReader.AutomationTraces` reads the config id first; `ErrAutomationHasNoConfigID` → `unsupported`
   with its own reason. Live on the Pi (0.9.4): two automations returned runs whose start equals their `LastTriggered`.
 
-- [ ] **`P8-18` · An `IsError` tool result is audited and redacted as the error it is (F-50)**
+- [x] **`P8-18` · An `IsError` tool result is audited and redacted as the error it is (F-50)**
   Per D-08-19. In `invoke`, after `callWithRecovery`: a `*CallToolResult` with `IsError` takes its error from
   `GetError()` (nil → a fixed sentinel-free reason, status `error`); that error goes through the same
   `classify` and `redactor.Error` as a Go error. The result stays an `IsError` result on the wire — the agent
@@ -327,6 +327,8 @@ and run while the owner is busy there.
   a configured secret reaches neither the audit `reason` nor the result text; (4) each of those calls still
   returns `IsError:true` with a nil client error; (5) a successful call still audits `success`; `make check`
   green.
+  **Done 2026-10-04:** `invoke` lifts an `IsError` result's `GetError()` (none → `errToolResultUnexplained`) through
+  `classify` and `redactor.Error`; the result text is replaced only when redaction changed it. Tests: `tool_error_test.go`.
 
 - [ ] **`P8-06` · Cut v1.0**
   `addon/config.yaml` `version: "1.0.0"`; `docs/INSTALL.md` current; README's

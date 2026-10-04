@@ -106,3 +106,7 @@ D-08-16…D-08-18 recorded; `P8-15` (requests counted at `Manager.Call`/`Supervi
 ### 2026-10-04 · plan F-50
 D-08-19 and `P8-18`: the middleware classifies and redacts an `IsError` result from `GetError()`.
 **Surprise:** go-sdk's typed `AddTool` converts every handler error into an `IsError` result with a nil Go error, so `classify` and `redactor.Error` only ever saw middleware refusals — every in-tool failure has audited `success` since phase 03.
+
+### 2026-10-04 · P8-18
+`invoke` takes the failure from an `IsError` result's `GetError()` and runs it through `classify` and `redactor.Error`; the result stays `IsError`, its text scrubbed only if redaction changed it. Closes F-50.
+**Surprise:** `probeTable`'s raw `AddTool` yields protocol errors, not `IsError` results, so the tests needed a typed-`AddTool` probe table to exercise the shipped path.
