@@ -1212,10 +1212,11 @@ is a change to D-05-3 and wants its own decision.
 **Kind:** `defect`
 **What:** `P8-05`, live on the Pi (0.9.2), 14:39Z: `list_automations` reported an enabled automation with `LastTriggered` 14:37:14Z (after the Core restart); `get_automation_traces` for it returned `Items:[]`, `Unsupported:false`, `Partial:false`. Unknown whether HA keeps no trace for that run (storage off, trace limit 0), whether the adapter's read returned nothing without an error, or whether "no trace" is correct. One automation checked.
 **Impact:** `get_automation_traces` returns an empty, unmarked list for every automation with a config id that differs from its object id (all three sampled) — an agent concludes "never ran" (rule 7). §21 "supported automation execution evidence" has no live pass; if the adapter answers empty where it cannot read, an agent concludes "never ran" (rule 7).
-**Triage:** `queue-next`
+**Triage:** `done`
 **Outcome:** `verify` with F-45 — same shape of symptom (empty, no marker) on the same build. F-45's `verify` ruled the Supervisor cause out (traces go through the Core WebSocket); queued as its own `verify` (2026-10-04 `plan`).
 **Verified 2026-10-04:** premise void — the adapter likely keys `trace/list` by the entity's object id, but HA keys by the automation's config id (`get_automation` shows `ID` ≠ object id; fixtures' `item_id` is the config id). Three recent automations all empty. Wire reply not directly observed. Evidence: `docs/research/2026-10-04-v1-acceptance.md`. Reclassified `defect`; needs a `plan` task (resolve config id, test with a fake HA that rejects the object id) before `P8-06`.
 **Planned 2026-10-04:** D-08-18 (key `trace/list` by the config id; no id → `unsupported`) → `P8-17` (`live-verify`). Closes when it closes.
+**Closed 2026-10-04:** `P8-17` landed; live on the Pi (0.9.4), traces for two automations returned runs starting at their `LastTriggered`.
 
 ### F-48 · Protection mode cannot be read from the HA UI on 2026.9.4 · 2026-10-04
 **Kind:** `unknown`
