@@ -218,7 +218,7 @@ confirmed in the same session.
   `unsupported` with reason. (4) Under `deny`, a masked id plus a visible result. (5) Token never in
   response. `make check` green.
 
-- [ ] **`P9-07` · Map `variables`, `trigger_variables` and blueprint inputs** (D-09-7, D-09-2, D-09-4, D-09-6, F-55)
+- [x] **`P9-07` · Map `variables`, `trigger_variables` and blueprint inputs** (D-09-7, D-09-2, D-09-4, D-09-6, F-55)
   `internal/model/automation_logic.go`: `AutomationLogic` gains `Variables []LogicNode` (an additive field). Each
   present section becomes one node: Kind `variables` at path `variables`, `trigger_variables` at
   `trigger_variables`, and `blueprint_input` at `use_blueprint/input`. Its entries go into `Values` and
@@ -234,7 +234,7 @@ confirmed in the same session.
   `Withheld` only; no fixture string appears in the output. (6) A body without these sections → `Variables`
   empty, output otherwise unchanged. `make check` green.
 
-- [ ] **`P9-05` · Observe on the Pi, measure, ship v1.1** `live-verify` `blocked:P9-04` `blocked:P9-07`
+- [ ] **`P9-05` · Observe on the Pi, measure, ship v1.1** `live-verify` `blocked:P9-04`
   Deploy to the Pi. Ask a client "why does the air conditioning automation (not) turn on" and record whether
   the answer cites a threshold or a failed condition. Measure `trace/get` bytes and latency on the longest
   automation, and set or confirm the step and node caps from that. Bump `addon/config.yaml` to `1.1.0`, with

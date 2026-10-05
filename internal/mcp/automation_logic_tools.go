@@ -93,6 +93,7 @@ func getAutomationLogic(ctx context.Context, reader automationLogicReader, versi
 	envelope.Triggers = applier.nodes(logic.Triggers)
 	envelope.Conditions = applier.nodes(logic.Conditions)
 	envelope.Actions = applier.nodes(logic.Actions)
+	envelope.Variables = applier.nodes(logic.Variables)
 	envelope.IdsWithheld = applier.ids
 	envelope.TemplatesWithheld = applier.templates
 
@@ -173,14 +174,14 @@ func (p *logicPrivacy) templateTexts(in []model.Template, withheld *int) []model
 	return out
 }
 
-// capLogicBytes keeps top-level nodes in order — triggers, conditions, then
-// actions — until the byte budget is spent, drops the rest of that section,
+// capLogicBytes keeps top-level nodes in order — triggers, conditions, actions,
+// then variables — until the byte budget is spent, drops the rest of that section,
 // and reports whether it dropped any. Keeping the opening of each section
 // matters because that is where an automation's gate usually sits.
 func capLogicBytes(l *model.AutomationLogic, max int64) bool {
 	budget := max - logicEnvelopeBytes
 	dropped := false
-	for _, section := range []*[]model.LogicNode{&l.Triggers, &l.Conditions, &l.Actions} {
+	for _, section := range []*[]model.LogicNode{&l.Triggers, &l.Conditions, &l.Actions, &l.Variables} {
 		kept := 0
 		for _, n := range *section {
 			size := logicNodeBytes(n)

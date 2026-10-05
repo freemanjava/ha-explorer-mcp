@@ -29,6 +29,12 @@ type AutomationLogic struct {
 	Conditions []LogicNode
 	Actions    []LogicNode
 
+	// Variables holds one node per present section of top-level
+	// "variables", "trigger_variables" and blueprint inputs (D-09-7): the
+	// thresholds a template compares against often live here. Empty when the
+	// body has none.
+	Variables []LogicNode
+
 	Truncated bool
 
 	IdsWithheld       int
