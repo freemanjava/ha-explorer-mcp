@@ -94,6 +94,17 @@ func (r *CoreReader) AutomationDetail(ctx context.Context, entityID model.Entity
 	return MapAutomationConfigResult(entityID, raw)
 }
 
+// AutomationLogic returns automation/config for one entity mapped to typed
+// logic — get_automation_logic's admin-gated source (P9-02). It issues the
+// same command AutomationDetail does, so errors classify identically.
+func (r *CoreReader) AutomationLogic(ctx context.Context, entityID model.EntityID) (model.AutomationLogic, error) {
+	raw, err := r.call.Call(ctx, automationConfigCommand{EntityID: string(entityID)})
+	if err != nil {
+		return model.AutomationLogic{}, err
+	}
+	return MapAutomationLogicResult(raw)
+}
+
 // AutomationTraces returns trace/list for one automation, mapped —
 // get_automation_traces' admin-gated evidence source (P3-07). HA keys its
 // trace store by the automation's config id, not its object id (F-47,

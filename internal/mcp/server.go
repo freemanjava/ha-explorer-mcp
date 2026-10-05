@@ -80,6 +80,10 @@ type Options struct {
 	// commands for get_automation and get_automation_traces (P3-07). Nil
 	// leaves those two rows "not implemented in this build".
 	AutomationDetail automationDetailReader
+	// AutomationLogic reads the admin-gated automation/config command, mapped
+	// to typed logic, for get_automation_logic (P9-02). Nil leaves that row
+	// "not implemented in this build".
+	AutomationLogic automationLogicReader
 	// Logbook reads logbook/get_events for get_automation_traces' non-admin
 	// fallback evidence (F-11). Nil means that response's fallback fields
 	// stay empty rather than being fetched — a degradation of the fallback

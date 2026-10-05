@@ -135,7 +135,7 @@ confirmed in the same session.
   appears only under `Templates`. (6) Nested `choose` deeper than the cap → `truncated`, no panic. (7) A
   malformed body (wrong types, oversized Unicode) maps partial, no panic. `make check` green.
 
-- [ ] **`P9-02` · Tool `get_automation_logic`** (D-09-3, D-09-4, D-09-5)
+- [x] **`P9-02` · Tool `get_automation_logic`** (D-09-3, D-09-4, D-09-5)
   New `internal/mcp/automation_logic_tools.go` and a catalog row (`ClassNormalRead`). Input: `entity_id` only,
   validated by the automation id grammar. Reads `automation/config` through the existing admin-gated reader and
   applies the profile: under `deny`, a PRIVATE entity id is masked and counted (D-09-4) and templates are
