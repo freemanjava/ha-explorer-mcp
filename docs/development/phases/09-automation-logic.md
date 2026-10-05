@@ -208,11 +208,11 @@ confirmed in the same session.
   grammar is dropped and counted. (4) Gateway: `trace/get` is allowed, and an unlisted `trace/*` command is
   still denied before transmission. (5) Step cap → `truncated`. `make check` green.
 
-- [ ] **`P9-04` · Tool `get_automation_trace`** (D-09-3, D-09-4) `blocked:P9-03`
+- [x] **`P9-04` · Tool `get_automation_trace`** (D-09-3, D-09-4)
   New `internal/mcp/automation_trace_tools.go` and a catalog row (`ClassNormalRead`). Input: `entity_id` and
   `run_id`, each validated by grammar (run id: the ULID/opaque-token grammar `get_automation_traces` already
   emits). Under `deny`, a PRIVATE id in a step result is masked (D-09-4). Moves with it: catalog count 23,
-  doc §9, README.
+  doc §9, README. Output type is `any` for the recursive-schema reason `P9-02` met.
   **DoD:** written red first. (1) Parity: no free-form parameter, and `run_id` rejects `../`, spaces and
   over-length values. (2) A run id that doesn't belong to the automation → `ErrNotFound`. (3) Non-admin →
   `unsupported` with reason. (4) Under `deny`, a masked id plus a visible result. (5) Token never in

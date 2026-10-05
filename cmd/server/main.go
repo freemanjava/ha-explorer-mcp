@@ -110,6 +110,7 @@ func run() error {
 
 		AutomationDetail: core,
 		AutomationLogic:  core,
+		AutomationTrace:  core,
 		Logbook:          core,
 		Lifecycle:        core,
 	})

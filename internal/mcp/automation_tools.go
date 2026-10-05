@@ -87,6 +87,10 @@ func withAutomationTools(tools []Tool, opts Options) []Tool {
 			if opts.AutomationLogic != nil {
 				out[i].bind = bindGetAutomationLogic(opts.AutomationLogic, opts.Core, opts.Profile, opts.Secrets)
 			}
+		case "get_automation_trace":
+			if opts.AutomationTrace != nil {
+				out[i].bind = bindGetAutomationTrace(opts.AutomationTrace, opts.Core, opts.Profile, opts.Secrets)
+			}
 		case "get_automation_traces":
 			if opts.AutomationDetail != nil {
 				out[i].bind = bindGetAutomationTraces(opts.AutomationDetail, opts.Core, opts.Automations, opts.Logbook, opts.Profile, opts.Secrets)

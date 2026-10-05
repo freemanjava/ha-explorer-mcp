@@ -64,6 +64,7 @@ Automations
 - `list_automations` — automation inventory with enabled state and last trigger.
 - `get_automation` — one automation's details.
 - `get_automation_logic` — what its triggers, conditions and actions say: thresholds, times and ids as typed values; template text, where the privacy profile allows it, marked untrusted.
+- `get_automation_trace` — what each step of one run did, from a run id `get_automation_traces` reports: which condition returned false, as typed values; error text withheld.
 - `get_automation_traces` — execution evidence, or the reason traces are unavailable.
 
 Analysis — facts, inferences and recommendations kept in separate fields
