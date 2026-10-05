@@ -1,0 +1,58 @@
+{
+  "run_id": "4f1c2b9e8d7a6b5c4d3e2f1a0b9c8d7e",
+  "item_id": "1700000000002",
+  "domain": "automation",
+  "state": "stopped",
+  "script_execution": "failed_conditions",
+  "last_step": "condition/0",
+  "blueprint_inputs": null,
+  "timestamp": {
+    "start": "2026-09-30T21:00:00.100000+00:00",
+    "finish": "2026-09-30T21:00:00.180000+00:00"
+  },
+  "trace": {
+    "trigger": [
+      {
+        "path": "trigger",
+        "timestamp": "2026-09-30T21:00:00.100000+00:00",
+        "changed_variables": {
+          "this": {
+            "entity_id": "automation.study_cooling",
+            "attributes": {"friendly_name": "Study cooling"},
+            "context": {"id": "01JD00000000000000000000AA", "parent_id": null, "user_id": "9a8b7c6d5e4f30211203f4e5d6c7b8a9"}
+          },
+          "trigger": {"platform": null}
+        }
+      }
+    ],
+    "condition/0": [
+      {
+        "path": "condition/0",
+        "timestamp": "2026-09-30T21:00:00.150000+00:00",
+        "result": {"result": false}
+      }
+    ],
+    "condition/0/entity_id/0": [
+      {
+        "path": "condition/0/entity_id/0",
+        "timestamp": "2026-09-30T21:00:00.151000+00:00",
+        "result": {"result": true, "state": "off", "wanted_state": "off"}
+      }
+    ],
+    "condition/0/entity_id/1": [
+      {
+        "path": "condition/0/entity_id/1",
+        "timestamp": "2026-09-30T21:00:00.152000+00:00",
+        "result": {"result": false, "state": "on", "wanted_state": "off"}
+      }
+    ]
+  },
+  "config": {
+    "id": "1700000000002",
+    "alias": "Study cooling",
+    "triggers": [{"trigger": "numeric_state", "entity_id": "sensor.study_temperature", "above": 26}],
+    "conditions": [{"condition": "state", "entity_id": ["binary_sensor.study_window", "binary_sensor.study_door"], "state": "off"}],
+    "actions": [{"action": "climate.set_hvac_mode", "target": {"entity_id": "climate.study"}, "data": {"hvac_mode": "cool"}}]
+  },
+  "context": {"id": "01JD00000000000000000000AA", "parent_id": null, "user_id": "9a8b7c6d5e4f30211203f4e5d6c7b8a9"}
+}

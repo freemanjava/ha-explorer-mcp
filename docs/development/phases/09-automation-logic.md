@@ -192,7 +192,7 @@ confirmed in the same session.
   `allow`, the template is still returned in `untrusted_template`. (3) The `deny` tests are unchanged and green.
   `make check` green.
 
-- [ ] **`P9-03` · Trace-run mapper: `trace/get` → typed steps** 🧠 (D-09-1, D-09-2, F-12) `blocked:P9-06`
+- [x] **`P9-03` · Trace-run mapper: `trace/get` → typed steps** 🧠 (D-09-1, D-09-2, F-12) `blocked:P9-06`
   Step-key shapes verified against Core 2026.9.4 (F-54, `docs/research/2026-10-05-ha-trace-paths.md`); the join must
   attach `…/entity_id/I` sub-steps to their parent condition and accept a bare `trigger` key (manual run).
   Re-add `trace/get` to `internal/ha/gateway.go`'s allow-list with its caller (D-08-3), keyed like

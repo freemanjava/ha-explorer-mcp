@@ -20,7 +20,7 @@ const (
 
 	// Registries. list_for_display is absent on purpose: it is a
 	// *display-filtered* population, not a cheaper form of the full list
-	// (P0-04 finding 1), and inventory reads the full list. Like trace/get,
+	// (P0-04 finding 1), and inventory reads the full list. Like
 	// trace/contexts, auth/current_user, entity_registry/get and
 	// category_registry/list, it is re-added with its caller (D-08-3, F-40).
 	CommandEntityRegistryList = "config/entity_registry/list"
@@ -45,6 +45,10 @@ const (
 	// above must surface as unsupported rather than as an empty answer.
 	CommandAutomationConfig = "automation/config"
 	CommandTraceList        = "trace/list"
+	// trace/get returns one run's full trace, whose changed_variables and
+	// embedded state objects carry whole entity states (F-12). It is listed
+	// only because trace_steps.go drops all of that before mapping (P9-03).
+	CommandTraceGet = "trace/get"
 
 	// History and logbook. The recorder statistics commands are deliberately
 	// absent: no production call site sends them in v1 (F-17 wont-fix, F-36
@@ -71,6 +75,7 @@ var allowedCommands = map[string]struct{}{
 	CommandRepairsListIssues:   {},
 	CommandAutomationConfig:    {},
 	CommandTraceList:           {},
+	CommandTraceGet:            {},
 	CommandLogbookGetEvents:    {},
 	CommandHistoryDuringPeriod: {},
 }

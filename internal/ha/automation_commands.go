@@ -29,6 +29,18 @@ type traceListCommand struct {
 // CommandType implements Command.
 func (traceListCommand) CommandType() string { return CommandTraceList }
 
+// traceGetCommand asks trace/get for one stored run — get_automation_trace's
+// admin-gated source (P9-03). ItemID is the automation's config id, as for
+// traceListCommand (D-08-18); RunID is the run_id trace/list reports.
+type traceGetCommand struct {
+	Domain string `json:"domain"`
+	ItemID string `json:"item_id"`
+	RunID  string `json:"run_id"`
+}
+
+// CommandType implements Command.
+func (traceGetCommand) CommandType() string { return CommandTraceGet }
+
 // logbookGetEventsCommand asks logbook/get_events for one or more entities
 // since a start time — get_automation_traces' non-admin fallback evidence
 // (F-11), confirmed reachable at any principal
