@@ -25,3 +25,7 @@
 `get_automation_trace` (`ClassNormalRead`, 23rd tool): `entity_id` + `run_id` by grammar, `Options.AutomationTrace`, ids masked under `deny` through `logicPrivacy.values`, byte-capped to a step prefix; catalog tests, doc §9 (rows renumbered) and README move with it.
 **Surprise:** none; the `any` output type the P9-03 journal warned about was applied up front.
 **Left open:** `wireStack` serves `trace/get` an empty `[]`, so the request-count test exercises the tool's error path, not a mapped run.
+
+### 2026-10-06 · P9-07
+`AutomationLogic.Variables`: one node each for `variables`, `trigger_variables`, `blueprint_input` (`use_blueprint/input`), mapped by `P9-01`'s `values`; `logicPrivacy` and the byte cap walk it. Blueprint stays `Partial`.
+**Surprise:** a blueprint `path` like `motion_light.yaml` passes the entity-id grammar as a false entity, so it is always withheld and counted rather than run through the grammar.

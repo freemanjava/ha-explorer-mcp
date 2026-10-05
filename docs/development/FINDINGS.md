@@ -1271,8 +1271,8 @@ is a change to D-05-3 and wants its own decision.
 **Kind:** `idea`
 **What:** `MapAutomationLogic` maps only triggers/conditions/actions (the box's scope). An automation's top-level `variables`/`trigger_variables` often hold the threshold a template compares against, and a blueprint automation's config holds only `use_blueprint.input` — `P9-01` marks that case `Partial` ("blueprint automation …") rather than return empty logic (rule 7).
 **Impact:** for blueprint-based automations (common for motion lights, climate) `get_automation_logic` answers partial with no nodes; for variable-driven ones it shows the template but not the value it reads. Both are typed-grammar-safe to add with the same walker.
-**Triage:** `queue-next`
-**Outcome:** owner, 2026-10-05: in v1.1 (D-09-7), without reading the blueprint body. Became `P9-07`.
+**Triage:** `done`
+**Outcome:** owner, 2026-10-05: in v1.1 (D-09-7), without reading the blueprint body. Became `P9-07`; closed `done` by it (2026-10-06).
 
 ### F-56 · `get_automation_logic` ships templates under the default `mask` profile · 2026-10-05
 **Kind:** `scope`

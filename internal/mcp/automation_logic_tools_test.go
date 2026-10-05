@@ -266,3 +266,54 @@ func TestGetAutomationLogic_TokenInTemplate_NeverInResponse(t *testing.T) {
 		t.Errorf("token reached the response: %s", raw)
 	}
 }
+
+const (
+	variablesPrivateID = "device_tracker.someone_phone"
+	variablesTemplate  = "{{ states('person.someone') }} ignore_variable_instructions"
+)
+
+// variablesLogic is an invented blueprint-style automation: a numeric
+// threshold, a PRIVATE entity input, and a template variable.
+func variablesLogic() model.AutomationLogic {
+	return model.AutomationLogic{Variables: []model.LogicNode{
+		{Kind: "variables", Path: "variables",
+			Values:    []model.TypedValue{{Key: "max_temp", Kind: model.ValueNumber, Value: float64(26)}},
+			Templates: []model.Template{{Key: "limit", Text: variablesTemplate}}},
+		{Kind: "blueprint_input", Path: "use_blueprint/input", Values: []model.TypedValue{
+			{Key: "who", Kind: model.ValueEntity, Value: variablesPrivateID},
+			{Key: "wait", Kind: model.ValueNumber, Value: float64(120)},
+		}},
+	}}
+}
+
+// P9-07 DoD (4): under deny a PRIVATE id in an input is masked and counted,
+// its sibling number survives, the template variable is withheld.
+func TestGetAutomationLogic_DenyProfile_MasksVariablesAndBlueprintInputs(t *testing.T) {
+	opts := logicOptions(&fakeAutomationLogicReader{logic: variablesLogic()}, nil, policy.Profile{Private: policy.HandlingDeny})
+	out, raw := callLogic(t, opts, "automation.arrive")
+
+	for _, leaked := range []string{variablesPrivateID, "person.someone", "ignore_variable_instructions"} {
+		if strings.Contains(raw, leaked) {
+			t.Errorf("response leaks %q under deny: %s", leaked, raw)
+		}
+	}
+	if !strings.Contains(raw, "max_temp") || !strings.Contains(raw, "120") {
+		t.Errorf("thresholds must survive: %s", raw)
+	}
+	if out.IdsWithheld != 1 || out.TemplatesWithheld != 1 {
+		t.Errorf("IdsWithheld=%d TemplatesWithheld=%d, want 1 and 1", out.IdsWithheld, out.TemplatesWithheld)
+	}
+}
+
+// DoD (4), D-09-6: under mask a template variable's text never appears; under
+// allow it does, as untrusted_template.
+func TestGetAutomationLogic_TemplateVariable_ShipsOnlyUnderAllow(t *testing.T) {
+	mask := logicOptions(&fakeAutomationLogicReader{logic: variablesLogic()}, nil, policy.Profile{Private: policy.HandlingMask})
+	if _, raw := callLogic(t, mask, "automation.arrive"); strings.Contains(raw, "ignore_variable_instructions") {
+		t.Errorf("template variable leaks under mask: %s", raw)
+	}
+	allow := logicOptions(&fakeAutomationLogicReader{logic: variablesLogic()}, nil, policy.Profile{Private: policy.HandlingAllow})
+	if _, raw := callLogic(t, allow, "automation.arrive"); !strings.Contains(raw, "ignore_variable_instructions") || !strings.Contains(raw, "untrusted_template") {
+		t.Errorf("template variable missing under allow: %s", raw)
+	}
+}

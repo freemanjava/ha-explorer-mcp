@@ -133,8 +133,9 @@ func MapAutomationLogic(body map[string]any) model.AutomationLogic {
 		Triggers:   w.section(body, "trigger", roleTrigger, "triggers", "trigger"),
 		Conditions: w.section(body, "condition", roleCondition, "conditions", "condition"),
 		Actions:    w.section(body, "action", roleAction, "actions", "action"),
-		Truncated:  w.truncated,
 	}
+	logic.Variables = w.variables(body)
+	logic.Truncated = w.truncated
 	if len(w.reasons) > 0 {
 		logic.Partial = true
 		logic.PartialReason = strings.Join(w.reasons, "; ")
@@ -221,6 +222,48 @@ func (w *logicWalker) node(item any, path string, depth int, role logicRole) (mo
 	slices.SortStableFunc(n.Values, func(a, b model.TypedValue) int { return strings.Compare(a.Key, b.Key) })
 	slices.SortStableFunc(n.Templates, func(a, b model.Template) int { return strings.Compare(a.Key, b.Key) })
 	return n, true
+}
+
+// variables maps the sections that carry a template's inputs (D-09-7): one
+// node each for variables, trigger_variables and a blueprint's input. The
+// blueprint's own path is free text, and a "x.yaml" path would pass the
+// entity-id grammar as a false entity, so it is always withheld and counted;
+// its body is not read.
+func (w *logicWalker) variables(body map[string]any) []model.LogicNode {
+	var out []model.LogicNode
+	add := func(kind, path string, raw any, extra func(*model.LogicNode)) {
+		if raw == nil {
+			return
+		}
+		m, ok := raw.(map[string]any)
+		if !ok {
+			w.partial(path + " is not an object")
+			return
+		}
+		if w.nodes >= maxLogicNodes {
+			w.truncated = true
+			return
+		}
+		w.nodes++
+		n := model.LogicNode{Kind: kind, Path: path}
+		if extra != nil {
+			extra(&n)
+		}
+		w.values(&n, m, "", 0)
+		slices.SortStableFunc(n.Values, func(a, b model.TypedValue) int { return strings.Compare(a.Key, b.Key) })
+		slices.SortStableFunc(n.Templates, func(a, b model.Template) int { return strings.Compare(a.Key, b.Key) })
+		out = append(out, n)
+	}
+	add("variables", "variables", body["variables"], nil)
+	add("trigger_variables", "trigger_variables", body["trigger_variables"], nil)
+	if bp, ok := body["use_blueprint"].(map[string]any); ok {
+		add("blueprint_input", "use_blueprint/input", bp["input"], func(n *model.LogicNode) {
+			if bp["path"] != nil {
+				n.Withheld++
+			}
+		})
+	}
+	return out
 }
 
 func (w *logicWalker) trigger(n *model.LogicNode, m map[string]any) {
