@@ -1285,5 +1285,5 @@ is a change to D-05-3 and wants its own decision.
 **Kind:** `defect`
 **What:** HA's config validation wraps a bare `parallel` branch as `{sequence: [action]}` (`_parallel_sequence_action`), and `_async_step_parallel` pushes `[idx, "sequence"]`. So the action's trace step key is `action/N/parallel/I/sequence/0`. `internal/ha/automation_logic.go` (`logicWalker.action`, `w.list(m["parallel"], p+"/parallel", …)`) maps the branch straight to `action/N/parallel/I`, and `TestMapAutomationLogic_NestedStructures_ChildrenWithTracePaths` asserts that wrong value (`service@action/3/parallel/0`). `automation/config` returns the pre-validation `raw_config`, so the payload never shows the wrapping. Branches written as `{sequence: [...]}` already map correctly. Evidence: `docs/research/2026-10-05-ha-trace-paths.md`.
 **Impact:** `P9-03`'s step-to-node join silently misses every step under a bare parallel branch, so a trace can't say which of those actions ran or failed. `get_automation_logic` shows a path that matches no trace step. The fix is a path change in the walker (wrap a bare branch so its node sits at `…/parallel/I/sequence/0`) plus the corrected test. It is confined to `P9-01`'s code.
-**Triage:** `queue-next`
-**Outcome:** became `P9-06`, queued ahead of `P9-03` (`plan`, 2026-10-05).
+**Triage:** `done`
+**Outcome:** became `P9-06`, queued ahead of `P9-03` (`plan`, 2026-10-05); closed by `P9-06`: a bare `parallel` branch maps to `…/parallel/I/sequence/0`.

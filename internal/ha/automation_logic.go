@@ -259,7 +259,7 @@ func (w *logicWalker) action(n *model.LogicNode, m map[string]any, depth int) {
 		w.list(m["then"], p+"/then", d, roleAction),
 		w.list(m["else"], p+"/else", d, roleAction),
 		w.repeat(n, m["repeat"], p+"/repeat", d),
-		w.list(m["parallel"], p+"/parallel", d, roleAction),
+		w.parallel(m["parallel"], p+"/parallel", d),
 		w.list(m["sequence"], p+"/sequence", d, roleAction),
 		w.list(m["wait_for_trigger"], p+"/wait_for_trigger", d, roleTrigger),
 	}
@@ -276,6 +276,33 @@ func (w *logicWalker) action(n *model.LogicNode, m map[string]any, depth int) {
 	}
 	w.values(n, m, "", 0, "service", "choose", "default", "if", "then", "else", "repeat",
 		"parallel", "sequence", "wait_for_trigger", "conditions")
+}
+
+// parallel walks a parallel block's branches. HA validates a branch that is
+// not a {sequence: [...]} object as a one-item sequence
+// (_parallel_sequence_action), so its trace path is .../I/sequence/0, not
+// .../I.
+func (w *logicWalker) parallel(raw any, path string, depth int) []model.LogicNode {
+	items, ok := raw.([]any)
+	if !ok {
+		if raw == nil {
+			return nil
+		}
+		items = []any{raw}
+	}
+	var out []model.LogicNode
+	for i, item := range items {
+		branch := fmt.Sprintf("%s/%d", path, i)
+		if m, ok := item.(map[string]any); ok {
+			if _, isSeq := m["sequence"]; !isSeq {
+				branch += "/sequence/0"
+			}
+		}
+		if n, ok := w.node(item, branch, depth, roleAction); ok {
+			out = append(out, n)
+		}
+	}
+	return out
 }
 
 // repeat reads a repeat block's count/for_each as the action's values and
