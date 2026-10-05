@@ -20,3 +20,8 @@
 `trace/get` allow-listed with its caller; `CoreReader.AutomationTraceRun` keys it by config id; `trace_steps.go` scrubs dropped keys and state-shaped objects at every depth, maps results by the D-09-2 grammar, nests `…/entity_id/I` under its condition (i-th to i-th in a repeat), caps at 500 steps.
 **Surprise:** the trace object must be decoded key by key: a Go map loses HA's execution order. `params.service` (`turn_on`) fails the strict service grammar alone, so domain+service are joined to `params.action`.
 **Left open:** `TraceStep.SubSteps` is self-nested like `LogicNode.Children`, so `P9-04` will hit the same SDK output-schema panic `P9-02` did.
+
+### 2026-10-05 · P9-04
+`get_automation_trace` (`ClassNormalRead`, 23rd tool): `entity_id` + `run_id` by grammar, `Options.AutomationTrace`, ids masked under `deny` through `logicPrivacy.values`, byte-capped to a step prefix; catalog tests, doc §9 (rows renumbered) and README move with it.
+**Surprise:** none; the `any` output type the P9-03 journal warned about was applied up front.
+**Left open:** `wireStack` serves `trace/get` an empty `[]`, so the request-count test exercises the tool's error path, not a mapped run.

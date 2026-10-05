@@ -128,6 +128,7 @@ func newWireStack(t *testing.T) *wireStack {
 	w.opts.Repairs = core
 	w.opts.History = core
 	w.opts.AutomationDetail = core
+	w.opts.AutomationTrace = core
 	w.opts.Logbook = core
 	w.opts.Lifecycle = core
 	return w
@@ -175,7 +176,7 @@ func TestListIntegrations_ColdThenWarmRegistry_AuditsWireRequests(t *testing.T) 
 }
 
 // TestCatalog_EveryTool_CountedRequestsFitItsClassAndMatchTheWire drives all
-// twenty-two tools and holds the audit to the wire: nothing a tool sends goes
+// twenty-three tools and holds the audit to the wire: nothing a tool sends goes
 // uncounted (F-46), and nothing exceeds the class's request bound.
 func TestCatalog_EveryTool_CountedRequestsFitItsClassAndMatchTheWire(t *testing.T) {
 	args := map[string]map[string]any{
@@ -185,6 +186,7 @@ func TestCatalog_EveryTool_CountedRequestsFitItsClassAndMatchTheWire(t *testing.
 		"get_entity_history":         {"entity_id": "sensor.x", "from": time.Now().Add(-time.Hour).Format(time.RFC3339), "to": time.Now().Format(time.RFC3339)},
 		"get_entity_statistics":      {"entity_id": "sensor.x"},
 		"get_automation":             {"entity_id": "automation.x"},
+		"get_automation_trace":       {"entity_id": "automation.x", "run_id": "run1"},
 		"get_automation_traces":      {"entity_id": "automation.x"},
 		"analyze_entity_health":      {"entity_id": "sensor.x"},
 		"analyze_integration_health": {"config_entry_id": "entry-zha-1"},
