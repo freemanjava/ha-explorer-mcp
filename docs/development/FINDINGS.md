@@ -1278,8 +1278,8 @@ is a change to D-05-3 and wants its own decision.
 **Kind:** `scope`
 **What:** D-09-5 withholds templates under `deny` and ships them under `allow`; it does not name `mask`, the default profile. `P9-02` follows the text literally, so under `mask` template text is returned verbatim (token-scrubbed) and may name a PRIVATE entity (`states('person.x')`) that `mask` would elsewhere tokenize (`internal/mcp/automation_logic_tools.go`, `templateTexts`).
 **Impact:** on a default install, a PRIVATE id inside a template reaches the client unmasked. Withholding under `mask` too would be fail-closed but hides templated logic from default users.
-**Triage:** `queue-next`
-**Outcome:** owner, 2026-10-05: withhold under `mask` too (D-09-6). Became `P9-08`.
+**Triage:** `done`
+**Outcome:** owner, 2026-10-05: withhold under `mask` too (D-09-6). Became `P9-08`; closed `done` by it (2026-10-05).
 
 ### F-57 · A bare action inside `parallel` gets the wrong trace path · 2026-10-05
 **Kind:** `defect`

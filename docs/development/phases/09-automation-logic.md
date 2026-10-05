@@ -182,7 +182,7 @@ confirmed in the same session.
   branch: the bare action is at `…/parallel/0/sequence/0`, and the others at `…/parallel/1/sequence/0` and `/1`.
   (3) The node count and depth caps still hold for the wrapped branch. `make check` green.
 
-- [ ] **`P9-08` · Withhold templates under `mask`** (D-09-6, F-56)
+- [x] **`P9-08` · Withhold templates under `mask`** (D-09-6, F-56)
   In `internal/mcp/automation_logic_tools.go`, `logicPrivacy` withholds templates unless the profile's private
   handling is `allow` (today: only under `deny`). The tool description says templates ship only under `allow`.
   Moves with it: CLAUDE.md rule 6 (“under `allow` and `mask`” → “only under `allow`”), and the architecture
