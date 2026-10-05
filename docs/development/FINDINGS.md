@@ -1259,3 +1259,17 @@ is a change to D-05-3 and wants its own decision.
 **Impact:** the server's headline job, explaining why an automation misbehaves, stops at "here is what it touches". Today the workaround is the owner pasting the YAML into the chat. Cost of the change: it widens what HA-authored content reaches the agent (rule 6 / threat T2: an alias, a template or a string field is attacker-shapeable text), needs a privacy-profile decision on thresholds and times, and adds a `trace/get` allow-list entry whose response size and Pi cost are unmeasured. Retyping `get_automation`'s output is additive only if the new fields are optional; otherwise it's a new tool version.
 **Triage:** `queue-next`
 **Outcome:** planned 2026-10-04 as phase 09: `P9-01`…`P9-05`, D-09-1…D-09-5 (owner: logic + trace steps; grammar values plus untrusted template text; two new tools; under `deny` ids masked, templates withheld). Closes when `P9-05` closes.
+
+### F-54 · Logic node paths assume HA's trace path convention, unchecked · 2026-10-05
+**Kind:** `unknown`
+**What:** `P9-01` gives each `LogicNode` a `Path` meant to equal the trace step key `trace/get` reports (`internal/model/automation_logic.go`, `LogicNode` doc), so `P9-03` can say which condition stopped a run. The shapes were written from memory, not observed: `action/N/choose/I/conditions/J`, `action/N/default/J`, `action/N/if/condition/J`, `action/N/then/J`, `action/N/repeat/sequence/J`, and especially `action/N/parallel/I` (HA may report `parallel/I/sequence/J`) and `wait_for_trigger`/`repeat` `while`/`until` sub-paths. The only captured `trace/get` fixture is a simple automation.
+**Impact:** unknown pending verification. If a shape differs, `P9-03`'s step-to-node join silently misses those steps; a fix is a path-string change in `internal/ha/automation_logic.go` plus its test.
+**Triage:** `queue-next`
+**Outcome:** verify against Home Assistant Core's `helpers/script.py` trace-path code (or a `cmd/spike` capture of a nested automation's `trace/get`) before `P9-03`.
+
+### F-55 · Top-level `variables` and blueprint inputs carry logic `P9-01` does not map · 2026-10-05
+**Kind:** `idea`
+**What:** `MapAutomationLogic` maps only triggers/conditions/actions (the box's scope). An automation's top-level `variables`/`trigger_variables` often hold the threshold a template compares against, and a blueprint automation's config holds only `use_blueprint.input` — `P9-01` marks that case `Partial` ("blueprint automation …") rather than return empty logic (rule 7).
+**Impact:** for blueprint-based automations (common for motion lights, climate) `get_automation_logic` answers partial with no nodes; for variable-driven ones it shows the template but not the value it reads. Both are typed-grammar-safe to add with the same walker.
+**Triage:** `queue-next`
+**Outcome:** —

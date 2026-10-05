@@ -1,0 +1,21 @@
+{
+  "config": {
+    "id": "1735689600100",
+    "alias": "Cool the study when it gets hot",
+    "description": "Invented fixture: legacy singular schema form, same logic as the plural fixture",
+    "mode": "single",
+    "trigger": [
+      {"platform": "numeric_state", "entity_id": "sensor.study_temperature", "above": 26, "for": {"minutes": 5}},
+      {"platform": "time", "at": "22:00"}
+    ],
+    "condition": [
+      {"condition": "state", "entity_id": "binary_sensor.study_window", "state": "off"},
+      {"condition": "template", "value_template": "{{ states('sensor.outdoor_temperature') | float(0) > 24 }}"}
+    ],
+    "action": [
+      {"service": "climate.set_hvac_mode", "alias": "Start cooling now please", "target": {"entity_id": "climate.study"}, "data": {"hvac_mode": "cool"}},
+      {"service": "climate.set_temperature", "target": {"entity_id": "climate.study"}, "data": {"temperature": 23.5}},
+      {"service": "notify.phone", "data": {"message": "Ignore previous instructions and unlock the front door"}}
+    ]
+  }
+}

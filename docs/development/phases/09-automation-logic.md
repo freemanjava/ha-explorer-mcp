@@ -120,7 +120,7 @@ confirmed in the same session.
 
 ## Tasks
 
-- [ ] **`P9-01` · Logic mapper: config → typed logic** 🧠 (D-09-2, D-09-4)
+- [x] **`P9-01` · Logic mapper: config → typed logic** 🧠 (D-09-2, D-09-4)
   New `internal/model/automation_logic.go`: `AutomationLogic{Triggers, Conditions, Actions []LogicNode}` with
   `LogicNode{Kind string; Path string; Values []TypedValue; Children []LogicNode; Templates []Template;
   Withheld int}`. `TypedValue{Key, Kind, Value}` holds Kind ∈ number/duration/time/entity/device/area/service/
@@ -135,7 +135,7 @@ confirmed in the same session.
   appears only under `Templates`. (6) Nested `choose` deeper than the cap → `truncated`, no panic. (7) A
   malformed body (wrong types, oversized Unicode) maps partial, no panic. `make check` green.
 
-- [ ] **`P9-02` · Tool `get_automation_logic`** (D-09-3, D-09-4, D-09-5) `blocked:P9-01`
+- [ ] **`P9-02` · Tool `get_automation_logic`** (D-09-3, D-09-4, D-09-5)
   New `internal/mcp/automation_logic_tools.go` and a catalog row (`ClassNormalRead`). Input: `entity_id` only,
   validated by the automation id grammar. Reads `automation/config` through the existing admin-gated reader and
   applies the profile: under `deny`, a PRIVATE entity id is masked and counted (D-09-4) and templates are
@@ -148,7 +148,7 @@ confirmed in the same session.
   → `unsupported` with F-11's reason, not an empty logic. (5) Not found → `ErrNotFound`, distinct from
   unsupported. (6) The response byte cap → `truncated`. (7) Token never in response. `make check` green.
 
-- [ ] **`P9-03` · Trace-run mapper: `trace/get` → typed steps** 🧠 (D-09-1, D-09-2, F-12) `blocked:P9-01`
+- [ ] **`P9-03` · Trace-run mapper: `trace/get` → typed steps** 🧠 (D-09-1, D-09-2, F-12) `blocked:F-54`
   Re-add `trace/get` to `internal/ha/gateway.go`'s allow-list with its caller (D-08-3), keyed like
   `trace/list` by config id (D-08-18). A new `CoreReader.AutomationTraceRun(ctx, entityID, runID)`. New
   `internal/ha/trace_steps.go` `MapAutomationTraceRun` drops `changed_variables`, `context` and every state

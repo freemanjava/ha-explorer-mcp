@@ -3,7 +3,7 @@
 <!-- BOUNDED FILE — rewritten in place, never appended to. Keep under ~100 lines.
      Anything that grows goes to journal/. This file is read by every session. -->
 
-**▶ Active:** `P9-01` · Logic mapper: config → typed logic · `docs/development/phases/09-automation-logic.md` · 🧠 · claude-opus-5-5
+**▶ Active:** `P9-02` · Tool `get_automation_logic` · `docs/development/phases/09-automation-logic.md` · claude-sonnet-5-5
 v1.0 is cut in the tree; the owner tags `v1.0.0` and pushes (independent of phase 09).
 
 > Advancing this pointer is part of finishing a task, together with ticking the
@@ -11,7 +11,7 @@ v1.0 is cut in the tree; the owner tags `v1.0.0` and pushes (independent of phas
 
 ## Suspended
 
-None. (`P8-19` closed 2026-10-04.)
+None. (`P9-01` closed 2026-10-05.)
 
 ## Queue
 
@@ -20,11 +20,10 @@ cycle. Remove a row when its task closes.
 
 | # | id | task | phase | model | flags |
 |--:|----|------|-------|-------|-------|
-| 1 | `P9-01` | Logic mapper: config → typed logic | 09 | claude-opus-5-5 | 🧠 |
-| 2 | `P9-02` | Tool `get_automation_logic` | 09 | claude-sonnet-5-5 | `blocked:P9-01` |
-| 3 | `P9-03` | Trace-run mapper: `trace/get` → typed steps | 09 | claude-opus-5-5 | 🧠 `blocked:P9-01` |
-| 4 | `P9-04` | Tool `get_automation_trace` | 09 | claude-sonnet-5-5 | `blocked:P9-03` |
-| 5 | `P9-05` | Observe on the Pi, measure, ship v1.1 | 09 | claude-sonnet-5-5 | `live-verify` `blocked:P9-04` |
+| 1 | `P9-02` | Tool `get_automation_logic` | 09 | claude-sonnet-5-5 | |
+| 2 | `P9-03` | Trace-run mapper: `trace/get` → typed steps | 09 | claude-opus-5-5 | 🧠 `blocked:F-54` |
+| 3 | `P9-04` | Tool `get_automation_trace` | 09 | claude-sonnet-5-5 | `blocked:P9-03` |
+| 4 | `P9-05` | Observe on the Pi, measure, ship v1.1 | 09 | claude-sonnet-5-5 | `live-verify` `blocked:P9-04` |
 
 **Ordering rationale (2026-10-04, `plan` for F-53).** Logic before traces: `P9-03` reuses `P9-01`'s `TypedValue`
 grammar, and logic alone already answers "what are the thresholds". Each tool follows its mapper. `P9-05` last: one Pi
@@ -80,7 +79,7 @@ done
 | 06 | Proposal Mode — gated | 0 / 1 |
 | 07 | Controlled Change (Admin) — gated | 0 / 1 |
 | 08 | v1.0 Release | 39 / 39 |
-| 09 | Automation Logic & Trace Steps | 5 / 10 |
+| 09 | Automation Logic & Trace Steps | 6 / 10 |
 
 Counts include each phase's decision entries, which are boxes too. Phase 08's
 ticks are D-08-1…D-08-20, P8-01, P8-02, P8-03, P8-04, P8-05, P8-07, P8-08, P8-09, P8-10, P8-11, P8-12, P8-13, P8-14, P8-15, P8-16, P8-17, P8-18, P8-06 and P8-19.
@@ -90,7 +89,7 @@ ships them as v1.0 and runs before 06–07, which stay gated: they open only on 
 explicit owner decision plus a fresh security review, and need v1 usage data. Phase 09
 (automation logic, F-53) is v1.1, read-only, and not gated: it adds two read tools, no write path.
 
-Last refreshed: 2026-10-04 (`plan` for F-53)
+Last refreshed: 2026-10-05 (`P9-01`)
 
 ## Open findings
 
@@ -98,7 +97,7 @@ Last refreshed: 2026-10-04 (`plan` for F-53)
      grep -c '^\*\*Triage:\*\* `queue-next`' docs/development/FINDINGS.md  (etc.)
      This block exists so captured work cannot quietly rot: every session sees it. -->
 
-`blocks-active` 0 · `queue-next` 1 · `defer` 7 · `unknown` 0 (open)
+`blocks-active` 0 · `queue-next` 3 · `defer` 7 · `unknown` 1 (open)
 
 > Any `blocks-active` is stop-work. If `queue-next` is non-zero and the queue
 > above has fewer than 3 rows, drain it with `devflow plan` before continuing —
@@ -107,7 +106,7 @@ Last refreshed: 2026-10-04 (`plan` for F-53)
 > An open `unknown` outranks the queue: it is an assumption the plan already
 > rests on. Run `devflow verify` before building further on it.
 
-**F-53** `queue-next`, planned as phase 09 (`P9-01`…`P9-05`); closes with `P9-05`. **F-51** closed `done` by `P8-19`. No `blocks-active` (**F-45** closed `done` by `P8-13`, 2026-10-04). **F-46** closed `done` by `P8-16`. **F-47** closed `done` by `P8-17`. **F-50** closed `done` by `P8-18`; **F-49** closed `done` by `P8-14`. Seven `defer`s: **F-52** (no LICENSE; owner deferred 2026-10-04), **F-32** (D-05-7's
+**F-54** `unknown` (2026-10-05, from `P9-01`): logic node paths assume HA's trace-path convention — `verify` before `P9-03` (it blocks that row, not `P9-02`). **F-55** `queue-next`: top-level `variables` and blueprint inputs unmapped. **F-53** `queue-next`, planned as phase 09 (`P9-01`…`P9-05`); closes with `P9-05`. **F-51** closed `done` by `P8-19`. No `blocks-active` (**F-45** closed `done` by `P8-13`, 2026-10-04). **F-46** closed `done` by `P8-16`. **F-47** closed `done` by `P8-17`. **F-50** closed `done` by `P8-18`; **F-49** closed `done` by `P8-14`. Seven `defer`s: **F-52** (no LICENSE; owner deferred 2026-10-04), **F-32** (D-05-7's
 `search/related` fallback), **F-33** (phase 06 topic), **F-34** (non-admin gets
 no automation hypotheses), **F-36** (statistics-based staleness; re-triage on v1
 usage data), **F-43** (TLS; re-triage with remote access), **F-44** (configurable budget limits; v1 usage data). No open `unknown` (**F-48** `verify`d 2026-10-04, closed `done`).
@@ -116,6 +115,7 @@ usage data), **F-43** (TLS; re-triage with remote access), **F-44** (configurabl
 
 Last 5 closed tasks, one line each. Older entries live in `journal/`.
 
+- 2026-10-05 · `P9-01` — logic mapper: grammar-typed nodes, both schema forms, trace-style paths, caps; blueprint configs partial. Filed F-54 (`unknown`), F-55.
 - 2026-10-04 · `P8-19` — root `README.md` landing page; drift tests for tool names and version. Closes F-51.
 - 2026-10-04 · `plan F-51` — D-08-20 (owner: short landing page); `P8-19`. No LICENSE in the public repo → F-52, `defer`.
 - 2026-10-04 · `P8-06` — `addon/config.yaml` bumped to 1.0.0; `make check` green; README clause unmet (no README, F-51). Owner tags.
