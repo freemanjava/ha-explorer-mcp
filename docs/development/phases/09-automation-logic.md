@@ -172,7 +172,7 @@ confirmed in the same session.
   → `unsupported` with F-11's reason, not an empty logic. (5) Not found → `ErrNotFound`, distinct from
   unsupported. (6) The response byte cap → `truncated`. (7) Token never in response. `make check` green.
 
-- [ ] **`P9-06` · Bare `parallel` branch gets HA's trace path** (F-57)
+- [x] **`P9-06` · Bare `parallel` branch gets HA's trace path** (F-57)
   In `internal/ha/automation_logic.go` `logicWalker.action`, a `parallel` item that is not a `{sequence: [...]}`
   object is treated the way HA's config validation treats it (`_parallel_sequence_action`): as a one-item
   sequence. Its action node sits at `…/parallel/I/sequence/0`, not `…/parallel/I`. A `{sequence: [...]}` item is

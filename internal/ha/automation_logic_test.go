@@ -182,7 +182,7 @@ func TestMapAutomationLogic_NestedStructures_ChildrenWithTracePaths(t *testing.T
 		"repeat@action/2",
 		"service@action/2/repeat/sequence/0",
 		"parallel@action/3",
-		"service@action/3/parallel/0",
+		"service@action/3/parallel/0/sequence/0",
 		"service@action/4",
 	}
 	if !reflect.DeepEqual(paths, want) {
@@ -194,6 +194,52 @@ func TestMapAutomationLogic_NestedStructures_ChildrenWithTracePaths(t *testing.T
 	}
 	if logic.Truncated || logic.Partial {
 		t.Errorf("Truncated=%v Partial=%v on a well-formed body", logic.Truncated, logic.Partial)
+	}
+}
+
+// P9-06: HA wraps a bare parallel branch as a one-item sequence, so its trace
+// path ends in /sequence/0; a {sequence: [...]} branch is unchanged.
+func TestMapAutomationLogic_ParallelBareAndSequenceBranches_TracePaths(t *testing.T) {
+	logic := MapAutomationLogic(map[string]any{
+		"actions": []any{map[string]any{"parallel": []any{
+			map[string]any{"action": "light.turn_on"},
+			map[string]any{"sequence": []any{
+				map[string]any{"action": "light.turn_off"},
+				map[string]any{"action": "switch.turn_on"},
+			}},
+		}}},
+	})
+
+	var paths []string
+	var walk func([]model.LogicNode)
+	walk = func(nodes []model.LogicNode) {
+		for _, n := range nodes {
+			paths = append(paths, n.Path)
+			walk(n.Children)
+		}
+	}
+	walk(logic.Actions)
+	want := []string{
+		"action/0",
+		"action/0/parallel/0/sequence/0",
+		"action/0/parallel/1",
+		"action/0/parallel/1/sequence/0",
+		"action/0/parallel/1/sequence/1",
+	}
+	if !reflect.DeepEqual(paths, want) {
+		t.Errorf("paths:\n got %v\nwant %v", paths, want)
+	}
+}
+
+// P9-06: the wrapped bare branch still counts against the depth cap.
+func TestMapAutomationLogic_ParallelBareBranch_DepthCapHolds(t *testing.T) {
+	var body any = map[string]any{"action": "light.turn_on"}
+	for i := 0; i < maxLogicDepth+2; i++ {
+		body = map[string]any{"parallel": []any{body}}
+	}
+	logic := MapAutomationLogic(map[string]any{"actions": []any{body}})
+	if !logic.Truncated {
+		t.Errorf("Truncated = false on parallel nesting deeper than the cap")
 	}
 }
 
