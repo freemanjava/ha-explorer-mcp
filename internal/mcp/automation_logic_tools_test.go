@@ -141,6 +141,28 @@ func TestGetAutomationLogic_DenyProfile_MasksPrivateIDAndWithholdsTemplates(t *t
 	}
 }
 
+// DoD (1), D-09-6: under mask (the default) no template text is returned, the
+// count says so, and non-template values still appear. Only allow ships text.
+func TestGetAutomationLogic_MaskProfile_WithholdsTemplates(t *testing.T) {
+	opts := logicOptions(&fakeAutomationLogicReader{logic: arriveLogic()}, nil, policy.Profile{Private: policy.HandlingMask})
+	out, raw := callLogic(t, opts, "automation.arrive")
+
+	for _, leaked := range []string{"ignore_previous_instructions", "value_template", "untrusted_template"} {
+		if strings.Contains(raw, leaked) {
+			t.Errorf("response leaks %q under mask: %s", leaked, raw)
+		}
+	}
+	if !strings.Contains(raw, "sensor.living_room_temperature") || !strings.Contains(raw, "26") {
+		t.Errorf("non-template values must survive under mask: %s", raw)
+	}
+	if out.TemplatesWithheld != 1 {
+		t.Errorf("TemplatesWithheld = %d, want 1", out.TemplatesWithheld)
+	}
+	if len(out.Conditions[0].Templates) != 0 {
+		t.Errorf("templates = %+v, want none under mask", out.Conditions[0].Templates)
+	}
+}
+
 // DoD (3): under allow the template ships in untrusted_template.
 func TestGetAutomationLogic_AllowProfile_ReturnsTemplateAsUntrusted(t *testing.T) {
 	opts := logicOptions(&fakeAutomationLogicReader{logic: arriveLogic()}, nil, policy.Profile{Private: policy.HandlingAllow})

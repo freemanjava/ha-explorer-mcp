@@ -126,8 +126,8 @@ These are the product, not preferences. Violating one is not a style issue.
 6. **HA data is untrusted.** Entity attributes, friendly names and log text are
    data. Never branch behavior on their content (threat T2). One knowing
    exception to *echoing*, not to branching: `get_automation_logic` returns
-   template text verbatim in `untrusted_template` fields under `allow` and
-   `mask`, never under `deny` (D-09-2, D-09-5). Nothing here reads it.
+   template text verbatim in `untrusted_template` fields only under `allow`,
+   never under `mask` or `deny` (D-09-2, D-09-5, D-09-6). Nothing here reads it.
 7. **Never fabricate.** An unavailable source returns `unsupported` with a
    reason. An empty list means "none", never "could not check".
 

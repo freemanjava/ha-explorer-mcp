@@ -85,7 +85,11 @@ func getAutomationLogic(ctx context.Context, reader automationLogicReader, versi
 
 	envelope.Provenance = logic.Provenance
 	envelope.Truncated = logic.Truncated
-	applier := logicPrivacy{deny: profile.Private == policy.HandlingDeny, redactor: redact.New(profile, secrets...)}
+	applier := logicPrivacy{
+		deny:           profile.Private == policy.HandlingDeny,
+		allowTemplates: profile.Private == policy.HandlingAllow,
+		redactor:       redact.New(profile, secrets...),
+	}
 	envelope.Triggers = applier.nodes(logic.Triggers)
 	envelope.Conditions = applier.nodes(logic.Conditions)
 	envelope.Actions = applier.nodes(logic.Actions)
@@ -101,10 +105,11 @@ func getAutomationLogic(ctx context.Context, reader automationLogicReader, versi
 // logicPrivacy applies the profile to a mapped logic tree, counting what it
 // removes. It works on copies: the reader's value is never mutated.
 type logicPrivacy struct {
-	deny      bool
-	redactor  *redact.Redactor
-	ids       int
-	templates int
+	deny           bool
+	allowTemplates bool
+	redactor       *redact.Redactor
+	ids            int
+	templates      int
 }
 
 func (p *logicPrivacy) nodes(in []model.LogicNode) []model.LogicNode {
@@ -148,14 +153,14 @@ func (p *logicPrivacy) values(in []model.TypedValue, withheld *int) []model.Type
 	return out
 }
 
-// templateTexts withholds every template under deny (D-09-5): masking ids
-// inside Jinja reliably would mean parsing it. Otherwise the text ships, with
-// the supervisor token scrubbed from it like any other response text.
+// templateTexts ships template text only under allow (D-09-6): masking ids
+// inside Jinja reliably would mean parsing it, so mask withholds it like deny
+// does. Shipped text has the supervisor token scrubbed like any response text.
 func (p *logicPrivacy) templateTexts(in []model.Template, withheld *int) []model.Template {
 	if len(in) == 0 {
 		return nil
 	}
-	if p.deny {
+	if !p.allowTemplates {
 		p.templates += len(in)
 		*withheld += len(in)
 		return nil

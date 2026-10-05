@@ -12,3 +12,6 @@
 
 ### 2026-10-05 · P9-06
 `logicWalker.parallel`: a branch that is not a `{sequence: [...]}` object maps at `…/parallel/I/sequence/0`, as HA's validation wraps it; no wrapper node. Nested-structures test corrected, new bare+sequence case and a depth-cap case.
+
+### 2026-10-05 · P9-08
+`logicPrivacy` gains `allowTemplates` (only `HandlingAllow`); `mask` and `deny` withhold and count templates. Red-first mask test; CLAUDE.md rule 6 and the catalog description say "only under `allow`". Closes F-56.
