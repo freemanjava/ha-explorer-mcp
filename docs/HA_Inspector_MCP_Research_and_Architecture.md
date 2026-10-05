@@ -270,12 +270,13 @@ Public tools should express the engineer’s task, not mirror upstream endpoints
 | 13     | list_areas                 | Area/topology context; optional floors/labels mapping.                             |
 | 14     | list_automations           | Automation inventory/status.                                                       |
 | 15     | get_automation             | Automation details through supported/safe adapter.                                 |
-| 16     | get_automation_traces      | Execution evidence; compatibility-sensitive adapter.                               |
-| 17     | list_repairs               | Native Home Assistant Repairs/issues.                                              |
-| 18     | list_apps                  | Supervisor App inventory/state when permitted.                                     |
-| 19     | analyze_entity_health      | Composite deterministic entity health analysis.                                    |
-| 20     | analyze_integration_health | Composite integration health/outage-correlation analysis.                          |
-| 21     | analyze_automation_health  | Composite automation analysis: run outcomes × dependency windows (D-05-6).         |
+| 16     | get_automation_logic       | What an automation's triggers, conditions and actions say, as typed values (D-09-3). |
+| 17     | get_automation_traces      | Execution evidence; compatibility-sensitive adapter.                               |
+| 18     | list_repairs               | Native Home Assistant Repairs/issues.                                              |
+| 19     | list_apps                  | Supervisor App inventory/state when permitted.                                     |
+| 20     | analyze_entity_health      | Composite deterministic entity health analysis.                                    |
+| 21     | analyze_integration_health | Composite integration health/outage-correlation analysis.                          |
+| 22     | analyze_automation_health  | Composite automation analysis: run outcomes × dependency windows (D-05-6).         |
 
 ## 9.1 Tool design rules
 

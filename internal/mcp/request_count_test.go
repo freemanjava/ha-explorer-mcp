@@ -175,7 +175,7 @@ func TestListIntegrations_ColdThenWarmRegistry_AuditsWireRequests(t *testing.T) 
 }
 
 // TestCatalog_EveryTool_CountedRequestsFitItsClassAndMatchTheWire drives all
-// twenty-one tools and holds the audit to the wire: nothing a tool sends goes
+// twenty-two tools and holds the audit to the wire: nothing a tool sends goes
 // uncounted (F-46), and nothing exceeds the class's request bound.
 func TestCatalog_EveryTool_CountedRequestsFitItsClassAndMatchTheWire(t *testing.T) {
 	args := map[string]map[string]any{

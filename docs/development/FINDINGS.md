@@ -1273,3 +1273,10 @@ is a change to D-05-3 and wants its own decision.
 **Impact:** for blueprint-based automations (common for motion lights, climate) `get_automation_logic` answers partial with no nodes; for variable-driven ones it shows the template but not the value it reads. Both are typed-grammar-safe to add with the same walker.
 **Triage:** `queue-next`
 **Outcome:** —
+
+### F-56 · `get_automation_logic` ships templates under the default `mask` profile · 2026-10-05
+**Kind:** `scope`
+**What:** D-09-5 withholds templates under `deny` and ships them under `allow`; it does not name `mask`, the default profile. `P9-02` follows the text literally, so under `mask` template text is returned verbatim (token-scrubbed) and may name a PRIVATE entity (`states('person.x')`) that `mask` would elsewhere tokenize (`internal/mcp/automation_logic_tools.go`, `templateTexts`).
+**Impact:** on a default install, a PRIVATE id inside a template reaches the client unmasked. Withholding under `mask` too would be fail-closed but hides templated logic from default users.
+**Triage:** `queue-next`
+**Outcome:** owner to decide at the next `plan`: ship under `mask`, or withhold under `mask` as well (a one-line change plus a test).

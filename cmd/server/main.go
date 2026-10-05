@@ -109,6 +109,7 @@ func run() error {
 		History:      core,
 
 		AutomationDetail: core,
+		AutomationLogic:  core,
 		Logbook:          core,
 		Lifecycle:        core,
 	})

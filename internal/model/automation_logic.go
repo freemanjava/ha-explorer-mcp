@@ -1,19 +1,38 @@
 package model
 
+import "time"
+
 // AutomationLogic is what an automation's triggers, conditions and actions
 // say, reduced to grammar-checked values (D-09-2). It is built from
 // automation/config by the logic mapper and carries no free text: a value
 // that fails every grammar is counted in a node's Withheld, never echoed.
 //
 // Truncated means the node cap or the depth cap was hit and part of the body
-// was not walked. Provenance.Partial means the body had a section of the
+// was not walked, or, in get_automation_logic's response, that the byte cap
+// cut trailing nodes. Provenance.Partial means the body had a section of the
 // wrong shape, mapped as far as it could be.
+//
+// Source through TemplatesWithheld are the tool's envelope, set by
+// get_automation_logic and never by the mapper. Unsupported is distinct from
+// Partial the way Automation's is: automation/config could not be asked at
+// all. IdsWithheld counts PRIVATE entity ids masked under the deny profile
+// (D-09-4); TemplatesWithheld counts templates dropped under it (D-09-5).
 type AutomationLogic struct {
+	Source     string
+	ObservedAt time.Time
+	EntityID   EntityID
+
+	Unsupported       bool
+	UnsupportedReason string
+
 	Triggers   []LogicNode
 	Conditions []LogicNode
 	Actions    []LogicNode
 
 	Truncated bool
+
+	IdsWithheld       int
+	TemplatesWithheld int
 
 	Provenance
 }
@@ -69,6 +88,6 @@ type TypedValue struct {
 // and the tool layer withholds it entirely under the deny profile (D-09-5).
 type Template struct {
 	Key       string
-	Text      string
+	Text      string `json:"untrusted_template"`
 	Truncated bool
 }
