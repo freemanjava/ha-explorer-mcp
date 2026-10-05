@@ -54,8 +54,8 @@ tools are new files, per CLAUDE.md's open/closed rule — never a branch inside
   token grammar too, so an attacker-shaped key can't carry text through.
 - **Templates (D-09-2, D-09-5).** A string containing `{{` or `{%` is a
   template. Under `allow` it is returned verbatim in a field named
-  `untrusted_template`, length-capped, with a `truncated` marker. Under `deny`
-  it is counted only. The tool description says the field is HA-authored data,
+  `untrusted_template`, length-capped, with a `truncated` marker. Under `mask`
+  and `deny` it is counted only (D-09-6). The tool description says the field is HA-authored data,
   not instructions.
 - **Trace runs (D-09-1, F-12).** `trace/get`'s `changed_variables`, `context`
   and every embedded state object are dropped in the adapter before mapping.
@@ -116,7 +116,31 @@ confirmed in the same session.
   parsing Jinja. Under `deny` templates are counted only, as today. Under
   `allow` they ship per D-09-2. **Rejected:** string-searching the template for
   PRIVATE ids, which misses indirect references. Always returning templates,
-  which leaks PRIVATE ids under `deny`.
+  which leaks PRIVATE ids under `deny`. *Narrowed by D-09-6: `mask` withholds too.*
+
+- [x] **D-09-6 — Under `mask`, template text is withheld too; it ships only under `allow`** — owner, 2026-10-05 (F-56)
+  D-09-5 named only `deny` and `allow`, and `P9-02` shipped templates under
+  `mask`, the default profile. So a PRIVATE id inside a template
+  (`is_state('person.x', 'home')`) reached the client on a default install,
+  while `mask` tokenized the same id everywhere else. Templates are now
+  counted only under both `mask` and `deny`. Thresholds, times and modes
+  outside templates stay visible under every profile. A user who needs
+  templated logic switches the App to `allow`, knowingly. **Rejected:** shipping
+  under `mask`. That shows templated logic by default, but breaks `mask`'s
+  promise through one exception. Masking ids inside the text was already
+  rejected in D-09-5.
+
+- [x] **D-09-7 — v1.1 maps top-level `variables`, `trigger_variables` and blueprint inputs** — owner, 2026-10-05 (F-55)
+  The threshold a template compares against often lives in `variables`
+  (`max_temp: 26`). A blueprint automation's config is only
+  `use_blueprint.input` (`no_motion_wait: 120`), so it currently answers
+  partial with no nodes. Both are mapped by the D-09-2 grammar and the
+  D-09-4 / D-09-6 privacy rules, reusing `P9-01`'s walker (`P9-07`). The
+  blueprint's own body is **not** read: that needs new gateway commands and
+  is a separate question. A blueprint automation therefore stays `partial`,
+  now with its inputs. **Rejected:** deferring until P9-05 counts blueprint
+  automations on the Pi. The mapping is cheap, and without it the tool says
+  nothing about the most common automations.
 
 ## Tasks
 
@@ -148,7 +172,29 @@ confirmed in the same session.
   → `unsupported` with F-11's reason, not an empty logic. (5) Not found → `ErrNotFound`, distinct from
   unsupported. (6) The response byte cap → `truncated`. (7) Token never in response. `make check` green.
 
-- [ ] **`P9-03` · Trace-run mapper: `trace/get` → typed steps** 🧠 (D-09-1, D-09-2, F-12) `blocked:F-54`
+- [ ] **`P9-06` · Bare `parallel` branch gets HA's trace path** (F-57)
+  In `internal/ha/automation_logic.go` `logicWalker.action`, a `parallel` item that is not a `{sequence: [...]}`
+  object is treated the way HA's config validation treats it (`_parallel_sequence_action`): as a one-item
+  sequence. Its action node sits at `…/parallel/I/sequence/0`, not `…/parallel/I`. A `{sequence: [...]}` item is
+  unchanged. Evidence: `docs/research/2026-10-05-ha-trace-paths.md`.
+  **DoD:** written red first. (1) `TestMapAutomationLogic_NestedStructures_ChildrenWithTracePaths` expects
+  `service@action/3/parallel/0/sequence/0`. (2) A new case with one bare branch and one `{sequence: [a, b]}`
+  branch: the bare action is at `…/parallel/0/sequence/0`, and the others at `…/parallel/1/sequence/0` and `/1`.
+  (3) The node count and depth caps still hold for the wrapped branch. `make check` green.
+
+- [ ] **`P9-08` · Withhold templates under `mask`** (D-09-6, F-56)
+  In `internal/mcp/automation_logic_tools.go`, `logicPrivacy` withholds templates unless the profile's private
+  handling is `allow` (today: only under `deny`). The tool description says templates ship only under `allow`.
+  Moves with it: CLAUDE.md rule 6 (“under `allow` and `mask`” → “only under `allow`”), and the architecture
+  doc §9 row if it states the profile.
+  **DoD:** written red first. (1) Under `mask`, no template text appears in the marshalled response and
+  `TemplatesWithheld` counts it. Non-template values (a `numeric_state` `above`) still appear. (2) Under
+  `allow`, the template is still returned in `untrusted_template`. (3) The `deny` tests are unchanged and green.
+  `make check` green.
+
+- [ ] **`P9-03` · Trace-run mapper: `trace/get` → typed steps** 🧠 (D-09-1, D-09-2, F-12) `blocked:P9-06`
+  Step-key shapes verified against Core 2026.9.4 (F-54, `docs/research/2026-10-05-ha-trace-paths.md`); the join must
+  attach `…/entity_id/I` sub-steps to their parent condition and accept a bare `trigger` key (manual run).
   Re-add `trace/get` to `internal/ha/gateway.go`'s allow-list with its caller (D-08-3), keyed like
   `trace/list` by config id (D-08-18). A new `CoreReader.AutomationTraceRun(ctx, entityID, runID)`. New
   `internal/ha/trace_steps.go` `MapAutomationTraceRun` drops `changed_variables`, `context` and every state
@@ -172,7 +218,23 @@ confirmed in the same session.
   `unsupported` with reason. (4) Under `deny`, a masked id plus a visible result. (5) Token never in
   response. `make check` green.
 
-- [ ] **`P9-05` · Observe on the Pi, measure, ship v1.1** `live-verify` `blocked:P9-04`
+- [ ] **`P9-07` · Map `variables`, `trigger_variables` and blueprint inputs** (D-09-7, D-09-2, D-09-4, D-09-6, F-55)
+  `internal/model/automation_logic.go`: `AutomationLogic` gains `Variables []LogicNode` (an additive field). Each
+  present section becomes one node: Kind `variables` at path `variables`, `trigger_variables` at
+  `trigger_variables`, and `blueprint_input` at `use_blueprint/input`. Its entries go into `Values` and
+  `Templates` through `P9-01`'s existing `values`/template handling, under the same caps. The blueprint
+  `path` follows the grammar like any other string, so as free text it is withheld and counted. Widening that
+  is not this box. A blueprint automation stays `Partial` with the existing reason, now with the inputs mapped.
+  `internal/mcp/automation_logic_tools.go`'s privacy pass walks `Variables` too.
+  **DoD:** written red first, on invented fixtures. (1) `variables: {max_temp: 26}` → `{max_temp, number, 26}`.
+  (2) A template variable lands in `Templates`, never `Values`. (3) A blueprint body with
+  `input: {motion_entity: <id>, no_motion_wait: 120}` maps both values and stays `Partial`. (4) Under `deny`, a
+  PRIVATE id in an input is masked and counted, and its sibling number survives. Under `mask` (the D-09-6
+  rule), a template variable's text never appears. (5) Free text and a key outside the token grammar →
+  `Withheld` only; no fixture string appears in the output. (6) A body without these sections → `Variables`
+  empty, output otherwise unchanged. `make check` green.
+
+- [ ] **`P9-05` · Observe on the Pi, measure, ship v1.1** `live-verify` `blocked:P9-04` `blocked:P9-07`
   Deploy to the Pi. Ask a client "why does the air conditioning automation (not) turn on" and record whether
   the answer cites a threshold or a failed condition. Measure `trace/get` bytes and latency on the longest
   automation, and set or confirm the step and node caps from that. Bump `addon/config.yaml` to `1.1.0`, with

@@ -1264,19 +1264,26 @@ is a change to D-05-3 and wants its own decision.
 **Kind:** `unknown`
 **What:** `P9-01` gives each `LogicNode` a `Path` meant to equal the trace step key `trace/get` reports (`internal/model/automation_logic.go`, `LogicNode` doc), so `P9-03` can say which condition stopped a run. The shapes were written from memory, not observed: `action/N/choose/I/conditions/J`, `action/N/default/J`, `action/N/if/condition/J`, `action/N/then/J`, `action/N/repeat/sequence/J`, and especially `action/N/parallel/I` (HA may report `parallel/I/sequence/J`) and `wait_for_trigger`/`repeat` `while`/`until` sub-paths. The only captured `trace/get` fixture is a simple automation.
 **Impact:** unknown pending verification. If a shape differs, `P9-03`'s step-to-node join silently misses those steps; a fix is a path-string change in `internal/ha/automation_logic.go` plus its test.
-**Triage:** `queue-next`
-**Outcome:** verify against Home Assistant Core's `helpers/script.py` trace-path code (or a `cmd/spike` capture of a nested automation's `trace/get`) before `P9-03`.
+**Triage:** `done`
+**Outcome:** answered by `verify` on 2026-10-05 from Core source at `2026.9.4`, identical to `dev` (`docs/research/2026-10-05-ha-trace-paths.md`). Every shape matches HA except a bare action inside `parallel`: HA reports `…/parallel/I/sequence/0`, but the mapper says `…/parallel/I`. Filed as F-57.
 
 ### F-55 · Top-level `variables` and blueprint inputs carry logic `P9-01` does not map · 2026-10-05
 **Kind:** `idea`
 **What:** `MapAutomationLogic` maps only triggers/conditions/actions (the box's scope). An automation's top-level `variables`/`trigger_variables` often hold the threshold a template compares against, and a blueprint automation's config holds only `use_blueprint.input` — `P9-01` marks that case `Partial` ("blueprint automation …") rather than return empty logic (rule 7).
 **Impact:** for blueprint-based automations (common for motion lights, climate) `get_automation_logic` answers partial with no nodes; for variable-driven ones it shows the template but not the value it reads. Both are typed-grammar-safe to add with the same walker.
 **Triage:** `queue-next`
-**Outcome:** —
+**Outcome:** owner, 2026-10-05: in v1.1 (D-09-7), without reading the blueprint body. Became `P9-07`.
 
 ### F-56 · `get_automation_logic` ships templates under the default `mask` profile · 2026-10-05
 **Kind:** `scope`
 **What:** D-09-5 withholds templates under `deny` and ships them under `allow`; it does not name `mask`, the default profile. `P9-02` follows the text literally, so under `mask` template text is returned verbatim (token-scrubbed) and may name a PRIVATE entity (`states('person.x')`) that `mask` would elsewhere tokenize (`internal/mcp/automation_logic_tools.go`, `templateTexts`).
 **Impact:** on a default install, a PRIVATE id inside a template reaches the client unmasked. Withholding under `mask` too would be fail-closed but hides templated logic from default users.
 **Triage:** `queue-next`
-**Outcome:** owner to decide at the next `plan`: ship under `mask`, or withhold under `mask` as well (a one-line change plus a test).
+**Outcome:** owner, 2026-10-05: withhold under `mask` too (D-09-6). Became `P9-08`.
+
+### F-57 · A bare action inside `parallel` gets the wrong trace path · 2026-10-05
+**Kind:** `defect`
+**What:** HA's config validation wraps a bare `parallel` branch as `{sequence: [action]}` (`_parallel_sequence_action`), and `_async_step_parallel` pushes `[idx, "sequence"]`. So the action's trace step key is `action/N/parallel/I/sequence/0`. `internal/ha/automation_logic.go` (`logicWalker.action`, `w.list(m["parallel"], p+"/parallel", …)`) maps the branch straight to `action/N/parallel/I`, and `TestMapAutomationLogic_NestedStructures_ChildrenWithTracePaths` asserts that wrong value (`service@action/3/parallel/0`). `automation/config` returns the pre-validation `raw_config`, so the payload never shows the wrapping. Branches written as `{sequence: [...]}` already map correctly. Evidence: `docs/research/2026-10-05-ha-trace-paths.md`.
+**Impact:** `P9-03`'s step-to-node join silently misses every step under a bare parallel branch, so a trace can't say which of those actions ran or failed. `get_automation_logic` shows a path that matches no trace step. The fix is a path change in the walker (wrap a bare branch so its node sits at `…/parallel/I/sequence/0`) plus the corrected test. It is confined to `P9-01`'s code.
+**Triage:** `queue-next`
+**Outcome:** became `P9-06`, queued ahead of `P9-03` (`plan`, 2026-10-05).
