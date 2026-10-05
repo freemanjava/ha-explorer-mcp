@@ -127,6 +127,26 @@ func (r *CoreReader) AutomationTraces(ctx context.Context, entityID model.Entity
 	return MapAutomationTraces(raw)
 }
 
+// AutomationTraceRun returns trace/get for one run of one automation, mapped
+// to typed steps — get_automation_trace's admin-gated source (P9-03). The
+// trace store is keyed by config id exactly as for AutomationTraces, read
+// from automation/config and never supplied by the caller; a run id that
+// belongs to another automation is therefore not found under this one.
+func (r *CoreReader) AutomationTraceRun(ctx context.Context, entityID model.EntityID, runID string) (model.AutomationTraceRun, error) {
+	detail, err := r.AutomationDetail(ctx, entityID)
+	if err != nil {
+		return model.AutomationTraceRun{}, err
+	}
+	if detail.ID == "" {
+		return model.AutomationTraceRun{}, ErrAutomationHasNoConfigID
+	}
+	raw, err := r.call.Call(ctx, traceGetCommand{Domain: automationDomain, ItemID: detail.ID, RunID: runID})
+	if err != nil {
+		return model.AutomationTraceRun{}, err
+	}
+	return MapAutomationTraceRun(raw)
+}
+
 // LogbookEvents returns logbook/get_events for one entity since start,
 // mapped — get_automation_traces' non-admin fallback evidence (F-11),
 // reachable at any principal.

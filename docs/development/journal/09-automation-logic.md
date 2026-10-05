@@ -15,3 +15,8 @@
 
 ### 2026-10-05 · P9-08
 `logicPrivacy` gains `allowTemplates` (only `HandlingAllow`); `mask` and `deny` withhold and count templates. Red-first mask test; CLAUDE.md rule 6 and the catalog description say "only under `allow`". Closes F-56.
+
+### 2026-10-05 · P9-03
+`trace/get` allow-listed with its caller; `CoreReader.AutomationTraceRun` keys it by config id; `trace_steps.go` scrubs dropped keys and state-shaped objects at every depth, maps results by the D-09-2 grammar, nests `…/entity_id/I` under its condition (i-th to i-th in a repeat), caps at 500 steps.
+**Surprise:** the trace object must be decoded key by key: a Go map loses HA's execution order. `params.service` (`turn_on`) fails the strict service grammar alone, so domain+service are joined to `params.action`.
+**Left open:** `TraceStep.SubSteps` is self-nested like `LogicNode.Children`, so `P9-04` will hit the same SDK output-schema panic `P9-02` did.

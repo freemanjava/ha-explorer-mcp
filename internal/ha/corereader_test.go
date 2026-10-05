@@ -197,6 +197,57 @@ func TestCoreReader_AutomationTraces_ConfigReadRefused_Propagates(t *testing.T) 
 	}
 }
 
+// AutomationTraceRun keys trace/get like trace/list: by the config id read
+// from automation/config, never by the entity's object id (D-08-18), and
+// passes the run id through unchanged.
+func TestCoreReader_AutomationTraceRun_KeysTraceGetByConfigID(t *testing.T) {
+	fc := newFakeCaller()
+	fc.set(CommandAutomationConfig, json.RawMessage(`{"config":{"id":"1700000000001","alias":"Evening lights"}}`))
+	fc.set(CommandTraceGet, readFixture(t, "automation_trace_get.json"))
+
+	run, err := NewCoreReader(fc).AutomationTraceRun(testCtx(t), "automation.evening_lights", "01JC4ZQK7X8V2M9N0P1Q2R3S4T")
+	if err != nil {
+		t.Fatalf("AutomationTraceRun: %v", err)
+	}
+	if run.RunID != "01JC4ZQK7X8V2M9N0P1Q2R3S4T" || len(run.Steps) != 3 {
+		t.Fatalf("AutomationTraceRun = %+v, want the fixture's run with 3 steps", run)
+	}
+	var sent traceGetCommand
+	for _, c := range fc.sent {
+		if g, ok := c.(traceGetCommand); ok {
+			sent = g
+		}
+	}
+	want := traceGetCommand{Domain: automationDomain, ItemID: "1700000000001", RunID: "01JC4ZQK7X8V2M9N0P1Q2R3S4T"}
+	if sent != want {
+		t.Fatalf("trace/get sent %+v, want %+v", sent, want)
+	}
+}
+
+func TestCoreReader_AutomationTraceRun_NoConfigID_UnsupportedWithoutTraceFrame(t *testing.T) {
+	fc := newFakeCaller()
+	fc.set(CommandAutomationConfig, json.RawMessage(`{"config":{"alias":"YAML only"}}`))
+
+	_, err := NewCoreReader(fc).AutomationTraceRun(testCtx(t), "automation.yaml_only", "r1")
+	if !errors.Is(err, ErrAutomationHasNoConfigID) {
+		t.Fatalf("AutomationTraceRun error = %v, want ErrAutomationHasNoConfigID", err)
+	}
+	if n := fc.callCount(CommandTraceGet); n != 0 {
+		t.Fatalf("trace/get sent %d times for an automation with no config id, want 0", n)
+	}
+}
+
+func TestCoreReader_AutomationTraceRun_UpstreamNotFound_Propagates(t *testing.T) {
+	fc := newFakeCaller()
+	fc.err = &CommandError{Code: "not_found", Message: "The trace could not be found"}
+
+	_, err := NewCoreReader(fc).AutomationTraceRun(testCtx(t), "automation.evening_lights", "r1")
+	var ce *CommandError
+	if !errors.As(err, &ce) {
+		t.Fatalf("AutomationTraceRun error = %v, want the *CommandError for the caller to classify", err)
+	}
+}
+
 func TestCoreReader_LogbookEvents_MapsEvents(t *testing.T) {
 	fc := newFakeCaller()
 	fc.set(CommandLogbookGetEvents, json.RawMessage(`[{"when":"2026-08-22T19:04:11+00:00","name":"Evening lights","context_id":"ctx1"}]`))

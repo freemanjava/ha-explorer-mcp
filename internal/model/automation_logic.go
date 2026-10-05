@@ -58,6 +58,58 @@ type LogicNode struct {
 	Withheld  int
 }
 
+// AutomationTraceRun is what each step of one automation run did, from
+// trace/get (D-09-1). The adapter drops changed_variables, context and every
+// embedded state object before mapping (F-12), so none of them reaches this
+// type. A step's result passes only as grammar-checked values (D-09-2); HA's
+// error text and every other string that fails the grammar is counted in a
+// Withheld, never echoed.
+//
+// PathsDropped counts steps whose path failed the trace path grammar.
+// Truncated means the step cap was hit, or a step's value cap. Provenance.
+// Partial means a step had the wrong shape and was skipped.
+//
+// Source through IdsWithheld are the tool's envelope, set by
+// get_automation_trace and never by the mapper, as on AutomationLogic.
+type AutomationTraceRun struct {
+	Source     string
+	ObservedAt time.Time
+	EntityID   EntityID
+
+	Unsupported       bool
+	UnsupportedReason string
+
+	RunID           string
+	State           string
+	ScriptExecution string
+	LastStep        string
+	TimestampStart  time.Time
+	TimestampFinish time.Time
+
+	Steps []TraceStep
+
+	Truncated    bool
+	PathsDropped int
+	Withheld     int
+
+	IdsWithheld int
+
+	Provenance
+}
+
+// TraceStep is one execution of one trace path. Path is HA's step key and
+// matches a LogicNode's Path, so a step joins to the node it ran. A step
+// that ran more than once (inside a repeat) appears once per run, in HA's
+// order. SubSteps holds a condition's per-entity results
+// (".../entity_id/I"), which HA traces under the condition's own path.
+type TraceStep struct {
+	Path      string
+	Timestamp time.Time
+	Values    []TypedValue
+	SubSteps  []TraceStep
+	Withheld  int
+}
+
 // ValueKind names the grammar a TypedValue matched (D-09-2).
 type ValueKind string
 

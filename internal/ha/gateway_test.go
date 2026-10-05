@@ -8,6 +8,7 @@ import (
 	"go/token"
 	"io/fs"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -315,7 +316,9 @@ func TestGateway_StatisticsCommands_Denied(t *testing.T) {
 
 // TestGateway_UncalledCommands_Denied pins D-08-3 / F-40: six commands left
 // the allow-list because no reader calls them, and must now be refused by the
-// ordinary not-allow-listed path, before any bytes are sent.
+// ordinary not-allow-listed path, before any bytes are sent. trace/get came
+// back with its caller (P9-03); TestGateway_TraceGet_OnlyThatTraceCommandAllowed
+// covers it.
 func TestGateway_UncalledCommands_Denied(t *testing.T) {
 	m, rec := startGatewayFixture(t)
 	waitConnected(t, m)
@@ -325,7 +328,6 @@ func TestGateway_UncalledCommands_Denied(t *testing.T) {
 		"config/entity_registry/list_for_display",
 		"config/entity_registry/get",
 		"config/category_registry/list",
-		"trace/get",
 		"trace/contexts",
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -334,6 +336,33 @@ func TestGateway_UncalledCommands_Denied(t *testing.T) {
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
+			if _, err := m.Call(ctx, BareCommand(name)); !errors.Is(err, ErrPolicyDenied) {
+				t.Fatalf("Call(%q) returned %v, want ErrPolicyDenied", name, err)
+			}
+			assertNotTransmitted(t, rec, name)
+		})
+	}
+}
+
+// TestGateway_TraceGet_OnlyThatTraceCommandAllowed pins P9-03's DoD (4):
+// trace/get is allowed and reaches the wire, and every other trace/* command
+// is still refused before transmission — the allow-list is exact-match, so
+// re-adding one trace command admits no sibling.
+func TestGateway_TraceGet_OnlyThatTraceCommandAllowed(t *testing.T) {
+	m, rec := startGatewayFixture(t)
+	waitConnected(t, m)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if _, err := m.Call(ctx, BareCommand(CommandTraceGet)); err != nil {
+		t.Fatalf("Call(%q): unexpected error: %v", CommandTraceGet, err)
+	}
+	if !slices.Contains(rec.transmitted(), CommandTraceGet) {
+		t.Fatalf("%q did not reach the socket", CommandTraceGet)
+	}
+
+	for _, name := range []string{"trace/contexts", "trace/subscribe", "trace/get/", "trace/get_all", "trace/*"} {
+		t.Run(name, func(t *testing.T) {
 			if _, err := m.Call(ctx, BareCommand(name)); !errors.Is(err, ErrPolicyDenied) {
 				t.Fatalf("Call(%q) returned %v, want ErrPolicyDenied", name, err)
 			}
