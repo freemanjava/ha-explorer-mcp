@@ -9,7 +9,7 @@ It runs as a Home Assistant App on Home Assistant OS and reaches Core through
 the Supervisor proxy. Written in Go; ships for `linux/arm64` (Raspberry Pi) and
 `linux/amd64`.
 
-**Status:** v1.1.0-rc1 — the observer is complete; nothing here can change your
+**Status:** v1.1.0 — the observer is complete; nothing here can change your
 installation.
 
 ## What it is not

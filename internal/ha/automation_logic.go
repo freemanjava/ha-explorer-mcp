@@ -13,9 +13,9 @@ import (
 	"github.com/freemanjava/ha-explorer-mcp/internal/model"
 )
 
-// Caps on one automation's logic (phase 09 Design Notes, "Cost"). Starting
-// values, not measurements: P9-05 measures real automations on the Pi before
-// any of these is tuned.
+// Caps on one automation's logic (phase 09 Design Notes, "Cost"). Confirmed
+// on the Pi, not tuned: real automations map tens of nodes and answer in about
+// 5 KB (docs/research/2026-10-06-automation-logic-on-pi.md).
 const (
 	// maxLogicNodes bounds the triggers, conditions and actions mapped across
 	// every nesting level. A hand-written automation has tens.

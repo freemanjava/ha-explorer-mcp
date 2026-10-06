@@ -234,7 +234,7 @@ confirmed in the same session.
   `Withheld` only; no fixture string appears in the output. (6) A body without these sections → `Variables`
   empty, output otherwise unchanged. `make check` green.
 
-- [ ] **`P9-05` · Observe on the Pi, measure, ship v1.1** `live-verify` `blocked:P9-04`
+- [x] **`P9-05` · Observe on the Pi, measure, ship v1.1** `live-verify`
   Deploy to the Pi. Ask a client "why does the air conditioning automation (not) turn on" and record whether
   the answer cites a threshold or a failed condition. Measure `trace/get` bytes and latency on the longest
   automation, and set or confirm the step and node caps from that. Bump `addon/config.yaml` to `1.1.0`, with

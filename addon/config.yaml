@@ -1,5 +1,5 @@
 name: "HA Inspector MCP"
-version: "1.1.0-rc1"
+version: "1.1.0"
 slug: "ha_inspector_mcp"
 description: "Read-only diagnostic MCP server for Home Assistant"
 url: "https://github.com/freemanjava/ha-explorer-mcp"

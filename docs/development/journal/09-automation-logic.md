@@ -29,3 +29,8 @@
 ### 2026-10-06 · P9-07
 `AutomationLogic.Variables`: one node each for `variables`, `trigger_variables`, `blueprint_input` (`use_blueprint/input`), mapped by `P9-01`'s `values`; `logicPrivacy` and the byte cap walk it. Blueprint stays `Partial`.
 **Surprise:** a blueprint `path` like `motion_light.yaml` passes the entity-id grammar as a false entity, so it is always withheld and counted rather than run through the grammar.
+
+### 2026-10-06 · P9-05
+Observed `1.1.0-rc1` on the Pi under `allow`/`mask`/`deny`: the AC question is answered with threshold and failed condition; results ≤5.1 KB, 3–8 ms, 1–2 Core requests. Caps confirmed, not tuned; v1.1.0 set in `config.yaml` and README. Note: `docs/research/2026-10-06-automation-logic-on-pi.md`. Closes F-53.
+**Surprise:** the Supervisor store can't update an installed App from a branch URL (the repo can't be removed while installed, and a different URL is a different slug), so the trial build had to go through `main`; the App's own audit lines gave bytes and latency, no client needed.
+**Left open:** `deny` masking of a PRIVATE id not observed live (no such automation on this installation); unit-tested only.

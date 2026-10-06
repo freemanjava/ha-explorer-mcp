@@ -14,8 +14,9 @@ import (
 	"github.com/freemanjava/ha-explorer-mcp/internal/model"
 )
 
-// Caps on one trace run (phase 09 Design Notes, "Cost"). Starting values, not
-// measurements: P9-05 measures real runs on the Pi before either is tuned.
+// Caps on one trace run (phase 09 Design Notes, "Cost"). Confirmed on the Pi,
+// not tuned: a real run is a handful of steps, about 3-4 KB in 8 ms
+// (docs/research/2026-10-06-automation-logic-on-pi.md).
 const (
 	// maxTraceSteps bounds the steps one run maps, sub-steps included. A
 	// repeat can run one step thousands of times; a hand-written automation's
